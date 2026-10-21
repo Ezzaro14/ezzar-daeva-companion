@@ -1,0 +1,56 @@
+.who { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.portrait { width: 52px; height: 52px; border-radius: 50%; overflow: hidden; flex: none; background: rgba(255, 255, 255, 0.06); }
+.portrait img { width: 100%; height: 100%; object-fit: cover; }
+.whoText { flex: 1; min-width: 0; }
+.whoName { font-size: 16px; font-weight: 700; }
+.whoSub { font-size: 12px; color: rgba(255, 255, 255, 0.55); }
+.whoActions { display: flex; gap: 6px; }
+.status { font-size: 12px; color: rgba(255, 255, 255, 0.55); margin: 2px 0 8px; min-height: 16px; }
+.status.error { color: #ff9a9a; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.stat { flex: 1 1 140px; padding: 8px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); }
+.stat .k { font-size: 11px; color: rgba(255, 255, 255, 0.5); text-transform: uppercase; letter-spacing: 0.04em; }
+.stat .v { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .s { font-size: 11px; color: rgba(255, 255, 255, 0.55); }
+.todo { list-style: none; margin: 0; padding: 0; counter-reset: todo; }
+.todo li { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.todo li::before { counter-increment: todo; content: counter(todo); flex: none; width: 20px; height: 20px; border-radius: 50%; background: rgba(143, 194, 255, 0.18); color: #8fc2ff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.kind { flex: none; font-size: 10px; padding: 1px 6px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; background: rgba(255, 255, 255, 0.07); color: rgba(255, 255, 255, 0.6); }
+.kind.gear { color: #ffb36b; } .kind.daevanion { color: #c59bff; } .kind.skill { color: #8fc2ff; } .kind.pet, .kind.wings { color: #9fe39f; }
+.table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.table th { text-align: left; font-weight: 600; color: rgba(255, 255, 255, 0.5); padding: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+.table td { padding: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); vertical-align: middle; font-variant-numeric: tabular-nums; }
+.table .r { text-align: right; }
+.cell { display: flex; align-items: center; gap: 6px; }
+.cell .icon { width: 24px; height: 24px; }
+.behind { color: #ffb36b; }
+.ahead { color: #9fe39f; }
+.grade-Common { color: #d8d8d8; } .grade-Rare { color: #6fd36f; } .grade-Legend { color: #5fa8ff; } .grade-Unique { color: #ffb84d; } .grade-Special { color: #c59bff; } .grade-Epic { color: #ff7a7a; }
+.board { padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.boardHead { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.boardHead .icon { width: 22px; height: 22px; }
+.track { position: relative; height: 8px; margin: 6px 0 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); }
+.track .mine { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: #8fc2ff; }
+.track .median { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #ffb36b; }
+.track .best { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #9fe39f; }
+.legend { font-size: 11px; color: rgba(255, 255, 255, 0.55); }
+.legend .m { color: #8fc2ff; } .legend .md { color: #ffb36b; } .legend .b { color: #9fe39f; }
+.nodes { margin: 4px 0 0 30px; font-size: 12px; color: rgba(255, 255, 255, 0.7); }
+.nodes summary { cursor: pointer; color: rgba(255, 255, 255, 0.6); }
+.tagline { font-size: 11px; color: rgba(255, 255, 255, 0.45); }
+.lookup, .addPlayer { margin: 6px 0 10px; }
+/* The roadmap. */
+.gsCard { padding: 10px 12px; }
+.gsHead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.gsHead .k { font-size: 11px; color: rgba(255, 255, 255, 0.5); text-transform: uppercase; letter-spacing: 0.04em; }
+.gsNow { font-size: 22px; font-variant-numeric: tabular-nums; }
+.gsTo { font-size: 12px; color: rgba(255, 255, 255, 0.6); }
+.milestone { margin: 4px 0; padding: 6px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); }
+.milestone.now { border-color: rgba(143, 194, 255, 0.45); background: rgba(143, 194, 255, 0.06); }
+.milestone summary { cursor: pointer; display: flex; gap: 10px; align-items: center; font-weight: 600; }
+.msAt { font-variant-numeric: tabular-nums; min-width: 48px; }
+.msDone { font-size: 11px; color: #9fe39f; }
+.msNext { font-size: 11px; color: #8fc2ff; }
+.milestone ul, .extras { margin: 6px 0 2px; padding-left: 18px; font-size: 12.5px; color: rgba(255, 255, 255, 0.78); display: grid; gap: 4px; }
+.kind.title { color: #f2c86d; } .kind.routine { color: #8fc2ff; }
+.view a { color: #8fc2ff; }

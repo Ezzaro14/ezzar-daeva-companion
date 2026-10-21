@@ -1,0 +1,266 @@
+/* Transparent: the window paints the panel, at the opacity the user picks. */
+html, body {
+  margin: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
+}
+body {
+  padding: 10px 12px;
+}
+body.compact .controls,
+body.compact .foot {
+  display: none;
+}
+.status {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+}
+.summary {
+  margin: 4px 0 8px;
+  font-weight: 600;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+.chips button {
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.chips button:hover,
+.chips button:focus-visible {
+  color: rgba(255, 255, 255, 0.95);
+}
+/* The count, dimmer than its label. */
+.chips .n {
+  opacity: 0.55;
+}
+.chips button[aria-pressed="true"] .n {
+  opacity: 0.7;
+}
+.chips button[aria-pressed="true"] {
+  color: #0a0e16;
+  background: #8fc2ff;
+  border-color: #8fc2ff;
+}
+.option {
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+/* Text size, beside the other options. color-scheme only on the dropdown:
+   on the page it would make the browser paint the frame opaque. */
+.sizeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.scaleSelect {
+  color-scheme: dark;
+  font: inherit;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  padding: 2px 5px;
+  outline: none;
+}
+.scaleSelect:focus {
+  border-color: rgba(143, 194, 255, 0.6);
+}
+.scaleSelect option {
+  color: rgba(255, 255, 255, 0.9);
+  background: #161b26;
+}
+.pets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.search {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 5px 8px;
+  font: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  outline: none;
+}
+.search:focus {
+  border-color: rgba(143, 194, 255, 0.6);
+}
+.search::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+.head,
+.pets li {
+  display: grid;
+  grid-template-columns: 34px 1fr 52px 50px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.head {
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+.head button {
+  padding: 2px 0;
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.5);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.head button:nth-child(3) {
+  text-align: center;
+}
+.head button:last-child {
+  text-align: right;
+}
+.head button:hover,
+.head button:focus-visible,
+.head button.active {
+  color: rgba(255, 255, 255, 0.9);
+}
+.head button[data-dir="asc"]::after {
+  content: " ▴";
+}
+.head button[data-dir="desc"]::after {
+  content: " ▾";
+}
+.empty {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+}
+.level {
+  font-size: 11px;
+  color: #8fc2ff;
+}
+.name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: text;
+}
+.bar {
+  position: relative;
+  height: 16px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.bar span:first-child {
+  display: block;
+  height: 100%;
+  background: rgba(226, 195, 122, 0.55);
+}
+.count {
+  position: absolute;
+  inset: 0;
+  text-align: center;
+  line-height: 16px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 2px rgb(10, 14, 22);
+}
+.left {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+.left {
+  color: rgba(255, 255, 255, 0.6);
+}
+.foot {
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+}
+.rename {
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+/* A quiet scrollbar: thin, no track, brighter only while in use. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  min-height: 28px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.22);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Where a pet's souls drop, under its row. */
+.pets li.hasWhere { cursor: pointer; }
+.pets li.open { background: rgba(255, 255, 255, 0.05); }
+.where {
+  grid-column: 1 / -1;
+  margin: 4px 0 6px 34px;
+  font-size: 12px;
+  cursor: default;
+}
+.where .who { color: rgba(255, 255, 255, 0.9); margin-top: 3px; }
+.where .at { color: rgba(255, 255, 255, 0.55); }
+.where a { color: #8fc2ff; text-decoration: none; }
+.where a:hover { text-decoration: underline; }
+
+/* Pin to the top, and the pet being farmed. */
+.pin {
+  margin-right: 4px; padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; color: rgba(255, 255, 255, 0.35);
+}
+.pin[aria-pressed="true"] { color: #f5c542; }
+.pin:hover { color: #f5c542; }
+.farming {
+  margin-left: 6px; padding: 0 5px; border-radius: 999px; font-size: 10px;
+  color: #0a0e16; background: #6ee07a; vertical-align: 1px;
+}
+
+/* The Map link's folded-map icon. */
+.mapIcon {
+  width: 12px;
+  height: 12px;
+  margin-right: 3px;
+  vertical-align: -1px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}

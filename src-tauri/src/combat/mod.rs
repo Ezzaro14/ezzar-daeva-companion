@@ -1,3 +1,4 @@
+pub mod combat_feed;
 pub mod data_storage;
 pub mod dps_calculator;
 pub mod fight_buffs;

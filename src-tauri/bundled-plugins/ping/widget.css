@@ -1,0 +1,80 @@
+/* The ping pill: signal bars and the ping, coloured by how good it is. */
+:root {
+  --good: var(--w-good);
+  --fair: var(--w-warn);
+  --poor: var(--w-bad);
+  --none: rgba(235, 245, 255, 0.55);
+  --scale: 1;
+}
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  color: #fff;
+  user-select: none;
+}
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pill {
+  --c: var(--none);
+  display: inline-flex;
+  align-items: center;
+  gap: calc(7px * var(--scale));
+  padding: calc(4px * var(--scale)) calc(11px * var(--scale)) calc(4px * var(--scale)) calc(9px * var(--scale));
+  border-radius: 999px;
+  background: var(--w-bg);
+  border: 1px solid var(--w-line);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  cursor: grab;
+}
+body.locked .pill { cursor: default; }
+/* No background: the number (and bars) alone, over the game. */
+.pill.bare {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.pill.bare .bars i { box-shadow: 0 0 2px rgba(0, 0, 0, 0.9); }
+.pill.noBars .bars { display: none; }
+.pill.noBars .ms { min-width: 0; }
+.pill[data-state="good"] { --c: var(--good); }
+.pill[data-state="fair"] { --c: var(--fair); }
+.pill[data-state="poor"] { --c: var(--poor); }
+.bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: calc(2px * var(--scale));
+  height: calc(13px * var(--scale));
+}
+.bars i {
+  display: block;
+  width: calc(3px * var(--scale));
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.18);
+}
+.bars i:nth-child(1) { height: 30%; }
+.bars i:nth-child(2) { height: 55%; }
+.bars i:nth-child(3) { height: 80%; }
+.bars i:nth-child(4) { height: 100%; }
+/* Lit bars: four when good, three fair, two poor, none unknown. */
+.pill[data-state="good"] .bars i,
+.pill[data-state="fair"] .bars i:nth-child(-n+3),
+.pill[data-state="poor"] .bars i:nth-child(-n+2) { background: var(--c); }
+.ms {
+  /* The meter's HUD face: Bahnschrift on Windows, Saira on Linux. */
+  font-family: var(--w-num);
+  font-variation-settings: "wght" 600, "wdth" 87.5;
+  font-weight: 600;
+  font-size: calc(15px * var(--scale));
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--c);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  min-width: 3.6em;
+  text-align: right;
+}

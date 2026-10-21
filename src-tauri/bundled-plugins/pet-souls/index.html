@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Pet Soul Tracker</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="controls">
+      <div class="status"></div>
+      <div class="summary"></div>
+      <div class="chips genus" role="group" aria-label="Genus"></div>
+      <div class="chips levels" role="group" aria-label="Level"></div>
+      <div class="chips regions" role="group" aria-label="Regions" title="Regions: the pets whose souls drop in the ones turned on, and their spawns there. Click to turn one off or on"></div>
+      <label class="option"><input type="checkbox" class="hideMax" checked /> Hide pets at level 3</label>
+      <label class="option sizeRow"><span class="scaleLabel">Text size</span> <select class="scaleSelect"></select></label>
+      <input type="search" class="search" placeholder="Search pets" aria-label="Search pets" spellcheck="false" />
+    </div>
+    <div class="head" role="row">
+      <button type="button" data-sort="level">Lv</button>
+      <button type="button" data-sort="name">Pet</button>
+      <button type="button" data-sort="progress">Souls</button>
+      <button type="button" data-sort="left">To Lv 3</button>
+    </div>
+    <ol class="pets"></ol>
+    <p class="empty" hidden>No pets match.</p>
+    <p class="foot">Click a pet to see where its souls drop. ☆ pins a pet to the top, and the pet you last picked up a soul for shows first for 30 minutes. Double-click a name to rename it. Souls per level are 5, 25 and 75 (the first is inferred).</p>
+    <script src="/_sdk/a2.js"></script>
+    <script src="pets.js"></script>
+    <script src="sources.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Fight Records</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="records.css" />
+  </head>
+  <body>
+    <header class="top">
+      <span class="status">Waiting for your character…</span>
+      <label class="inline"><input type="checkbox" class="lock" /> Lock widgets</label>
+    </header>
+    <nav class="chips" role="tablist">
+      <button type="button" data-tab="bests" aria-selected="true">Personal bests</button>
+      <button type="button" data-tab="recent" aria-selected="false">Recent fights</button>
+      <button type="button" data-tab="training" aria-selected="false">Training</button>
+      <button type="button" data-tab="compare" aria-selected="false">Compare</button>
+      <button type="button" data-tab="settings" aria-selected="false">Settings</button>
+    </nav>
+
+    <section class="view bests">
+      <div class="row">
+        <select class="charPick" aria-label="Character"></select>
+      </div>
+      <table class="table bestTable">
+        <thead><tr><th>Boss</th><th class="r">Best DPS</th><th class="r">Time</th><th class="r">Date</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="note empty bestsEmpty">Your best DPS on each boss shows up here as the meter saves your fights.</p>
+    </section>
+
+    <section class="view recent" hidden>
+      <ul class="fightList"></ul>
+      <p class="note empty recentEmpty">The fights the meter saves to History show up here, with a summary to paste in the game's chat.</p>
+    </section>
+
+    <section class="view training" hidden>
+      <div class="card">
+        <div class="row">
+          <span>Run length</span>
+          <select class="length">
+            <option value="30">30 seconds</option>
+            <option value="60">1 minute</option>
+            <option value="120">2 minutes</option>
+            <option value="180">3 minutes</option>
+            <option value="300">5 minutes</option>
+            <option value="0">Until I stop it</option>
+          </select>
+        </div>
+        <div class="row">
+          <span class="runState">Ready</span>
+          <span>
+            <button type="button" class="btn start">Start</button>
+            <button type="button" class="btn danger stop" disabled>Stop</button>
+          </span>
+        </div>
+        <label class="row"><span>Show the training widget</span><input type="checkbox" class="trainWidget" /></label>
+        <p class="note">Start, then hit a training dummy: the run's clock starts at your first hit. Only your own damage on dummies counts.</p>
+      </div>
+      <div class="row">
+        <select class="groupPick" aria-label="Group"></select>
+      </div>
+      <ul class="runList"></ul>
+      <p class="note empty runsEmpty">No runs yet.</p>
+      <div class="runDetail card" hidden>
+        <label class="row"><span>Name</span><input type="text" class="runName" maxlength="40" /></label>
+        <label class="row"><span>Group</span><input type="text" class="runGroup" maxlength="24" list="groups" /></label>
+        <datalist id="groups"></datalist>
+        <label class="row notes"><span>Notes</span><textarea class="runNotes" rows="3" maxlength="500"></textarea></label>
+        <div class="row">
+          <button type="button" class="btn compareThis">Compare…</button>
+          <button type="button" class="btn danger deleteRun">Delete</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="view compare" hidden>
+      <div class="row">
+        <select class="cmpA" aria-label="First run"></select>
+        <span>vs</span>
+        <select class="cmpB" aria-label="Second run"></select>
+      </div>
+      <table class="table cmpTable"></table>
+      <p class="note empty cmpEmpty">Two training runs are needed to compare.</p>
+    </section>
+
+    <section class="view settings" hidden>
+      <div class="card">
+        <label class="row"><span>Notice when you beat a personal best</span><input type="checkbox" class="pbNotice" /></label>
+        <label class="row"><span>Also on a boss's first record</span><input type="checkbox" class="pbFirst" /></label>
+        <label class="row"><span>Sound</span><select class="pbSound"></select></label>
+        <label class="row"><span>Shortest fight counted</span><span><input type="number" class="pbMin" min="0" max="300" /> s</span></label>
+      </div>
+      <p class="note">A boss fight is saved again every 30 seconds while it lasts; a best is counted once a fight has not changed for 40 seconds.</p>
+    </section>
+
+    <script src="/_sdk/a2.js"></script>
+    
+    <script src="icons.js"></script>
+    <script src="sounds.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

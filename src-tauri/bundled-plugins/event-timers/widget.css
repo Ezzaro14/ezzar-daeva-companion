@@ -1,0 +1,145 @@
+/* A pinned timer (pins.js): a round badge, its countdown, and its name. */
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font: 600 12px/1.25 var(--w-font);
+  color: #fff;
+  user-select: none;
+}
+.pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  /* Room for the glow above the badge (13 px past its ring). */
+  padding-top: 14px;
+  cursor: grab;
+}
+body.locked .pin { cursor: default; }
+/* Anchor mode's frame (anchor.js, widget.js renderGrid): every icon in one
+   window, each in its place, and the anchor's grip in the corner the grid
+   grows from, hidden while the icons are locked. */
+.pin[hidden] { display: none; }
+.grid { position: relative; }
+/* In the grid each row is as tall as its tallest icon (widget.js); the
+   room for the glow is the grid's own, above its first row. */
+.grid .pin { position: absolute; width: 80px; margin: 0; padding-top: 0; }
+.grip {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  margin: 2px;
+  box-sizing: border-box;
+  display: none;
+  place-items: center;
+  border: 2px dashed #ffd54a;
+  border-radius: 50%;
+  background: rgba(12, 16, 26, 0.85);
+  font-size: 20px;
+  cursor: move;
+  z-index: 2;
+}
+.grid.setup .grip { display: grid; }
+/* While placing the grid: each place an icon can take. */
+.ghost {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+.ghost[hidden] { display: none; }
+/* "+N": the icons past the grid's room, named in its tooltip. */
+.pin.more .badge { --ring: #9aa4b2; }
+.pin.more .glyph { font-size: 16px; }
+.badge {
+  --ring: var(--w-info);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.2), rgba(11, 15, 23, 0.94) 68%);
+  box-shadow: 0 0 0 2px var(--ring), 0 0 12px color-mix(in srgb, var(--ring) 35%, transparent), 0 4px 10px rgba(0, 0, 0, 0.55);
+}
+/* A field boss's HP (widget.js): a faint full ring, and over it the HP's
+   share of the ring, drained from the top. */
+.badge { position: relative; }
+.badge.hasHp { box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); }
+.badge.hasHp::before,
+.badge.hasHp::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+}
+.badge.hasHp::after {
+  border-color: var(--hp-color, #5fe08a);
+  clip-path: inset(calc(100% - var(--hp, 100%)) 0 0 0);
+  transition: clip-path 0.6s ease;
+}
+.pin.boss .badge { --ring: var(--w-violet); }
+.pin.field .badge { --ring: var(--w-bad); }
+.pin.running .badge { --ring: var(--w-good); }
+.glyph { font-size: 15px; letter-spacing: 0.5px; text-shadow: 0 1px 2px #000; }
+.art { width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 1px 1px #000); }
+.art[hidden], .glyph[hidden] { display: none; }
+/* Countdown and name wrap onto a second line rather than being cut short. */
+.time, .name {
+  max-width: 78px;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(11, 15, 23, 0.78);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.time { font-family: var(--w-num); font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 700; }
+.time:empty { display: none; }
+.name { font-weight: 500; font-size: 11px; color: var(--w-muted); }
+/* "Enter" under the time while a field event can be entered, as in game. */
+.sub { font-size: 12px; font-weight: 700; color: var(--w-gold); text-shadow: 0 0 3px #000, 0 1px 2px #000; }
+.sub:empty { display: none; }
+.name:empty { display: none; }
+
+/* Due: the badge shakes, bounces, throbs or glows until it is no longer due. */
+.pin.due.shake .badge { animation: shake 0.7s ease-in-out infinite; }
+.pin.due.bounce .badge { animation: bounce 0.9s cubic-bezier(0.3, 0, 0.5, 1) infinite; }
+.pin.due.throb .badge { animation: throb 1s ease-in-out infinite; }
+.pin.due.glow .badge { animation: glow 1.1s ease-in-out infinite; }
+/* Within the room above the badge kept for the glow. */
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-9px); }
+  45% { transform: translateY(-2px); }
+}
+@keyframes throb {
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.14); }
+  30% { transform: scale(1); }
+  45% { transform: scale(1.08); }
+}
+@keyframes shake {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-14deg); }
+  40% { transform: rotate(12deg); }
+  60% { transform: rotate(-8deg); }
+  80% { transform: rotate(5deg); }
+}
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 0 2px var(--ring), 0 0 4px 1px var(--ring); }
+  50% { box-shadow: 0 0 0 3px var(--ring), 0 0 10px 3px var(--ring); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pin.due:is(.shake, .bounce, .throb) .badge { animation: glow 1.1s ease-in-out infinite; }
+}

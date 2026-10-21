@@ -1,0 +1,62 @@
+/* The World Bosses list on the overlay (bosslist-widget.js), on the shared
+   widget look (/_sdk/widget.css). */
+body.bosslist .pin, body.bosslist .icons { display: none; }
+body.bosslist { display: flex; justify-content: flex-end; align-items: flex-start; padding: 4px; }
+.bossList { width: 100%; overflow: hidden; --w-accent: var(--w-violet); }
+.bossList[hidden] { display: none; }
+.blHead {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px 8px 12px;
+  cursor: pointer;
+  font: 12px/1.3 var(--w-font);
+  color: var(--w-text);
+}
+.blHead:hover { background: rgba(255, 255, 255, 0.04); }
+.blTitle { flex: none; color: var(--w-violet); }
+.blSum { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--w-muted); }
+.blSum b { color: var(--w-text); font-weight: 600; }
+.blSum .soon { color: var(--w-gold); }
+.blUp { color: var(--w-good); font-weight: 700; }
+.chev { flex: none; color: var(--w-muted); transition: transform 0.2s; }
+.bossList.open .chev { transform: rotate(180deg); }
+.bossList.open .blHead { border-bottom: 1px solid var(--w-line); }
+.blRows { list-style: none; margin: 0; padding: 2px 0; max-height: 380px; overflow-y: auto; }
+.blGroup { padding: 7px 12px 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--w-faint); }
+.blGroup.up { color: var(--w-good); }
+.blGroup.window { color: var(--w-gold); }
+.blRow { display: flex; align-items: center; gap: 8px; padding: 5px 8px 5px 12px; }
+.blRow + .blRow { border-top: 1px solid rgba(255, 255, 255, 0.04); }
+.blMain { position: relative; flex: 1; min-width: 0; }
+.blName { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blLv { font-size: 10.5px; font-weight: 500; color: var(--w-faint); }
+.blWhere { font-size: 11px; color: var(--w-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blHp { display: block; height: 3px; margin-top: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--w-good) var(--hp), rgba(255, 255, 255, 0.1) var(--hp)); }
+.blWhen { flex: none; text-align: right; font-size: 12.5px; }
+.blWhen small { display: block; font-size: 10.5px; color: var(--w-faint); }
+.blRow.up .blWhen .w-num { color: var(--w-good); }
+.blRow.window .blWhen .w-num { color: var(--w-gold); }
+.blRow.soon .blWhen .w-num { color: var(--w-gold); }
+.blBell {
+  all: unset;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--w-faint);
+  cursor: pointer;
+}
+.blBell:hover { background: rgba(255, 255, 255, 0.08); color: var(--w-text); }
+.blBell.on { color: var(--w-gold); background: rgba(242, 200, 109, 0.14); }
+.blEmpty { padding: 12px; color: var(--w-muted); font-size: 12px; }
+.blFoot { padding: 6px 12px 8px; border-top: 1px solid var(--w-line); font-size: 10.5px; color: var(--w-faint); display: flex; align-items: center; gap: 3px; flex-wrap: wrap; }
+.bellHint { display: inline-grid; color: var(--w-gold); }
+.blTag { display: inline-block; margin-right: 5px; padding: 0 5px; border-radius: 4px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--w-violet); background: rgba(184, 151, 255, 0.14); }
+/* Folded with something near: its rows under the title, no footer. */
+.bossList.near .blHead { border-bottom: 1px solid var(--w-line); }

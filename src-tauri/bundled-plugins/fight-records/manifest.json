@@ -1,0 +1,11 @@
+{
+  "id": "fight-records",
+  "name": "Fight Records",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "author": "aion2-tool",
+  "description": "Your best DPS on each boss, per character, with a notice when you beat it; and timed training runs on a dummy (30 seconds to 5 minutes, or until you stop), named, grouped and compared side by side.",
+  "permissions": ["storage", "window", "widgets", "events:character", "feed:combat"],
+  "decoders": [],
+  "ui": { "panel": { "width": 480, "height": 640 } }
+}

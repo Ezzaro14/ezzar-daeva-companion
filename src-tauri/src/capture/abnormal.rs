@@ -432,6 +432,11 @@ impl Timeline {
         self.stack_limits = limits;
     }
 
+    /// The instances on now (the combat feed's live buffs).
+    pub fn live(&self) -> impl Iterator<Item = &Instance> {
+        self.live.values()
+    }
+
     /// Read one framed packet received at `ms`.
     pub fn note(&mut self, ms: i64, packet: &[u8]) {
         let len = read_varint(packet, 0);

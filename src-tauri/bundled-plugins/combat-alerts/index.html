@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Combat Alerts</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <span class="status">Waiting for the game…</span>
+      <label class="inline"><input type="checkbox" class="lock" /> Lock notices</label>
+    </header>
+
+    <h3>Loss of control</h3>
+    <div class="card">
+      <label class="row"><span>Show a notice while you can't act</span><input type="checkbox" class="locOn" /></label>
+      <div class="kinds"></div>
+      <label class="row"><span>Sound</span><select class="locSound"></select></label>
+      <label class="row"><span>Size</span><input type="range" class="locSize" min="0.7" max="1.8" step="0.1" /></label>
+      <div class="row">
+        <span class="note">Put the notice just above your character.</span>
+        <button type="button" class="btn place">Place notices</button>
+      </div>
+    </div>
+
+    <h3>Party debuffs</h3>
+    <div class="card">
+      <label class="row"><span>Alert on enemy debuffs on the party</span><input type="checkbox" class="debOn" /></label>
+      <label class="row">
+        <span>When on at least</span>
+        <span><input type="number" class="debMin" min="1" max="6" step="1" /> members</span>
+      </label>
+      <label class="row">
+        <span>Which debuffs</span>
+        <select class="debMode">
+          <option value="all">Any enemy debuff</option>
+          <option value="listed">Only those listed below</option>
+        </select>
+      </label>
+      <label class="row"><span>Sound</span><select class="debSound"></select></label>
+      <label class="row"><span>Volume</span><input type="range" class="volume" min="0" max="1" step="0.05" /></label>
+      <label class="row"><span>Keep the alert up for</span><span><input type="number" class="debHold" min="1" max="30" /> s</span></label>
+      <button type="button" class="btn test">Test the alerts</button>
+    </div>
+    <h3>Watched debuffs</h3>
+    <ul class="watched"></ul>
+    <p class="note empty watchedEmpty">None. Add them from the enemy debuffs seen on your party, below.</p>
+    <h3>Seen on your party</h3>
+    <ul class="seen"></ul>
+    <p class="note empty seenEmpty">Enemy debuffs on you and your party show up here as they land.</p>
+
+    <script src="/_sdk/a2.js"></script>
+    <script src="icons.js"></script>
+    <script src="sounds.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

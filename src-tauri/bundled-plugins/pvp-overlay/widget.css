@@ -1,0 +1,40 @@
+/* The PvP widget, on the shared widget look (/_sdk/widget.css): a header
+   with the session's numbers, and one row per opponent with what you dealt
+   them and took from them. */
+body { font-size: 12px; }
+.panel {
+  margin: 4px;
+  padding: 8px 10px 8px;
+  cursor: grab;
+  --w-accent: var(--w-bad);
+}
+body.locked .panel { cursor: default; }
+.panel.active { border-color: color-mix(in srgb, var(--w-bad) 45%, transparent); box-shadow: var(--w-shadow), 0 0 22px rgba(255, 103, 103, 0.18); }
+.head { display: flex; gap: 10px; align-items: center; padding-bottom: 6px; margin-bottom: 3px; border-bottom: 1px solid var(--w-line); }
+.title { font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--w-bad); }
+.panel.active .title::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--w-bad); box-shadow: 0 0 8px var(--w-bad); vertical-align: 1px; animation: live 1.2s ease-in-out infinite; }
+@keyframes live { 50% { opacity: 0.35; } }
+.time, .kd, .burst { font-family: var(--w-num); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--w-muted); }
+.burst { margin-left: auto; color: var(--w-gold); }
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 27px;
+}
+.cls { width: 18px; height: 18px; flex: none; background: center / contain no-repeat; filter: drop-shadow(0 1px 1px #000); }
+.name { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp { font-family: var(--w-num); font-size: 11px; color: var(--w-faint); font-variant-numeric: tabular-nums; }
+.nums { font-family: var(--w-num); font-variant-numeric: tabular-nums; display: flex; gap: 8px; }
+.nums .d { color: var(--w-warn); font-weight: 600; min-width: 3.2em; text-align: right; }
+.nums .t { color: var(--w-info); font-weight: 600; min-width: 3.2em; text-align: right; }
+.bars { position: absolute; left: 25px; right: 0; bottom: 2px; height: 4px; }
+.bars i { position: absolute; left: 0; height: 2px; display: block; border-radius: 1px; }
+.bars i.d { top: 0; background: var(--w-warn); }
+.bars i.t { bottom: 0; background: var(--w-info); opacity: 0.85; }
+li.killed .name { text-decoration: line-through; color: var(--w-faint); }
+li.killed .hp { color: var(--w-good); }
+li.down .name { color: var(--w-muted); }
+.idle { color: var(--w-faint); padding: 6px 0 2px; }

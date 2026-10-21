@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Event Timers pin</title>
+    <link rel="stylesheet" href="/_sdk/widget.css" />
+    <link rel="stylesheet" href="widget.css" />
+    <link rel="stylesheet" href="bosslist.css" />
+  </head>
+  <body>
+    <!-- The icons, as page images: on Linux the meter puts a page's images
+         into it, and WebKitGTK refuses any file the page asks for later, so
+         an icon set from the script stayed empty. -->
+    <div class="icons" hidden>
+      <img data-icon="boss" src="icons/boss.png" alt="" />
+      <img data-icon="shugo" src="icons/shugo.png" alt="" />
+      <img data-icon="invasion" src="icons/invasion.png" alt="" />
+      <img data-icon="rift" src="icons/rift.png" alt="" />
+      <img data-icon="artifact" src="icons/artifact.png" alt="" />
+    </div>
+    <div class="pin">
+      <div class="badge"><img class="art" alt="" hidden /><span class="glyph"></span></div>
+      <div class="time"></div>
+      <div class="sub"></div>
+      <div class="name"></div>
+    </div>
+    <div class="bossList w-panel" hidden></div>
+    <script src="/_sdk/a2.js"></script>
+    <script src="bosslist-widget.js"></script>
+    <script src="widget.js"></script>
+  </body>
+</html>

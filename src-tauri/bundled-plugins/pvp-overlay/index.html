@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>PvP Overlay</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="pvp.css" />
+  </head>
+  <body>
+    <header class="top">
+      <span class="status">No PvP yet</span>
+      <label class="inline"><input type="checkbox" class="lock" /> Lock overlay</label>
+    </header>
+    <nav class="chips" role="tablist">
+      <button type="button" data-tab="live" aria-selected="true">Now</button>
+      <button type="button" data-tab="sessions" aria-selected="false">Sessions</button>
+      <button type="button" data-tab="settings" aria-selected="false">Settings</button>
+    </nav>
+
+    <section class="view live">
+      <div class="stats liveStats"></div>
+      <ul class="opponents liveList"></ul>
+      <p class="note empty liveEmpty">Hit another player, or get hit by one, and they show up here.</p>
+    </section>
+
+    <section class="view sessions" hidden>
+      <ul class="sessionList"></ul>
+      <p class="note empty sessionsEmpty">A session is saved when a minute passes without a blow traded with a player.</p>
+      <div class="sessionDetail" hidden>
+        <div class="row">
+          <button type="button" class="btn back">← Sessions</button>
+          <button type="button" class="btn danger deleteSession">Delete</button>
+        </div>
+        <div class="stats detailStats"></div>
+        <canvas class="chart" width="420" height="140"></canvas>
+        <p class="legend"><span class="dealt">■ dealt per second</span> <span class="taken">■ taken per second</span></p>
+        <ul class="opponents detailList"></ul>
+      </div>
+    </section>
+
+    <section class="view settings" hidden>
+      <div class="card">
+        <label class="row"><span>Show the overlay</span><input type="checkbox" class="show" /></label>
+        <label class="row"><span>Only during PvP</span><input type="checkbox" class="onlyActive" /></label>
+        <label class="row"><span>Opponents listed</span><input type="number" class="rows" min="1" max="12" /></label>
+        <label class="row"><span>Sound when you defeat someone</span><select class="killSound"></select></label>
+        <label class="row"><span>Sessions kept</span><input type="number" class="keep" min="5" max="200" /></label>
+      </div>
+      <p class="note">
+        A player counts as an opponent when you trade blows with them and they are not in your party. The game sends
+        a heal on another player like a blow, so healing a player outside your party lists them too.
+      </p>
+    </section>
+
+    <script src="/_sdk/a2.js"></script>
+    <script src="classes.js"></script>
+    <script src="icons.js"></script>
+    <script src="sounds.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Progression Guide</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="guide.css" />
+  </head>
+  <body>
+    <header class="who">
+      <span class="portrait"></span>
+      <div class="whoText">
+        <div class="whoName">Your character</div>
+        <div class="whoSub">Log in to a character and the guide reads it from the official site.</div>
+      </div>
+      <div class="whoActions">
+        <button type="button" class="btn refresh" disabled>Read again</button>
+        <button type="button" class="btn lookupToggle">Look up a character</button>
+      </div>
+    </header>
+    <form class="card lookup" hidden>
+      <label class="row"><span>Name</span><input type="text" class="lookupName" maxlength="40" required /></label>
+      <label class="row"><span>Server</span><select class="lookupServer"></select></label>
+      <div class="row"><span class="note">Any character's public profile, compared with the top of its class.</span><button type="submit" class="btn">Look up</button></div>
+    </form>
+    <div class="status"></div>
+
+    <nav class="chips" role="tablist">
+      <button type="button" data-tab="overview" aria-selected="true">What to improve</button>
+      <button type="button" data-tab="roadmap" aria-selected="false">Roadmap</button>
+      <button type="button" data-tab="gear" aria-selected="false">Gear</button>
+      <button type="button" data-tab="daevanion" aria-selected="false">Daevanion</button>
+      <button type="button" data-tab="skills" aria-selected="false">Skills</button>
+      <button type="button" data-tab="pool" aria-selected="false">Compared with</button>
+    </nav>
+
+    <section class="view overview"></section>
+    <section class="view roadmap" hidden></section>
+    <section class="view gear" hidden></section>
+    <section class="view daevanion" hidden></section>
+    <section class="view skills" hidden></section>
+    <section class="view pool" hidden>
+      <div class="poolList"></div>
+      <form class="card addPlayer">
+        <div class="row"><b>Add a player to compare with</b></div>
+        <label class="row"><span>Name</span><input type="text" class="addName" maxlength="40" required /></label>
+        <label class="row"><span>Server</span><select class="addServer"></select></label>
+        <div class="row"><span class="note">Someone you know plays your class well: always in the comparison.</span><button type="submit" class="btn">Add</button></div>
+      </form>
+      <p class="note">
+        The players compared with are the strongest half (by combat power) of: the top of your class on a2tools.app's
+        leaderboard for your region, players of your class you have met in your fights, and those you add. Every profile
+        comes from the official AION 2 site and is read again after a day.
+      </p>
+    </section>
+
+    <script src="/_sdk/a2.js"></script>
+    <script src="servers.js"></script>
+    <script src="icons.js"></script>
+    <script src="roadmap.js"></script>
+    <script src="analysis.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

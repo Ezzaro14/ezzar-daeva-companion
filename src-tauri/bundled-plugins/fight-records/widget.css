@@ -1,0 +1,20 @@
+/* Fight Records' widgets, on the shared widget look (/_sdk/widget.css):
+   the training run's clock, and a personal best. */
+body { display: flex; align-items: center; justify-content: center; }
+.panel { padding: 9px 12px 10px; cursor: grab; }
+body.locked .panel { cursor: default; }
+.line { display: flex; align-items: center; gap: 8px; }
+.train { min-width: 210px; --w-accent: var(--w-info); }
+.train .title { flex: 1; color: var(--w-info); }
+.big { justify-content: space-between; align-items: baseline; margin-top: 6px; }
+.clock { font-size: 30px; font-weight: 700; line-height: 1; }
+.dps { font-size: 17px; color: var(--w-warn); }
+.train.live { border-color: color-mix(in srgb, var(--w-warn) 50%, transparent); box-shadow: var(--w-shadow), 0 0 20px rgba(255, 176, 74, 0.18); }
+.train.live .title { color: var(--w-warn); }
+button.go { --w-accent: var(--w-good); background: color-mix(in srgb, var(--w-good) 22%, transparent); border-color: color-mix(in srgb, var(--w-good) 60%, transparent); }
+button.go.stop { --w-accent: var(--w-bad); background: color-mix(in srgb, var(--w-bad) 24%, transparent); border-color: color-mix(in srgb, var(--w-bad) 60%, transparent); }
+.notice { min-width: 260px; padding-left: 18px; box-shadow: var(--w-shadow), 0 0 22px rgba(95, 227, 161, 0.22); border-color: color-mix(in srgb, var(--w-good) 40%, transparent); animation: w-in 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.notice .kick { color: var(--w-good); }
+.notice .title { margin-top: 2px; font-size: 16px; font-weight: 700; }
+.notice .sub { font-size: 12.5px; color: var(--w-muted); }
+body.off .notice { visibility: hidden; }

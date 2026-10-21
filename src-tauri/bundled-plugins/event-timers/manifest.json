@@ -1,0 +1,24 @@
+{
+  "id": "event-timers",
+  "name": "Event Timers",
+  "version": "0.6.3",
+  "apiVersion": 2,
+  "author": "A2 Tools",
+  "description": "Countdowns to events and bosses in your server's time, with alerts before the ones you pick, and any timer pinned as an icon you place anywhere.",
+  "permissions": [
+    "storage",
+    "events:character",
+    "window",
+    "feed:boss-timers",
+    "widgets",
+    "notify:system",
+    "notify"
+  ],
+  "decoders": [],
+  "ui": {
+    "panel": {
+      "width": 420,
+      "height": 560
+    }
+  }
+}

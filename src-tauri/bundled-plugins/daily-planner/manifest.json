@@ -1,0 +1,11 @@
+{
+  "id": "daily-planner",
+  "name": "Daily Planner",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "author": "aion2-tool",
+  "description": "What to do each day and each week for the best progress: Daily Duties, Shugo Festival's three keys, Nightmare, dungeon entries before the weekly reset, Odyle Energy before it caps, and your own tasks. It resets itself at the game's resets and reminds you before one when something is left.",
+  "permissions": ["storage", "window", "notify", "notify:system", "events:character"],
+  "decoders": [],
+  "ui": { "panel": { "width": 520, "height": 680 } }
+}

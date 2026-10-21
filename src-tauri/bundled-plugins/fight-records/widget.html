@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Fight Records</title>
+    <link rel="stylesheet" href="/_sdk/widget.css" />
+    <link rel="stylesheet" href="widget.css" />
+  </head>
+  <body>
+    <div class="panel train w-panel" hidden>
+      <div class="line">
+        <span class="title w-kicker">Training</span>
+        <select class="len w-select" aria-label="Run length">
+          <option value="30">0:30</option>
+          <option value="60">1:00</option>
+          <option value="120">2:00</option>
+          <option value="180">3:00</option>
+          <option value="300">5:00</option>
+          <option value="0">∞</option>
+        </select>
+        <button type="button" class="go w-btn">Start</button>
+      </div>
+      <div class="line big"><span class="clock w-num">0:00</span><span class="dps w-num">– DPS</span></div>
+    </div>
+    <div class="panel notice w-panel w-edge is-good" hidden>
+      <div class="kick w-kicker">Personal best</div>
+      <div class="title"></div>
+      <div class="sub"></div>
+    </div>
+    <script src="/_sdk/a2.js"></script>
+    <script src="widget.js"></script>
+  </body>
+</html>

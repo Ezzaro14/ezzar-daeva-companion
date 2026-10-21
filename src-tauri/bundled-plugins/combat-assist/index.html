@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Combat Assist</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="assist.css" />
+  </head>
+  <body>
+    <header class="top">
+      <p class="lede">Your skill cooldowns and buffs as icons over the game, so you can see what's ready without looking at your hotbar.</p>
+      <span class="status">Waiting for the game…</span>
+      <label class="inline"><input type="checkbox" class="lock" /> Lock bars</label>
+    </header>
+
+    <section class="card steps" aria-label="Setting up a bar">
+      <div class="stepsHead">
+        <h2>Set up a bar in three steps</h2>
+        <button type="button" class="btn small hideSteps" title="Hide these steps (bring them back from the ? button)">Hide</button>
+      </div>
+      <ol>
+        <li data-step="use">
+          <span class="tick" aria-hidden="true"></span>
+          <div>
+            <b>Use your skills in game.</b>
+            <span class="why">Every skill you cast shows up under <em>Your skills</em>. The app reads them from the game as you play; nothing to type.</span>
+          </div>
+        </li>
+        <li data-step="add">
+          <span class="tick" aria-hidden="true"></span>
+          <div>
+            <b>Click <em>Add</em> on the skills and buffs you want to watch.</b>
+            <span class="why">They go on the bar you've picked below.</span>
+            <div class="stepAct"><button type="button" class="btn quickFill">Add my 6 most-used skills</button></div>
+          </div>
+        </li>
+        <li data-step="place">
+          <span class="tick" aria-hidden="true"></span>
+          <div>
+            <b>Put the bar where you want it on screen.</b>
+            <span class="why">Drag it into place, then press <em>Done</em>. Every bar and alert can be moved the same way.</span>
+            <div class="stepAct"><button type="button" class="btn primary placeBtn">Place on screen</button></div>
+          </div>
+        </li>
+      </ol>
+      <details class="how">
+        <summary>How does it know my cooldowns?</summary>
+        <p>The game never says when a skill comes back, so the app <b>learns each cooldown from how you use it</b>: cast a skill, then cast it again the moment it's ready, twice, and the bar knows. Until then the icon shows a <b>?</b>, or a first guess marked <b>~</b>.</p>
+        <p>A skill whose hit lands after the cast (a delayed explosion) is counted as one cast. If a cooldown still comes out wrong, press <b>Re-learn</b> next to it, or type the seconds.</p>
+        <p>If a skill was cast sooner than usual (something shortened its cooldown), the bar marks it <b>▼</b> and keeps the normal time.</p>
+        <p>Know the cooldown already? Type the seconds next to the skill under <em>On this bar</em>.</p>
+      </details>
+    </section>
+    <button type="button" class="btn small showSteps" hidden title="Show the setup steps">? How it works</button>
+
+    <div class="cols">
+      <main class="colMain">
+        <div class="barTabs" role="tablist" aria-label="Bars"></div>
+
+        <section class="card preview" aria-label="Preview">
+          <div class="previewHead">
+            <span class="k">Preview</span>
+            <span class="previewMeta"></span>
+          </div>
+          <div class="previewStage"></div>
+        </section>
+
+        <h3>On this bar</h3>
+        <ul class="items"></ul>
+        <p class="note empty itemsEmpty">This bar is empty. Pick skills or buffs from the list beside it.</p>
+
+        <h3>Look</h3>
+        <div class="card look">
+          <label class="field"><span class="fk">Name</span><input type="text" class="barName" maxlength="24" /></label>
+          <div class="field">
+            <span class="fk">Shape</span>
+            <div class="seg barShape" role="radiogroup" aria-label="Shape">
+              <button type="button" data-v="square">Square</button>
+              <button type="button" data-v="round">Round</button>
+              <button type="button" data-v="bar">Bars with names</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="fk">Direction</span>
+            <div class="seg barDir" role="radiogroup" aria-label="Direction">
+              <button type="button" data-v="row">Side by side</button>
+              <button type="button" data-v="column">Stacked</button>
+            </div>
+          </div>
+          <label class="field"><span class="fk">Size</span><input type="range" class="barSize" min="24" max="80" step="2" /><span class="sizeVal"></span></label>
+          <label class="toggle"><input type="checkbox" class="barShow" /><span><b>Show this bar</b><small>Off hides it without losing what's on it.</small></span></label>
+          <label class="toggle"><input type="checkbox" class="barOoc" /><span><b>Only in combat</b><small>Fades out when you aren't fighting.</small></span></label>
+          <label class="toggle"><input type="checkbox" class="barCooling" /><span><b>Only while on cooldown</b><small>A skill shows while it's cooling down and goes once it's ready; a buff shows while it's on you. The others keep their places, so nothing moves.</small></span></label>
+          <label class="toggle"><input type="checkbox" class="barGlow" /><span><b>Glow when ready</b><small>A gold ring around a skill that can be used.</small></span></label>
+          <label class="toggle"><input type="checkbox" class="barText" /><span><b>Show seconds</b><small>The time left, on each icon.</small></span></label>
+        </div>
+        <div class="barActions">
+          <button type="button" class="btn danger removeBar">Delete this bar</button>
+        </div>
+      </main>
+
+      <aside class="colPick" aria-label="Add to the bar">
+        <div class="pickHead">
+          <span class="k">Add to <b class="pickBar"></b></span>
+        </div>
+        <div class="seg pickTabs" role="tablist">
+          <button type="button" data-tab="skills" aria-selected="true">Your skills</button>
+          <button type="button" data-tab="buffs" aria-selected="false">Buffs on you</button>
+        </div>
+        <input type="search" class="pickSearch" placeholder="Search…" aria-label="Search" />
+        <section class="view skills">
+          <ul class="pickList skillList"></ul>
+          <p class="note">Most used first. Use a skill in game and it appears here.</p>
+        </section>
+        <section class="view buffs" hidden>
+          <ul class="pickList buffList"></ul>
+          <p class="note">What's on you right now. Get the buff in game and it appears here.</p>
+        </section>
+      </aside>
+    </div>
+
+    <script src="/_sdk/a2.js"></script>
+    <script src="icons.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

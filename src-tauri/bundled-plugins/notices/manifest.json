@@ -1,0 +1,11 @@
+{
+  "id": "notices",
+  "name": "Notices",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "author": "aion2-tool",
+  "description": "Popups over the game for every module's alerts: an event about to start, a world boss spawning, a new personal best. Placed anywhere, kept a few seconds, with a list of the recent ones.",
+  "permissions": ["storage", "widgets"],
+  "decoders": [],
+  "ui": { "panel": { "width": 420, "height": 520 } }
+}

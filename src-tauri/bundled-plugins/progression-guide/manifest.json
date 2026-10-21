@@ -1,0 +1,11 @@
+{
+  "id": "progression-guide",
+  "name": "Progression Guide",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "author": "aion2-tool",
+  "description": "Your gear, Daevanion boards and skills, read from the official site and set beside the strongest players of your class, with what to improve first.",
+  "permissions": ["storage", "events:character", "feed:armory"],
+  "decoders": [],
+  "ui": { "panel": { "width": 760, "height": 680 } }
+}

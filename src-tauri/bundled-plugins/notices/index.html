@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Notices</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="card">
+      <label class="row"><span>Show popups over the game</span><input type="checkbox" class="on" /></label>
+      <label class="row"><span>Keep each popup up for</span><span><input type="number" class="hold" min="2" max="60" /> s</span></label>
+      <label class="row"><span>Size</span><input type="range" class="size" min="0.8" max="1.6" step="0.1" /></label>
+      <div class="row"><span class="note">Use Edit layout (top right) to drag the popup where you want it.</span><button type="button" class="btn test">Test</button></div>
+    </div>
+    <h3>Recent</h3>
+    <ul class="list"></ul>
+    <p class="note empty">Alerts from the modules show up here: Event Timers' events and world bosses, personal bests, and more.</p>
+    <script src="/_sdk/a2.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

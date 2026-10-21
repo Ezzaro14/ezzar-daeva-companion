@@ -1,0 +1,11 @@
+{
+  "id": "dungeon-runs",
+  "name": "Dungeon Runs",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "author": "aion2-tool",
+  "description": "Each dungeon run: its clear time, every boss fight, deaths, and each member's damage and DPS across the run, with a summary to paste in the game's chat.",
+  "permissions": ["storage", "window", "feed:combat"],
+  "decoders": [],
+  "ui": { "panel": { "width": 480, "height": 620 } }
+}

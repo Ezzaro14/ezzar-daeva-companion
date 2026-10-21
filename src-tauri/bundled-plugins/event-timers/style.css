@@ -1,0 +1,1093 @@
+/* Transparent: the window paints the panel, at the opacity the user picks.
+   The look is the Pet Soul Tracker's. */
+:root {
+  /* The alert banner's colour (Settings: Alert colour). */
+  --alert: #ff9a3c;
+}
+html, body {
+  margin: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
+}
+body {
+  padding: 10px 12px;
+}
+/* Folded: just the next few events. */
+body.compact .controls,
+body.compact .view.bosses,
+body.compact .view.alerts,
+body.compact .view.settings,
+body.compact .hidden,
+body.compact .eventList li:nth-child(n + 4) {
+  display: none;
+}
+body.compact .view.events {
+  display: block;
+}
+
+.status {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+}
+.resets {
+  margin: 2px 0 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.45);
+}
+.resets:empty {
+  display: none;
+}
+
+/* Tabs: the Pet Soul Tracker's chips. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+.chips button {
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.chips button:hover,
+.chips button:focus-visible {
+  color: rgba(255, 255, 255, 0.95);
+}
+.chips button[aria-selected="true"] {
+  color: #0a0e16;
+  background: #8fc2ff;
+  border-color: #8fc2ff;
+}
+
+/* Dropdowns, buttons and checkboxes, dark. color-scheme only on the controls:
+   on the whole page it differs from the meter's window around the plugin's
+   frame, and the browser then paints the frame opaque, which defeats the
+   window's transparency. */
+select,
+input[type="checkbox"] {
+  color-scheme: dark;
+}
+select,
+.testSound,
+.banner button,
+.btn,
+.modal button {
+  font: inherit;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  padding: 2px 5px;
+  outline: none;
+}
+select:focus,
+.testSound:focus-visible,
+.banner button:focus-visible,
+.btn:focus-visible,
+.modal button:focus-visible {
+  border-color: rgba(143, 194, 255, 0.6);
+}
+select option {
+  color: rgba(255, 255, 255, 0.9);
+  background: #161b26;
+}
+.testSound,
+.banner button,
+.btn,
+.modal button {
+  cursor: pointer;
+}
+.testSound:hover,
+.banner button:hover,
+.btn:hover,
+.modal button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+input[type="checkbox"] {
+  accent-color: #8fc2ff;
+}
+
+/* Countdown lists. */
+.list,
+.alertList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 1px 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.list li.running .name,
+.list li.up .name {
+  color: #7ee0a0;
+}
+.list .name {
+  font-size: 14px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.list .bell {
+  margin-right: 4px;
+  font-size: 10px;
+}
+.list .where {
+  grid-column: 1;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.list .when {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.list .countdown {
+  font-size: 12px;
+}
+.list li.up .countdown {
+  color: #7ee0a0;
+}
+/* Starting or back within 15 minutes: amber, as an up boss is green. */
+.list li.soon .name,
+.list li.soon .countdown {
+  color: #ffc163;
+}
+.list li.soon .countdown {
+  font-weight: 600;
+}
+.list .upIcon {
+  display: inline-flex;
+  vertical-align: -1px;
+  margin-right: 4px;
+}
+.list .at {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+.list .hide,
+.hidden button {
+  font: inherit;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.list .hide {
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  line-height: 1;
+}
+.list .hide:hover,
+.hidden button:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+.hidden {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+.hidden button {
+  padding: 1px 7px;
+}
+
+/* Section headings: the Bosses tab's two lists, the alert list's groups. */
+.group {
+  margin: 10px 0 2px;
+  padding-bottom: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+.view.bosses .group:first-child {
+  margin-top: 0;
+}
+.note[hidden] {
+  display: none;
+}
+.note {
+  margin: 4px 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Alerts. */
+.alertOptions {
+  margin-bottom: 4px;
+}
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.setting select {
+  max-width: 62%;
+}
+.option {
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+.pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.alertList li {
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.alertList li.group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom-color: rgba(255, 255, 255, 0.14);
+}
+.groupToggle {
+  padding: 0 7px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.groupToggle:hover,
+.groupToggle:focus-visible {
+  color: rgba(255, 255, 255, 0.95);
+}
+/* An alert: its switch and name; under them, once on, its two times. */
+.alertHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.alertHead input {
+  flex: none;
+  margin: 0;
+}
+.alertList .name {
+  min-width: 0;
+}
+.alertList li.on .name {
+  color: rgba(255, 255, 255, 0.95);
+}
+.leads {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 5px 0 2px 21px;
+}
+.leadRow {
+  display: contents;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.leadRow select {
+  width: 9.5em;
+}
+.alertList [hidden] {
+  display: none;
+}
+
+/* An alert going off: on top, with its mute. */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--alert) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--alert) 60%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--alert) 25%, transparent);
+}
+.banner[hidden] {
+  display: none;
+}
+/* A new alert flashes: the banner turns inverted (solid in the alert's
+   colour, dark text) and back, six times, then settles. Not forever, so the
+   window isn't repainting for as long as an alert stays up. */
+@keyframes bannerPulse {
+  0%, 100% {
+    background: color-mix(in srgb, var(--alert) 18%, transparent);
+    color: inherit;
+  }
+  50% {
+    background: var(--alert);
+  }
+}
+@keyframes bannerPulseText {
+  0%, 100% { color: color-mix(in srgb, var(--alert) 40%, white); }
+  50% { color: #14100a; }
+}
+.banner.pulse {
+  animation: bannerPulse 0.6s ease-in-out 6;
+}
+/* Its buttons stay crisp on the solid colour. */
+.banner.pulse button {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(14, 10, 4, 0.72);
+  border-color: rgba(0, 0, 0, 0.55);
+}
+.banner.pulse .bannerText {
+  animation: bannerPulseText 0.6s ease-in-out 6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .banner.pulse,
+  .banner.pulse .bannerText {
+    animation-duration: 1.2s;
+    animation-iteration-count: 1;
+    animation-timing-function: steps(1, end);
+  }
+}
+.bannerText {
+  flex: 1;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--alert) 40%, white);
+}
+.banner .mute[hidden] {
+  display: none;
+}
+.banner .dismiss {
+  width: 22px;
+  padding: 0;
+}
+
+/* A quiet scrollbar: thin, no track, brighter only while in use. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  min-height: 28px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.22);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Alert defaults in Settings, and the confirmation for applying them. */
+.view.settings .group {
+  margin-top: 14px;
+}
+.view.settings .alertSettings .group {
+  margin-top: 0;
+}
+.alertSettings {
+  margin-bottom: 14px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+.alertDefaults:has(.defaultsHead:empty) {
+  display: none;
+}
+.btn {
+  margin-top: 2px;
+}
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(5, 8, 14, 0.6);
+  z-index: 10;
+}
+.modal[hidden] {
+  display: none;
+}
+.modalBox {
+  max-width: 280px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background: #161b26;
+  border: 1px solid rgba(143, 194, 255, 0.35);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+.modalText {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.modalButtons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.modal .modalYes {
+  color: #0a0e16;
+  background: #8fc2ff;
+  border-color: #8fc2ff;
+  font-weight: 600;
+}
+.modal .modalYes:hover {
+  background: #a9d0ff;
+}
+.settingButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* The sound list: wide enough for its longest name. */
+.alertOptions .sound {
+  min-width: 8.5em;
+}
+/* Alerts' shortcut to their options in Settings. */
+.alertOptionsBtn {
+  display: block;
+  margin: 0 0 6px auto;
+}
+/* Test Alert, at the end of the alert settings, on the right. */
+.alertSettings .testAlert {
+  display: block;
+  margin: 4px 0 0 auto;
+  font-weight: 700;
+}
+/* The default times: one quiet box, its heading on top and Apply at its
+   foot, so they read as one thing rather than loose rows and a button. */
+.defaultsBox {
+  margin: 2px 0 10px;
+  padding: 7px 9px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.defaultsBox .defaultsNote {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+}
+.defaultsBox .setting {
+  margin-bottom: 6px;
+}
+.defaultsFoot {
+  display: flex;
+  justify-content: flex-end;
+}
+.linkBtn {
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  color: #8fc2ff;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.linkBtn:hover,
+.linkBtn:focus-visible {
+  color: #b8d8ff;
+  text-decoration: underline;
+}
+/* An on/off switch (a checkbox underneath, so keys and labels still work). */
+input.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  position: relative;
+  width: 30px;
+  height: 17px;
+  margin: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+input.switch::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  transition: transform 0.15s;
+}
+input.switch:checked {
+  background: #8fc2ff;
+  border-color: #8fc2ff;
+}
+input.switch:checked::before {
+  transform: translateX(13px);
+  background: #0a0e16;
+}
+input.switch:focus-visible {
+  outline: 2px solid rgba(143, 194, 255, 0.6);
+  outline-offset: 2px;
+}
+input.switch:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  input.switch,
+  input.switch::before {
+    transition: none;
+  }
+}
+.popRow {
+  cursor: pointer;
+}
+/* An alert's lines, one per event. */
+.bannerLine + .bannerLine {
+  margin-top: 2px;
+}
+/* An alert on its own: the window shows only the banner and the way to the
+   full window (plugin.js showAlertOnly). */
+body.alertOnly .controls,
+body.alertOnly .view {
+  display: none !important;
+}
+body.alertOnly .banner {
+  margin-bottom: 6px;
+}
+.openFull {
+  display: block;
+  width: 100%;
+  font-weight: 600;
+}
+.openFull[hidden] {
+  display: none;
+}
+/* On its own, the window behind it is transparent: the banner and the button
+   carry solid backings of their own. */
+body.alertOnly {
+  padding: 4px;
+}
+body.alertOnly .banner {
+  background: color-mix(in srgb, var(--alert) 22%, #120d08);
+}
+body.alertOnly .openFull {
+  background: #161b26;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+body.alertOnly .openFull:hover {
+  background: #1f2633;
+}
+.fieldCredit a {
+  color: #8fc2ff;
+  text-decoration: none;
+}
+.fieldCredit a:hover {
+  text-decoration: underline;
+}
+/* Field bosses in groups: up, in window, upcoming, no report yet. */
+.list li.subhead {
+  display: block;
+  padding: 8px 0 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  border-bottom: 0;
+}
+.list li.subhead.up { color: #7ee0a0; }
+.list li.subhead.window { color: #ffc163; }
+/* An up boss with a fresh HP: a thin bar of what is left under its row. */
+.list li.hasHp {
+  background: linear-gradient(90deg, rgba(126, 224, 160, 0.14) var(--hp, 0%), transparent var(--hp, 0%)) no-repeat
+    left bottom / 100% 2px;
+}
+
+/* An alert's "More options" (pins.js): its own sound, repeats and icon. */
+.pinMore { grid-column: 1 / -1; margin: 6px 0 2px; }
+.pinRows {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 10px;
+}
+.pinMore > summary { cursor: pointer; opacity: 0.8; font-size: 0.95em; }
+.pinMore > summary:hover { opacity: 1; }
+.pinMore.changed > summary { opacity: 1; font-weight: 600; }
+.pinMore[open] > summary { margin-bottom: 4px; }
+.pinLockNote { margin-top: -4px; }
+
+/* A row hidden for the other alert style (pins.js): over .setting's flex. */
+.view.settings [hidden] { display: none !important; }
+
+/* The Bosses tab's section headings: each folds its list away (plugin.js
+   renderFolds), the chevron pointing down while open. */
+.foldBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.foldBtn:hover,
+.foldBtn:focus-visible {
+  color: rgba(255, 255, 255, 0.85);
+  outline: none;
+}
+.foldBtn .chevron {
+  flex: none;
+  transition: transform 0.15s;
+}
+.foldBtn[aria-expanded="false"] .chevron {
+  transform: rotate(-90deg);
+}
+.view.bosses.scheduledFolded .scheduledList,
+.view.bosses.fieldFolded .fieldNote,
+.view.bosses.fieldFolded .fieldList,
+.view.bosses.fieldFolded .fieldCredit {
+  display: none;
+}
+
+/* A boss row's buttons, right of its time: its alert on or off (a bell,
+   filled while on), and its settings (a gear, lit while the alert is on). */
+.list .rowActions {
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  display: flex;
+  gap: 1px;
+}
+.list .rowBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.35);
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.list .rowBtn:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.07);
+}
+.list .rowBtn:focus-visible {
+  outline: 2px solid rgba(143, 194, 255, 0.6);
+  outline-offset: -1px;
+}
+.list .alertBtn.own,
+.list .gearBtn.lit {
+  color: #8fc2ff;
+}
+.list .alertBtn.own .fillable {
+  fill: currentColor;
+}
+/* Covered by "All field bosses" only: half lit. */
+.list .alertBtn.all {
+  color: rgba(143, 194, 255, 0.6);
+}
+.list .alertBtn.all .fillable {
+  fill: rgba(143, 194, 255, 0.2);
+}
+.list .alertBtn.own:hover,
+.list .alertBtn.all:hover,
+.list .gearBtn.lit:hover {
+  color: #b8d8ff;
+}
+.list .gearBtn[aria-disabled="true"] {
+  color: rgba(255, 255, 255, 0.18);
+  background: none;
+  cursor: default;
+}
+/* The alert a boss's gear led to: a flash, then as it was. */
+@keyframes alertFlash {
+  0%, 35% { background: rgba(143, 194, 255, 0.22); box-shadow: inset 2px 0 #8fc2ff; }
+  100% { background: transparent; box-shadow: inset 2px 0 transparent; }
+}
+.alertList li.flash {
+  animation: alertFlash 2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .foldBtn .chevron {
+    transition: none;
+  }
+  .alertList li.flash {
+    animation-timing-function: steps(1, end);
+  }
+}
+
+/* The Artifact Siege (siege.js): each artifact's holder, in its side's
+   colour, and its core's HP while the siege is on. */
+.siege { margin-bottom: 8px; }
+.siege[hidden], body.compact .siege:not(.live) { display: none; }
+.siegeHead { margin-top: 0; }
+.siegeMap { margin: 4px 0 2px; font-size: 11px; color: rgba(255, 255, 255, 0.55); }
+.siegeRow { display: flex; align-items: center; gap: 8px; padding: 2px 0 2px 8px; border-left: 3px solid rgba(255, 255, 255, 0.2); }
+.siegeRow.owner-elyos { border-left-color: #5aa9ff; }
+.siegeRow.owner-asmodian { border-left-color: #c08bff; }
+.siegeName { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.siegeOwner { font-weight: 600; }
+.owner-elyos .siegeOwner { color: #7fbcff; }
+.owner-asmodian .siegeOwner { color: #d3adff; }
+.owner-none .siegeOwner { color: rgba(255, 255, 255, 0.45); font-weight: 400; }
+.siegeCore { min-width: 64px; text-align: right; font-size: 12px; color: rgba(255, 255, 255, 0.7); }
+.siegeCore.hasHp {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(255, 90, 79, 0.45) var(--hp, 0%), rgba(255, 255, 255, 0.08) var(--hp, 0%));
+  color: #fff;
+}
+.siegeCore.dead { color: #ff8a80; }
+
+/* Settings, "On screen" (anchor.js renderAnchorSettings). */
+.iconSettings .onScreenHead { margin-top: 0; }
+/* Show alerts as: two choices side by side. */
+.seg {
+  display: inline-flex;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.segBtn {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.segBtn + .segBtn { border-left: 1px solid rgba(255, 255, 255, 0.14); }
+.segBtn[aria-checked="true"] {
+  color: #0a0e16;
+  background: #8fc2ff;
+  font-weight: 600;
+}
+.segBtn:focus-visible { outline: 2px solid rgba(143, 194, 255, 0.6); outline-offset: -2px; }
+.segBtn:disabled { opacity: 0.45; cursor: default; }
+
+/* The Placement card: anchor mode, the one card in Settings, in the gold of
+   the anchor players see in game. */
+.placement {
+  margin: 2px 0 12px;
+  padding: 9px 10px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.placement[hidden] { display: none; }
+.placement.on {
+  border-color: rgba(255, 213, 74, 0.45);
+  background: rgba(255, 213, 74, 0.05);
+}
+.placementHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+}
+.placementTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+.placement.on .anchorMode:checked { background: #ffd54a; border-color: #ffd54a; }
+.placementNote { margin: 3px 0 8px; }
+.placement .note[hidden], .placement .setting[hidden] { display: none; }
+
+/* The miniature of the grid, and Across / Down beside it. */
+.stage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.mini {
+  --cols: 4;
+  --rows: 3;
+  position: relative;
+  flex: none;
+  padding: 18px;
+}
+.cells {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 13px);
+  grid-auto-rows: 15px;
+  gap: 3px;
+}
+.cell {
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.placement:not(.on) .mini { opacity: 0.4; }
+/* A corner: where the anchor can sit. The chosen one is the anchor itself;
+   the others are small targets. */
+.corner {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: 4px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  line-height: 1;
+  color: #ffd54a;
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.corner.tl { top: 0; left: 0; }
+.corner.tr { top: 0; right: 0; }
+.corner.bl { bottom: 0; left: 0; }
+.corner.br { bottom: 0; right: 0; }
+.corner[aria-pressed="true"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  background: rgba(12, 16, 26, 0.9);
+  border: 2px dashed #ffd54a;
+}
+.corner:hover:not(:disabled), .corner:focus-visible { border-color: #ffd54a; outline: none; }
+.corner:disabled { cursor: default; }
+/* The steppers share one set of columns, sized to the longest label. */
+.steps {
+  display: grid;
+  grid-template-columns: max-content 20px 20px 20px;
+  align-items: center;
+  gap: 6px 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.step { display: contents; }
+.stepLabel { white-space: nowrap; padding-right: 2px; }
+.stepBtn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.stepBtn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+.stepBtn:focus-visible { outline: 2px solid rgba(143, 194, 255, 0.6); outline-offset: 1px; }
+.stepBtn:disabled { opacity: 0.35; cursor: default; }
+.stepValue { text-align: center; font-weight: 600; color: rgba(255, 255, 255, 0.92); }
+.cornerNote { margin: 0 0 8px; }
+.displayHead { margin-top: 14px; }
+
+/* The Alerts tab (plugin.js renderAlerts): quick picks, Your alerts, Add. */
+.alertList > li { padding: 0; border-bottom: 0; }
+.alertList .group { margin-top: 12px; }
+.alertList > li:first-child .group { margin-top: 0; }
+.pickChips { margin: 6px 0 0; gap: 5px; }
+.pickChips .chip {
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.pickChips .chip:hover, .pickChips .chip:focus-visible { color: #fff; border-color: rgba(143, 194, 255, 0.6); outline: none; }
+.pickChips .chip.on {
+  color: #0a0e16;
+  background: #8fc2ff;
+  border-color: #8fc2ff;
+  font-weight: 600;
+}
+.yoursHead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.yoursHead .linkBtn { font-weight: 400; }
+.defaultsInline {
+  margin: 6px 0 4px;
+  padding: 7px 9px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  justify-items: stretch;
+}
+.defaultsInline .setting { margin-bottom: 6px; }
+.defaultsInline .linkBtn { justify-self: end; }
+.emptyNote { margin: 8px 0; }
+.mine { list-style: none; margin: 4px 0 0; padding: 0; }
+.mineRow { border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.mineRow.flash { animation: flash 1.2s ease-out; }
+.mineLine { display: flex; align-items: center; gap: 6px; }
+.bell {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.bell:hover, .bell:focus-visible { background: rgba(255, 255, 255, 0.08); outline: none; }
+.mineToggle {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 2px;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.92);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.mineToggle:hover .mineName, .mineToggle:focus-visible .mineName { color: #fff; }
+.mineToggle:focus-visible { outline: 2px solid rgba(143, 194, 255, 0.6); outline-offset: -2px; border-radius: 4px; }
+.mineText { display: grid; min-width: 0; }
+.mineName, .mineWhen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mineWhen { font-size: 11px; color: rgba(255, 255, 255, 0.5); }
+.chev { color: rgba(255, 255, 255, 0.45); transition: transform 0.15s; }
+.mineToggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+/* One alert's settings, open under its line. */
+.mineRow .editor { padding: 0 0 8px 30px; border: 0; }
+.mineRow .editor .alertHead { display: none; }
+.mineRow .editor .leads { margin-left: 0; }
+.alertSearch {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 6px 0 4px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 5px;
+  outline: none;
+  color-scheme: dark;
+}
+.alertSearch:focus { border-color: rgba(143, 194, 255, 0.6); }
+.addHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.addFold {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.addFold:focus-visible { outline: 2px solid rgba(143, 194, 255, 0.6); outline-offset: 1px; border-radius: 3px; }
+.addList { list-style: none; margin: 0; padding: 0 0 4px 16px; }
+.addRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+.addName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.addSub { font-size: 11px; color: rgba(255, 255, 255, 0.42); white-space: nowrap; }
+.addBtn {
+  min-width: 52px;
+  padding: 1px 7px;
+  font: inherit;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.addBtn:hover, .addBtn:focus-visible { border-color: rgba(143, 194, 255, 0.6); outline: none; }
+.addBtn.on { color: #8fc2ff; border-color: rgba(143, 194, 255, 0.45); }
+@media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
+.alertOptionsBtn[hidden] { display: none; }
+
+/* The Track tab (tracking.js): what shows in the Timers list over the game. */
+.view.track { padding-bottom: 12px; }
+.trackIntro { margin: 4px 0 10px; padding: 9px 11px; border-radius: 8px; font-size: 12.5px; line-height: 1.45; color: rgba(255, 255, 255, 0.78); background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); }
+.trackIntro.setup { background: rgba(143, 194, 255, 0.08); border-color: rgba(143, 194, 255, 0.4); }
+.trackIntro b { color: #fff; }
+.trackGroup { margin: 6px 0; border-radius: 8px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); }
+.trackGroup summary { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; font-weight: 600; font-size: 13px; }
+.tgTitle { flex: 1; }
+.tgCount { font-size: 11px; font-weight: 600; color: #8fc2ff; }
+.tgAll { font-size: 11px; }
+.trackList { list-style: none; margin: 0; padding: 0 4px 6px; }
+.trackRow { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 6px; }
+.trackRow:hover { background: rgba(255, 255, 255, 0.04); }
+.trackRow label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12.5px; }
+.trackRow.on .trName { color: #fff; font-weight: 600; }
+.trName { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255, 255, 255, 0.75); }
+.trSub { margin-left: auto; flex: none; font-size: 11px; color: rgba(255, 255, 255, 0.4); }
+.trBell { all: unset; flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; color: rgba(255, 255, 255, 0.35); cursor: pointer; }
+.trBell:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.trBell.on { color: #f2c86d; background: rgba(242, 200, 109, 0.14); }
+.trBell:disabled { opacity: 0.25; cursor: default; }
+.bossListToggle { display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 10px; padding: 8px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); cursor: pointer; }
+.bossListToggle b { display: block; font-size: 12.5px; }
+.bossListToggle small { display: block; font-size: 11.5px; color: rgba(255, 255, 255, 0.5); }
+/* In the dashboard nothing shows as icons: what is tracked is in the one
+   Timers list (bosslist.js), so the icons' settings are hidden. */
+body.hosted .iconSettings, body.hosted .placement { display: none !important; }

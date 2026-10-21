@@ -1,0 +1,25 @@
+.table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 6px 0; }
+.table th { text-align: left; font-weight: 600; color: rgba(255, 255, 255, 0.55); padding: 3px 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+.table td { padding: 3px 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-variant-numeric: tabular-nums; }
+.table .r { text-align: right; }
+.table .better { color: #9fe39f; }
+.table .worse { color: #ff9a9a; }
+.table tr.section td { color: rgba(255, 255, 255, 0.55); font-weight: 600; padding-top: 8px; }
+.table td.skill { display: flex; align-items: center; gap: 4px; }
+.table td.skill .icon { width: 18px; height: 18px; }
+.runList .item { cursor: pointer; }
+.runList .item.sel { background: rgba(143, 194, 255, 0.1); }
+.notes { align-items: flex-start; }
+textarea {
+  flex: 2;
+  font: inherit;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  color-scheme: dark;
+}
+.row select.charPick, .row select.groupPick, .row select.cmpA, .row select.cmpB { flex: 1; }
+.runState { font-variant-numeric: tabular-nums; }
+.runState.live { color: #ffb36b; }

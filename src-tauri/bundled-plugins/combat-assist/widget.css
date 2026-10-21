@@ -1,0 +1,203 @@
+/* A Combat Assist bar: square or round icons, or horizontal bars, on the
+   shared widget look (/_sdk/widget.css). */
+:root {
+  --size: 44px;
+  --ready: var(--w-gold);
+  --buff: var(--w-info);
+  --cool: rgba(4, 7, 12, 0.72);
+}
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--w-num);
+  transition: opacity 0.3s;
+}
+body.hidden { opacity: 0; }
+.bar {
+  display: flex;
+  gap: calc(var(--size) * 0.12);
+  padding: 4px;
+  cursor: grab;
+}
+body.locked .bar { cursor: default; }
+.bar.column { flex-direction: column; }
+
+.slot {
+  position: relative;
+  width: var(--size);
+  height: var(--size);
+  border-radius: calc(var(--size) * 0.2);
+  overflow: hidden;
+  background: #121926;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.6);
+  transition: filter 0.2s, transform 0.2s;
+}
+/* A hairline inside the edge, lit from above. */
+.slot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+  z-index: 3;
+}
+.shape-round .slot { border-radius: 50%; }
+.icon, .icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.icon img { object-fit: cover; }
+.icon.letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--size) * 0.42);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.78);
+  background: linear-gradient(145deg, #34476a, #161e2e);
+}
+/* The cooldown: a dark sweep over the icon, with a lit edge where it ends. */
+.sweep {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.time {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  font-size: calc(var(--size) * 0.36);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  color: #fff;
+  -webkit-text-stroke: calc(var(--size) * 0.02) rgba(0, 0, 0, 0.85);
+  paint-order: stroke fill;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+.slot.soon .time { color: var(--ready); }
+.stacks {
+  position: absolute;
+  right: calc(var(--size) * 0.06);
+  bottom: calc(var(--size) * 0.02);
+  z-index: 2;
+  font-size: calc(var(--size) * 0.3);
+  font-weight: 700;
+  color: #fff;
+  -webkit-text-stroke: calc(var(--size) * 0.02) rgba(0, 0, 0, 0.9);
+  paint-order: stroke fill;
+}
+.mark {
+  position: absolute;
+  left: calc(var(--size) * 0.06);
+  top: calc(var(--size) * 0.02);
+  z-index: 2;
+  font-size: calc(var(--size) * 0.24);
+  font-weight: 700;
+  color: var(--w-good);
+  -webkit-text-stroke: calc(var(--size) * 0.015) rgba(0, 0, 0, 0.9);
+  paint-order: stroke fill;
+}
+.slot.cooling .icon { filter: saturate(0.45) brightness(0.8); }
+.slot.dim { box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); }
+.slot.dim .icon { filter: grayscale(1) brightness(0.4); }
+.slot.dim::before { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+/* A buff's time left, as a ring that empties. */
+.slot.buff:not(.dim)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  padding: calc(var(--size) * 0.06);
+  background: conic-gradient(var(--buff) var(--left, 360deg), rgba(255, 255, 255, 0.08) 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+/* Ready: a soft gold ring that breathes. */
+.slot.glow {
+  box-shadow: 0 0 0 2px var(--ready), 0 0 14px 2px rgba(242, 200, 109, 0.55), 0 3px 10px rgba(0, 0, 0, 0.55);
+  animation: ready 1.4s ease-in-out infinite;
+}
+@keyframes ready {
+  0%, 100% { box-shadow: 0 0 0 2px var(--ready), 0 0 8px 1px rgba(242, 200, 109, 0.45), 0 3px 10px rgba(0, 0, 0, 0.55); }
+  50% { box-shadow: 0 0 0 2px var(--ready), 0 0 18px 4px rgba(242, 200, 109, 0.8), 0 3px 10px rgba(0, 0, 0, 0.55); }
+}
+.slot.ready-now { animation: pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4); }
+@keyframes pop { 0% { transform: scale(0.86); } 100% { transform: scale(1); } }
+
+/* Bars: icon, name and time over a fill, on a panel. */
+.bar.shape-bar {
+  gap: 3px;
+  padding: 5px;
+  background: var(--w-bg);
+  border: 1px solid var(--w-line);
+  border-radius: 10px;
+  box-shadow: var(--w-shadow);
+}
+.bar.shape-bar .slot {
+  width: calc(var(--size) * 4.4);
+  height: calc(var(--size) * 0.62);
+  border-radius: calc(var(--size) * 0.14);
+  display: flex;
+  align-items: center;
+  gap: calc(var(--size) * 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+}
+.bar.shape-bar .slot::before { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.bar.shape-bar .icon {
+  position: relative;
+  z-index: 1;
+  width: calc(var(--size) * 0.62);
+  height: 100%;
+  flex: none;
+}
+.bar.shape-bar .fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(242, 200, 109, 0.42), rgba(242, 200, 109, 0.16));
+  box-shadow: inset -2px 0 0 rgba(242, 200, 109, 0.9);
+}
+.bar.shape-bar .slot.ready .fill { box-shadow: none; background: linear-gradient(90deg, rgba(242, 200, 109, 0.3), rgba(242, 200, 109, 0.1)); }
+.bar.shape-bar .buff .fill {
+  background: linear-gradient(90deg, rgba(124, 196, 255, 0.45), rgba(124, 196, 255, 0.14));
+  box-shadow: inset -2px 0 0 rgba(124, 196, 255, 0.95);
+}
+.bar.shape-bar .name {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  font-family: var(--w-font);
+  font-size: calc(var(--size) * 0.27);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+.bar.shape-bar .time {
+  position: relative;
+  inset: auto;
+  padding-right: calc(var(--size) * 0.16);
+  font-size: calc(var(--size) * 0.3);
+  -webkit-text-stroke: 0;
+}
+.bar.shape-bar .stacks { right: auto; left: calc(var(--size) * 0.42); }
+.bar.shape-bar .slot.buff::after { display: none; }
+.bar.shape-bar .slot.glow { animation: none; box-shadow: inset 0 0 0 1px rgba(242, 200, 109, 0.7); }
+.bar.shape-bar .slot.dim { opacity: 0.55; }

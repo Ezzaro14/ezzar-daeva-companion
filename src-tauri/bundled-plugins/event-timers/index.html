@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Event Timers</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="alertBox">
+      <div class="banner" role="alert" hidden>
+        <div class="bannerText"></div>
+        <button type="button" class="mute">Mute</button>
+        <button type="button" class="dismiss" aria-label="Dismiss">×</button>
+      </div>
+      <button type="button" class="btn openFull" hidden>Open Event Timers</button>
+    </div>
+    <div class="controls">
+      <div class="status"></div>
+      <div class="resets"></div>
+      <div class="chips tabs" role="tablist">
+        <button type="button" class="tab" data-tab="track" role="tab">Track</button>
+        <button type="button" class="tab" data-tab="events" role="tab">Events</button>
+        <button type="button" class="tab" data-tab="bosses" role="tab">Bosses</button>
+        <button type="button" class="tab" data-tab="alerts" role="tab">Alerts</button>
+        <button type="button" class="tab" data-tab="settings" role="tab">Settings</button>
+      </div>
+    </div>
+    <section class="view track" hidden></section>
+    <section class="view events">
+      <ol class="list eventList"></ol>
+      <div class="hidden"></div>
+    </section>
+    <section class="view bosses" hidden>
+      <h2 class="group scheduledHead"><button type="button" class="foldBtn" data-fold="scheduled" aria-expanded="true" aria-controls="scheduledList"><svg class="chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span class="foldLabel">Scheduled bosses</span></button></h2>
+      <ol class="list scheduledList" id="scheduledList"></ol>
+      <h2 class="group fieldHead"><button type="button" class="foldBtn" data-fold="field" aria-expanded="true" aria-controls="fieldList"><svg class="chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><span class="foldLabel">World bosses</span></button></h2>
+      <p class="note fieldNote"></p>
+      <ol class="list fieldList" id="fieldList"></ol>
+      <p class="note fieldCredit" hidden>World boss data: <a href="https://www.aion2timers.com">Aion 2 Timers</a></p>
+    </section>
+    <section class="view alerts" hidden>
+      <button type="button" class="btn alertOptionsBtn" hidden>Config</button>
+      <ol class="alertList"></ol>
+    </section>
+    <section class="view settings" hidden>
+      <div class="alertSettings">
+        <h2 class="group alertDefaults"><span class="defaultsHead"></span></h2>
+        <label class="setting"><span class="soundLabel">Sound</span> <select class="sound"></select></label>
+        <label class="setting"><span class="repeatLabel">Repeat</span> <select class="repeat"></select></label>
+        <label class="setting colorRow"><span class="colorLabel">Alert colour</span> <select class="colorSelect"></select></label>
+        <div class="defaultsBox">
+          <div class="defaultsNote">Default times for new alerts</div>
+          <label class="setting"><span class="defaultLeadLabel">While AION2 is open</span> <select class="defaultLead"></select></label>
+          <label class="setting"><span class="defaultClosedLabel">While AION2 is closed</span> <select class="defaultClosed"></select></label>
+          <div class="defaultsFoot"><button type="button" class="linkBtn applyAll">Apply to current alerts</button></div>
+        </div>
+        <label class="setting popRow alsoAtStartRow"><span class="alsoAtStartLabel">Also alert as it starts</span> <input type="checkbox" class="alsoAtStart switch" role="switch" /></label>
+        <label class="setting popRow"><span class="popLabel">Keep this window hidden until an alert goes off</span> <input type="checkbox" class="pop switch" role="switch" /></label>
+        <p class="note popNote" hidden>The window hides after 30 seconds without use, and comes back on its own when an alert goes off. To open it before then: Settings → Plugins → Open.</p>
+        <button type="button" class="btn testAlert">Test Alert</button>
+      </div>
+      <h2 class="group displayHead">Time and display</h2>
+      <label class="setting"><span class="regionLabel">Region</span> <select class="regionSelect"></select></label>
+      <label class="setting"><span class="zoneLabel">Show times in</span> <select class="zoneSelect"></select></label>
+      <label class="setting"><span class="scaleLabel">Text size</span> <select class="scaleSelect"></select></label>
+    </section>
+    <div class="modal" role="dialog" aria-modal="true" hidden>
+      <div class="modalBox">
+        <p class="modalText"></p>
+        <div class="modalButtons">
+          <button type="button" class="modalNo">Cancel</button>
+          <button type="button" class="modalYes">Apply</button>
+        </div>
+      </div>
+    </div>
+    <script src="/_sdk/a2.js"></script>
+    <script src="schedule.js"></script>
+    <script src="sounds.js"></script>
+    <script src="plugin.js"></script>
+    <script src="pins.js"></script>
+    <script src="anchor.js"></script>
+    <script src="siege.js"></script>
+    <script src="tracking.js"></script>
+    <script src="bosslist.js"></script>
+  </body>
+</html>

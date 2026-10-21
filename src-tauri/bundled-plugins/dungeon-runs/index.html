@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dungeon Runs</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="records.css" />
+  </head>
+  <body>
+    <header class="top">
+      <span class="status">Not in a dungeon</span>
+    </header>
+    <nav class="chips" role="tablist">
+      <button type="button" data-tab="current" aria-selected="true">This run</button>
+      <button type="button" data-tab="past" aria-selected="false">Past runs</button>
+    </nav>
+
+    <section class="view current">
+      <div class="runView currentRun"></div>
+      <p class="note empty currentEmpty">Enter a dungeon: its boss fights and each member's numbers add up here.</p>
+    </section>
+
+    <section class="view past" hidden>
+      <ul class="runList"></ul>
+      <p class="note empty pastEmpty">A run is kept when you leave the dungeon after at least one boss fight.</p>
+      <div class="pastDetail" hidden>
+        <div class="row">
+          <button type="button" class="btn back">← Runs</button>
+          <button type="button" class="btn danger deleteRun">Delete</button>
+        </div>
+        <div class="runView pastRun"></div>
+      </div>
+    </section>
+
+    <script src="/_sdk/a2.js"></script>
+    <script src="classes.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

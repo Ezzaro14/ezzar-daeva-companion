@@ -1,0 +1,20 @@
+{
+  "id": "ping",
+  "name": "Ping",
+  "version": "0.1.0",
+  "apiVersion": 2,
+  "author": "A2 Tools",
+  "description": "Your ping to the game server in a small widget you can drag anywhere and lock in place, coloured by how good it is.",
+  "permissions": [
+    "storage",
+    "window",
+    "widgets"
+  ],
+  "decoders": [],
+  "ui": {
+    "panel": {
+      "width": 320,
+      "height": 400
+    }
+  }
+}

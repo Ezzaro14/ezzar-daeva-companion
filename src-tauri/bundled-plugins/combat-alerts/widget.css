@@ -1,0 +1,62 @@
+/* A Combat Alerts notice, on the shared widget look (/_sdk/widget.css):
+   the effect's icon, what it is, and a big countdown, with a time bar
+   along the bottom. */
+:root { --scale: 1; }
+body { display: flex; align-items: center; justify-content: center; }
+body.loc { --w-accent: var(--w-warn); }
+body.debuff { --w-accent: var(--w-bad); }
+.notice {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  column-gap: calc(12px * var(--scale));
+  min-width: calc(250px * var(--scale));
+  max-width: calc(100vw - 8px);
+  padding: calc(9px * var(--scale)) calc(16px * var(--scale)) calc(12px * var(--scale)) calc(12px * var(--scale));
+  border-color: color-mix(in srgb, var(--w-accent) 45%, transparent);
+  box-shadow: var(--w-shadow), 0 0 24px color-mix(in srgb, var(--w-accent) 28%, transparent);
+  cursor: grab;
+  overflow: hidden;
+  animation: w-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+body.locked .notice { cursor: default; }
+/* Off: gone, unless being placed (a sample to drag). */
+body.off:not(.placing) .notice { visibility: hidden; }
+body.off.placing .notice { opacity: 0.6; animation: none; }
+.slot { width: calc(46px * var(--scale)); height: calc(46px * var(--scale)); border-radius: calc(9px * var(--scale)); }
+.slot { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 0 1px color-mix(in srgb, var(--w-accent) 50%, transparent), 0 2px 8px rgba(0, 0, 0, 0.5); }
+.icon, .icon img { display: block; width: 100%; height: 100%; }
+.icon.letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: calc(20px * var(--scale));
+  background: color-mix(in srgb, var(--w-accent) 30%, #111);
+}
+.text { min-width: 0; }
+.kicker { font-size: calc(10px * var(--scale)); color: var(--w-accent); opacity: 0.9; white-space: nowrap; }
+.label {
+  font-size: calc(20px * var(--scale));
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.detail {
+  margin-top: 1px;
+  font-size: calc(12px * var(--scale));
+  color: var(--w-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.big {
+  font-size: calc(28px * var(--scale));
+  font-weight: 700;
+  color: var(--w-accent);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--w-accent) 45%, transparent);
+}
+.big:empty { display: none; }
+.track { position: absolute; left: 0; right: 0; bottom: 0; height: calc(3px * var(--scale)); border-radius: 0; background: rgba(255, 255, 255, 0.06); }

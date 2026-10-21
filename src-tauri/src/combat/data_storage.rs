@@ -5,6 +5,7 @@ use std::sync::Arc;
 use parking_lot::{Mutex, RwLock};
 
 use crate::capture::abnormal;
+use crate::combat::combat_feed::{self, CombatFeed};
 
 use crate::entity::damage_packet::ParsedDamagePacket;
 use crate::entity::job_class::JobClass;
@@ -494,6 +495,9 @@ pub struct DataStorage {
     /// yet. Its own lock: it is fed every packet, and nothing here needs it
     /// together with `inner`.
     abnormals: Mutex<AbnormalLog>,
+    /// What the bundled overlays read (`combat_feed`). Never locked while
+    /// `inner` or `abnormals` is held.
+    combat_feed: CombatFeed,
 }
 
 /// The timeline and when it was last pruned.
@@ -808,6 +812,7 @@ impl DataStorage {
             combat_reset_requested: AtomicBool::new(false),
             before_reset: RwLock::new(None),
             abnormals: Mutex::new(AbnormalLog { timeline: abnormal::Timeline::default(), pruned_ms: NEVER_MS }),
+            combat_feed: CombatFeed::default(),
         }
     }
 
@@ -820,6 +825,7 @@ impl DataStorage {
     /// Hand one framed packet to the buff timeline, at the current time.
     pub fn note_abnormal_packet(&self, packet: &[u8]) {
         let ms = now_ms();
+        self.feed_abnormal(packet, ms);
         let mut log = self.abnormals.lock();
         // A replay's clock can jump back, to another capture: prune again.
         if ms >= log.pruned_ms.saturating_add(ABNORMAL_PRUNE_EVERY_MS) || ms < log.pruned_ms {
@@ -1369,6 +1375,7 @@ impl DataStorage {
     }
 
     pub fn append_damage(&self, pdp: ParsedDamagePacket) {
+        self.feed_hit(&pdp);
         let mut inner = self.inner.write();
         let skill_code = pdp.skill_code();
         let actor_id = pdp.actor_id();
@@ -1501,6 +1508,7 @@ impl DataStorage {
     /// already has damage on this target, so no target or meter row appears
     /// and no total, hit count or fight time moves. False when not counted.
     pub fn append_no_damage_hit(&self, target_id: i32, actor_id: i32, skill_code: i32, kind: NoDamageHit) -> bool {
+        self.feed_cast(actor_id, skill_code, now_ms());
         let mut inner = self.inner.write();
         let Some(actor) = inner.target_combat.get_mut(&target_id).and_then(|t| t.actors.get_mut(&actor_id)) else {
             return false;
@@ -2194,6 +2202,9 @@ impl DataStorage {
         if amount <= 0 || !self.is_plausible_entity_id(actor_id) {
             return;
         }
+        if !is_hot {
+            self.feed_cast(actor_id, skill_code, timestamp);
+        }
         let mut inner = self.inner.write();
         let e = inner
             .heal_storage
@@ -2674,6 +2685,147 @@ fn scope_leader(inner: &Inner) -> Option<i32> {
     (n >= MIN_RECORDS && n >= LEAD * second.max(1)).then_some(id)
 }
 
+/// The combat feed's hooks and what it reads (`combat_feed`).
+impl DataStorage {
+    pub fn combat_feed(&self) -> &CombatFeed {
+        &self.combat_feed
+    }
+
+    /// One damage or heal record, for the feed: only those by or on you.
+    fn feed_hit(&self, pdp: &ParsedDamagePacket) {
+        if owner_link(pdp.skill_code(), pdp.actor_id(), pdp.target_id()).is_some() {
+            return;
+        }
+        let hit = {
+            let inner = self.inner.read();
+            let Some(me) = inner.local_player_id.and_then(|id| i32::try_from(id).ok()) else { return };
+            let actor = summon_resolver::resolve(pdp.actor_id(), &inner.summon_storage);
+            let target = summon_resolver::resolve(pdp.target_id(), &inner.summon_storage);
+            if actor != me && target != me {
+                return;
+            }
+            let player = |id: i32| !inner.mob_storage.contains_key(&id) && inner.known_player_ids.contains(&id);
+            combat_feed::Hit {
+                ms: pdp.timestamp(),
+                me: Some(me),
+                actor,
+                target,
+                // A player's first hit comes before they are known as one.
+                actor_is_player: player(actor)
+                    || (!inner.mob_storage.contains_key(&actor) && is_player_skill(pdp.skill_code())),
+                target_is_player: player(target),
+                skill: pdp.skill_code(),
+                damage: pdp.total_damage() as i64,
+                dot: pdp.is_dot(),
+                target_is_dummy: inner.training_dummy_ids.contains(&target),
+                crit: pdp.specials().contains(&SpecialDamage::Critical),
+                back: pdp.specials().contains(&SpecialDamage::Back),
+                perfect: pdp.specials().contains(&SpecialDamage::Perfect),
+                double: pdp.specials().contains(&SpecialDamage::Double),
+            }
+        };
+        self.combat_feed.note_hit(hit);
+    }
+
+    /// A cast that did no damage (a miss, a heal), if it is yours.
+    fn feed_cast(&self, actor_id: i32, skill_code: i32, ms: i64) {
+        let me = self.local_player_id().and_then(|id| i32::try_from(id).ok());
+        if me == Some(actor_id) {
+            self.combat_feed.note_cast(me, skill_code, ms);
+        }
+    }
+
+    /// An abnormal you applied with a skill: a cast of it.
+    fn feed_abnormal(&self, packet: &[u8], ms: i64) {
+        let len = crate::capture::stream_processor::read_varint(packet, 0).length;
+        let op = packet.get(len as usize..len as usize + 2);
+        if len <= 0 || (op != Some(&abnormal::ADDED[..]) && op != Some(&abnormal::CHANGED[..])) {
+            return;
+        }
+        let record = abnormal::parse(packet);
+        if let Some(abnormal::Record::Added(a)) = &record {
+            if let Some(skill) = a.skill.and_then(|s| i32::try_from(s).ok()) {
+                self.feed_cast(a.caster, skill, ms);
+            }
+        }
+        // The record ends with its caster's position: x, y, z.
+        if let Some(abnormal::Record::Added(a) | abnormal::Record::Changed(a)) = &record
+            && packet.len() >= 12
+        {
+            let f = |at: usize| f32::from_le_bytes(packet[at..at + 4].try_into().unwrap_or_default());
+            let at = packet.len() - 12;
+            self.combat_feed.note_position(a.caster, f(at), f(at + 4), f(at + 8), ms);
+        }
+    }
+
+    /// The abnormals on now, as the buff timeline holds them.
+    pub fn live_abnormals(&self) -> Vec<abnormal::Instance> {
+        self.abnormals.lock().timeline.live().cloned().collect()
+    }
+
+    /// Your party's members that have an entity here: (entity, name, class).
+    pub fn party_entities(&self) -> Vec<(i32, String, Option<JobClass>)> {
+        let inner = self.inner.read();
+        let me = inner.local_player_id.and_then(|id| i32::try_from(id).ok());
+        let mut out: Vec<(i32, String, Option<JobClass>)> = Vec::new();
+        for name in inner.party_members.keys() {
+            let id = inner
+                .nickname_storage
+                .iter()
+                .filter(|(id, n)| n.as_str() == name && Some(**id) != me)
+                .map(|(id, _)| *id)
+                .max();
+            if let Some(id) = id {
+                out.push((id, name.clone(), inner.actor_jobs.get(&id).copied()));
+            }
+        }
+        out.sort_by_key(|(id, _, _)| *id);
+        out
+    }
+
+    /// The map you are on, 0 when no map load has been seen.
+    pub fn current_map(&self) -> i32 {
+        self.inner.read().current_map_id.unwrap_or(0)
+    }
+
+    /// The last HP a record gave for an entity.
+    pub fn last_hp(&self, id: i32) -> Option<i32> {
+        self.inner.read().last_hp.get(&id).copied()
+    }
+
+    /// The players this session has seen with a home server: (name, server,
+    /// class if known), your party first. The progression guide compares you
+    /// with the strongest of your class among them.
+    pub fn seen_players(&self) -> Vec<(String, u16, Option<JobClass>)> {
+        let inner = self.inner.read();
+        let class_of = |name: &str| {
+            inner
+                .nickname_storage
+                .iter()
+                .filter(|(_, n)| n.as_str() == name)
+                .find_map(|(id, _)| inner.actor_jobs.get(id).copied())
+        };
+        let mut out: Vec<(String, u16, Option<JobClass>)> = inner
+            .party_members
+            .iter()
+            .chain(inner.former_party_members.iter())
+            .filter(|(_, m)| m.server_id > 0)
+            .map(|(name, m)| (name.clone(), m.server_id, m.job.or_else(|| class_of(name))))
+            .collect();
+        for (name, &server) in &inner.player_servers {
+            if server > 0 && !out.iter().any(|(n, _, _)| n == name) {
+                out.push((name.clone(), server, class_of(name)));
+            }
+        }
+        out
+    }
+
+    /// How often `id` died since `from_ms`.
+    pub fn deaths_since(&self, id: i32, from_ms: i64) -> u32 {
+        self.inner.read().death_log.iter().filter(|d| d.0 == id && d.1 >= from_ms).count() as u32
+    }
+}
+
 /// For diagnostics and tests: who `scope_leader` would pick now.
 impl DataStorage {
     pub fn party_scope_leader(&self) -> Option<i32> {
@@ -2950,6 +3102,38 @@ fn is_mob(inner: &Inner, id: i32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_buff_ticking_on_you_moves_you_on_the_map() {
+        // Light of Protection, restarted each second as you walk (2026-10-21):
+        // the server's only word on where you are, between buffs gained.
+        let storage = DataStorage::new();
+        storage.set_local_player_id(Some(2711));
+        let h = "322b3897151332f38e600ae204000000000000c66d0260a101000097150ae5a709010227a720c886e5d2c7caa60f47";
+        let packet: Vec<u8> = (0..h.len()).step_by(2).map(|i| u8::from_str_radix(&h[i..i + 2], 16).unwrap()).collect();
+        let data = crate::combat::combat_feed::FeedData::default();
+        let positions = || {
+            storage.combat_feed().snapshot(crate::clock::now_ms(), &crate::combat::combat_feed::SnapshotContext {
+                me: Some(2711),
+                data: &data,
+                party: &[],
+                abnormals: &[],
+                dungeon_id: 0,
+                map_id: 1110,
+                mob_code_of: &|_| None,
+                name_of: &|_| None,
+                hp_of: &|_| None,
+                dead: &|_| false,
+                deaths_of_me: &|_| 0,
+            })
+            .positions
+        };
+        assert!(positions().is_empty());
+        storage.note_abnormal_packet(&packet);
+        let p = positions();
+        assert_eq!(p.len(), 1);
+        assert_eq!((p[0].kind, p[0].x.round(), p[0].y.round()), ("me", -164509.0, -107979.0));
+    }
 
     #[test]
     fn your_own_and_a_known_players_hp_log_deaths_and_a_strangers_does_not() {

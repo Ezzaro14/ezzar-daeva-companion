@@ -1,0 +1,11 @@
+{
+  "id": "combat-alerts",
+  "name": "Combat Alerts",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "author": "aion2-tool",
+  "description": "A notice over your character while you are stunned, asleep, feared or knocked down, with the time left; and an alert when enemies put the same debuff on several party members, to time a cleanse.",
+  "permissions": ["storage", "window", "widgets", "feed:combat"],
+  "decoders": [],
+  "ui": { "panel": { "width": 420, "height": 600 } }
+}

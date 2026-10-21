@@ -94,6 +94,7 @@ impl FightHistoryManager {
             .map_err(|e| format!("Write error: {}", e))?;
         self.invalidate();
         info!("Fight saved: {}", record.id);
+        crate::plugins::bundled::fight_saved(record);
         self.prune(MAX_HISTORY_FIGHTS);
         Ok(())
     }

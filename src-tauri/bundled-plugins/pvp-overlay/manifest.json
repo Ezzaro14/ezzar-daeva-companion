@@ -1,0 +1,11 @@
+{
+  "id": "pvp-overlay",
+  "name": "PvP Overlay",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "author": "aion2-tool",
+  "description": "The players you fight, with the damage you dealt them and took from them, their HP and class, the ones you defeated, and each session saved with its kills, deaths and biggest burst.",
+  "permissions": ["storage", "window", "widgets", "feed:combat"],
+  "decoders": [],
+  "ui": { "panel": { "width": 460, "height": 620 } }
+}

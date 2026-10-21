@@ -1,0 +1,16 @@
+.stats { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 8px; font-size: 12px; }
+.stats b { font-variant-numeric: tabular-nums; color: #fff; }
+.opponents .item { cursor: pointer; flex-wrap: wrap; }
+.opponents .item.killed .grow { text-decoration: line-through; color: rgba(255, 255, 255, 0.5); }
+.cls { width: 22px; height: 22px; flex: none; }
+.cls img { width: 100%; height: 100%; }
+.num { font-variant-numeric: tabular-nums; font-size: 12px; min-width: 52px; text-align: right; }
+.num.dealt, .legend .dealt { color: #ffb36b; }
+.num.taken, .legend .taken { color: #8fc2ff; }
+.skills { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; font-size: 11px; padding: 4px 0 2px 28px; }
+.skills h4 { margin: 2px 0; font-size: 11px; font-weight: 600; color: rgba(255, 255, 255, 0.55); }
+.skills div { display: flex; justify-content: space-between; gap: 6px; color: rgba(255, 255, 255, 0.75); }
+.skills span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart { width: 100%; height: 140px; background: rgba(255, 255, 255, 0.03); border-radius: 6px; }
+.legend { font-size: 11px; margin: 2px 0 6px; }
+.badge { font-size: 10px; padding: 0 5px; border-radius: 999px; background: rgba(255, 107, 139, 0.2); color: #ff8fa6; }

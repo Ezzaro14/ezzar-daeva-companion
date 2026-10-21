@@ -1,0 +1,11 @@
+{
+  "id": "combat-assist",
+  "name": "Combat Assist",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "author": "aion2-tool",
+  "description": "Skills and buffs you pick, on bars you place anywhere over the game: cooldowns counting down, buffs with their time left and stacks, and a glow when a skill is ready.",
+  "permissions": ["storage", "window", "widgets", "feed:combat"],
+  "decoders": [],
+  "ui": { "panel": { "width": 440, "height": 600 } }
+}

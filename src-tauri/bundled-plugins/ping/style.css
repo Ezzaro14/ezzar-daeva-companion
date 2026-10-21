@@ -1,0 +1,50 @@
+html, body {
+  margin: 0;
+  background: transparent;
+  color: #e9f0f8;
+  font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
+}
+body { padding: 12px 14px 14px; }
+.now {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.now .label { color: rgba(233, 240, 248, 0.7); }
+.now .value {
+  font-family: "Bahnschrift", "Segoe UI", sans-serif;
+  font-variation-settings: "wght" 600, "wdth" 87.5;
+  font-weight: 600;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.value[data-state="good"] { color: #5fd08a; }
+.value[data-state="fair"] { color: #f2b94f; }
+.value[data-state="poor"] { color: #ef6262; }
+.value[data-state="none"] { color: rgba(233, 240, 248, 0.5); }
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 32px;
+}
+.note {
+  margin: -2px 0 6px;
+  font-size: 12px;
+  color: rgba(233, 240, 248, 0.6);
+}
+select, input[type="number"] {
+  font: inherit;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+input[type="number"] { width: 64px; text-align: right; }
+.num { color: rgba(233, 240, 248, 0.7); }
+input[type="checkbox"] { width: 16px; height: 16px; accent-color: #5fbf87; }
