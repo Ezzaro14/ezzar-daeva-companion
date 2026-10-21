@@ -126,7 +126,7 @@ fn run(app: tauri::AppHandle) {
             continue;
         }
 
-        let mut assets = Assets::new().small_image("a2tools").small_text("A2Tools DPS Meter");
+        let mut assets = Assets::new().small_image("a2tools").small_text(crate::fork::APP_NAME);
         // The image's hover text is the class with its level ("Cleric · Lv
         // 30"): the line beside it adds the name.
         if let Some(key) = next.class_key {

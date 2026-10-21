@@ -16,7 +16,7 @@ use secret_service::EncryptionType;
 use crate::platform::UnsealError;
 
 const REFERENCE: &[u8] = b"secret-service:";
-const APPLICATION: &str = "a2tools-dps-meter";
+const APPLICATION: &str = crate::fork::BINARY;
 
 /// Whether a keyring answers on this desktop. Without one (no KWallet or
 /// GNOME Keyring running) the token is not kept, rather than kept in the clear.
@@ -94,7 +94,7 @@ pub fn protect(plaintext: &[u8], entropy: &[u8]) -> Result<Vec<u8>, String> {
     let collection = collection(&ss)?;
     let id = new_id();
     if let Err(e) = collection.create_item(
-        "A2Tools DPS Meter account",
+        "Ezzar's Daeva Companion: A2 Tools account",
         attributes(entropy, &id),
         plaintext,
         true,

@@ -1,5 +1,7 @@
 (() => {
-  const CDN_MANIFEST = "https://a2tools.app/latest-v2.json";
+  // Ezzar's Daeva Companion is a fork: A2Tools' releases are not its updates,
+  // and installing one would replace it. No feed of its own yet, so no check.
+  const CDN_MANIFEST = "";
   const START_DELAY = 800,
     RETRY = 500,
     LIMIT = 5;
@@ -21,6 +23,7 @@
   // is out: declined, or this install's package manager updates it),
   // "current" or "failed". `latest`: the newest version, when known.
   const check = async () => {
+    if (!CDN_MANIFEST) return { state: "current" };
     // Wait for the bridge AND for the async version fetch to complete
     for (
       let i = 0;

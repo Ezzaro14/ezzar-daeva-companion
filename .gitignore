@@ -67,3 +67,9 @@ settings.properties
 
 # Never commit a signing key.
 *.pem
+
+# Packages built by packaging/linux/build-rpm.sh
+/out
+
+# The World Map built from your own saved map files (tools/world_map_local.cjs): personal, never committed.
+/src-tauri/bundled-plugins/world-map/local/

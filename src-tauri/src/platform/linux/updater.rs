@@ -9,7 +9,7 @@ use std::process::{Command, Stdio};
 
 use crate::platform::UpdatePackages;
 
-const INSTALLED_BINARY: &str = "/usr/bin/a2tools-dps-meter";
+const INSTALLED_BINARY: &str = "/usr/bin/daeva-companion";
 
 /// The package manager that owns the installed meter, and how it installs a
 /// downloaded package file.

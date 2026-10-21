@@ -7,7 +7,7 @@ edition = "2024"
 # Required because this crate declares more than one binary: without it
 # `cargo run` (and therefore `npm run tauri dev`) cannot tell which one is the
 # app and refuses to start.
-default-run = "a2tools-dps-meter"
+default-run = "daeva-companion"
 
 [lib]
 name = "a2tools_dps_meter_lib"
@@ -46,6 +46,9 @@ desktop = [
     "dep:tauri-plugin-opener",
     "dep:tauri-plugin-process",
     "dep:tauri-plugin-single-instance",
+    "dep:tauri-plugin-clipboard-manager",
+    "dep:tauri-plugin-notification",
+    "dep:tauri-plugin-dialog",
     "dep:libloading",
     "dep:tokio",
     "dep:tracing-subscriber",
@@ -64,7 +67,7 @@ desktop = [
 # Both binaries are declared rather than left to auto-discovery, so adding the
 # second one cannot quietly change which target `tauri build` bundles.
 [[bin]]
-name = "a2tools-dps-meter"
+name = "daeva-companion"
 path = "src/main.rs"
 required-features = ["desktop"]
 
@@ -75,7 +78,7 @@ required-features = ["desktop"]
 # Linux global hotkeys, in a process without the meter's capture permission
 # (platform::linux::hotkeys). Packaged next to the meter, never given caps.
 [[bin]]
-name = "a2tools-hotkeys"
+name = "daeva-companion-hotkeys"
 path = "tools/a2t_hotkeys.rs"
 required-features = ["desktop"]
 
@@ -107,6 +110,12 @@ tauri = { version = "2", features = [], optional = true }
 tauri-plugin-opener = { version = "2", optional = true }
 tauri-plugin-process = { version = "2", optional = true }
 tauri-plugin-single-instance = { version = "2", optional = true }
+# Text to the clipboard for the bundled plugins (plugins::bundled).
+tauri-plugin-clipboard-manager = { version = "2", optional = true }
+# Desktop notifications for plugins' alerts while AION2 is closed (plugins::bundled).
+tauri-plugin-notification = { version = "2", optional = true }
+# File pickers for the World Map's screenshots and marker files (plugins::bundled).
+tauri-plugin-dialog = { version = "2", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 libloading = { version = "0.8", optional = true }

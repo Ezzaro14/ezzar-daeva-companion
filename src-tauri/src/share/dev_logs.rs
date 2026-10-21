@@ -48,6 +48,11 @@ pub fn newest_captures(app_data_dir: &Path) -> Vec<PathBuf> {
 }
 
 pub async fn send(client: &reqwest::Client, app_data_dir: &Path) -> Result<SendResult, String> {
+    // A fork's logs are not the A2Tools developers' to read.
+    if !crate::fork::SENDS_DEV_LOGS {
+        let _ = (client, app_data_dir);
+        return Err(format!("{} is a fork of the A2Tools DPS Meter: its logs are not sent to the A2Tools developers", crate::fork::APP_NAME));
+    }
     let paths = newest_captures(app_data_dir);
     if paths.is_empty() {
         return Err("There are no packet logs to send. Turn on packet logging, play until \

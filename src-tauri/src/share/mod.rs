@@ -937,6 +937,9 @@ pub async fn upload_detailed(
         "uploaderActorId": meta.uploader_actor_id,
         "fightStartMs": record.start_time_ms,
         "appVersion": crate::entity::fight_record::APP_VERSION,
+        // Not the A2Tools meter: a fork names itself (docs/third-party-meters.md).
+        "client": crate::fork::CLIENT,
+        "clientVersion": crate::entity::fight_record::APP_VERSION,
         // Korea and Taiwan number their servers alike (10xx/20xx), so the
         // slice cannot say which a fight was on; these two settle it. See
         // `region_hints`.

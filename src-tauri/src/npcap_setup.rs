@@ -47,10 +47,10 @@ fn texts(data_dir: Option<&Path>, lang: &str) -> Texts {
             .unwrap_or_else(|| fallback.to_string())
     };
     Texts {
-        title: "A2Tools DPS Meter".into(),
+        title: crate::fork::APP_NAME.into(),
         ask: text(
             "ask",
-            "A2Tools DPS Meter needs Npcap to read the game's network traffic, and Npcap is missing or not working.\n\n\
+            "Ezzar's Daeva Companion needs Npcap to read the game's network traffic, and Npcap is missing or not working.\n\n\
              Install it now? The meter downloads Npcap's installer from npcap.com and opens it. Once Npcap is \
              installed, the meter starts capturing by itself.\n\n\
              Choose No to install it yourself from https://npcap.com/#download",

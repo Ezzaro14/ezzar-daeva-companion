@@ -3,12 +3,12 @@
     "linux": {
       "deb": {
         "files": {
-          "/usr/bin/a2tools-hotkeys": "target/release/a2tools-hotkeys"
+          "/usr/bin/daeva-companion-hotkeys": "target/release/daeva-companion-hotkeys"
         }
       },
       "rpm": {
         "files": {
-          "/usr/bin/a2tools-hotkeys": "target/release/a2tools-hotkeys"
+          "/usr/bin/daeva-companion-hotkeys": "target/release/daeva-companion-hotkeys"
         }
       }
     }

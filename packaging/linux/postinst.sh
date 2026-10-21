@@ -6,10 +6,10 @@
 # the same in packaging/arch/a2tools-dps-meter.install; the .rpm declares it in
 # the package instead (packaging/linux/a2-tools-dps-meter.spec).
 
-BIN=/usr/bin/a2tools-dps-meter
+BIN=/usr/bin/daeva-companion
 
 if setcap cap_net_raw=ep "$BIN" 2>/dev/null; then
-  echo "A2Tools DPS Meter may now capture packets."
+  echo "Ezzar's Daeva Companion may now capture packets."
 else
   echo "Could not grant packet-capture permission. Run:"
   echo "    sudo setcap cap_net_raw=ep $BIN"

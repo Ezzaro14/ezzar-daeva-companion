@@ -1,163 +1,133 @@
-# A2Tools DPS Meter
+# Ezzar's Daeva Companion
 
-[![License](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
-[![GitHub Issues](https://img.shields.io/github/issues/taengu/A2Tools-DPS-Meter)](https://github.com/taengu/A2Tools-DPS-Meter/issues)
-[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/taengu/A2Tools-DPS-Meter)](https://github.com/taengu/A2Tools-DPS-Meter/pulls)
+An AION 2 DPS meter with combat overlays for **Windows and Linux**: the functions of Questlog's desktop app (Windows only), built on the open-source [A2Tools DPS Meter](https://github.com/taengu/A2Tools-DPS-Meter).
 
-Real-time DPS meter overlay for AION 2. Captures game network packets to display damage, skills, and combat statistics.
+It reads a copy of the game's network traffic (Npcap on Windows, libpcap on Linux). It never touches the game's files or memory. On Linux it runs natively while AION 2 runs under Proton.
 
-The **[AION 2 DPS Meter website, a2tools.app](https://a2tools.app)** has the download, shared fight logs, leaderboards and class stats.
+## One dashboard, one overlay
 
-**[Download Latest Release](https://github.com/taengu/A2Tools-DPS-Meter/releases)** | **[A2Tools.app](https://a2tools.app)**
+Everything is in one **dashboard** window (it opens with the app; the meter's header has a button for it too): a sidebar with every module, and at the top one set of controls for everything on screen.
 
-[한국어](README_KO.md) | [简体中文](README_ZH.md) | [繁體中文](README_ZH-TW.md)
+- **One overlay.** Every bar, alert, timer and popup is drawn in a single transparent window over the game, on the game's screen. On KDE it follows the game to whichever screen it is on (a KWin script places it, and keeps it and the meter off the taskbar); elsewhere the app places it. Pick a screen yourself under **Overlay → Screen**.
+- **Edit layout** dims the screen, shows a sample of every alert with its name, and lets you drag anything into place; things snap to a grid and to the screen's middle. **Done** on the screen ends it, and **Reset layout** puts everything back where it started.
+- **Lock** (on from the start, and **Ctrl+Alt+L** with global hotkeys on) lets every click through to the game; unlocked, only the widgets themselves take clicks, never the space around them. **Hide all** hides the meter and the overlay.
+- **Timers:** what you track (world bosses, Abyss bosses, events) sits in one list on the overlay, showing only what is up or starts within 30 minutes (the rest, "3 later", when you click it open, even while locked). Nothing else shows: no icon per timer. You pick what to track on Event Timers' **Track** tab; each tracked one gets a popup a few minutes before it starts (its bell turns that off).
+- **Setup guide:** on first start the dashboard walks through the app a step at a time (your screen and modules, what to track, cooldown bars, alerts, the map, your character, your routine, placing things). It's on Home to run again.
+- Closing the dashboard only hides it: the modules keep running, and their overlays and alerts with them. **Notices** shows every module's alert as a popup over the game, such as a Spacetime Rift about to open or a world boss due.
 
-## Features
+## What it does
 
-- Real-time DPS tracking with per-player breakdown
-- Skill-level damage analysis with crit, back attack, parry, double, and perfect rates, plus optional block, perfect block, endurance, regeneration, miss and resist columns
-- DOT (damage over time) tracking
-- Summon damage merged with owner
-- Multiple target selection modes (Boss, Last Hit, All Targets, Train)
-- DPS chart and timeline visualization
-- Battle history with auto-save for boss fights
-- Ping monitoring
-- Ten languages: English, Korean, Chinese (Traditional and Simplified), Japanese, German, French, Spanish, Portuguese and Russian
-- Always-on-top transparent overlay
-- Themes and customization
-- Stream overlay for OBS on another PC: add the meter as a Browser Source, and choose the name shown for you
-- Fight uploads to [a2tools.app](https://a2tools.app/logs): a link to share, leaderboards and class stats
-- Windows and Linux ([Linux guide](docs/linux.md))
+| Questlog feature | Here | Where |
+|---|---|---|
+| DPS meter: party ranking, share, crit; per-skill details; targets (all, bosses, current) | ✅ | The meter (upstream) |
+| Meter scope: just you, your party, everyone | ✅ | Settings → Show on the meter |
+| Meter in the app's look, hidden out of combat | ✅ | Settings → Appearance (Daeva Companion theme, the default); Settings → Hide out of combat |
+| Combat Assist: skill cooldowns and buffs on bars anywhere, glow when ready, square/round/bars, row/stacked, hide out of combat | ✅ (cooldowns learned from use, or set by hand) | **Combat Assist** plugin |
+| Fight history: saved boss fights, damage, healing, taken, buffs, DPS over time | ✅ | History (upstream) |
+| Copy a fight summary for game chat | ✅ | **Fight Records** → Recent fights; **Dungeon Runs** |
+| Combat logs website: shareable reports, rankings, leaderboards | ✅ via a2tools.app (uploads are labeled as this fork) | Upload in History (upstream) |
+| PvP overlay: opponents, damage dealt/taken, HP, class, defeated; saved sessions with kills, deaths, biggest burst, skills, DPS over time | ✅ | **PvP Overlay** plugin |
+| Training mode: timed runs (30 s – 5 min or unlimited) on a dummy, your damage only, names, notes, groups, side-by-side comparison | ✅ | **Fight Records** → Training, Compare |
+| Personal bests per boss and character, with a notice | ✅ | **Fight Records** → Personal bests |
+| Loss-of-control notice (stun, sleep, fear, knockdown…) with time left | ✅ | **Combat Alerts** plugin |
+| Party debuff alerts (same debuff on several members, e.g. Heal Block) | ✅ | **Combat Alerts** plugin |
+| Dungeon runs: clear time, deaths, each member's numbers, every boss fight | ✅ | **Dungeon Runs** plugin |
+| Event alerts (Shugo Festival, Rift, resets, sieges…), sound, desktop notifications while the game is closed | ✅ | **Event Timers** plugin |
+| Field boss timers, shared among players | ✅ via a2tools.app | **Event Timers** plugin, and its World Bosses list on the overlay |
+| Ping overlay | ✅ | **Ping** plugin |
+| Pet tracking: souls per pet, phases, drop sources | ✅ | **Pet Soul Tracker** plugin |
+| Interactive map | ✅ | **World Map**: your own screenshots, lined up with game coordinates; Kibelisks, pet soul monster areas, field bosses with timers, monsters you've seen, you and your party, pins, imported markers |
+| Progression guide (gear, Daevanion, skills) | ✅ | **Progression Guide**: your character from the official site, compared with the strongest of your class, and a gear score roadmap |
+| Daily and weekly routine | ✅ | **Daily Planner**: Daily Duties, Shugo Festival's three keys, Nightmare, the week's dungeon entries, Odyle Energy, your own tasks; reminders before a reset |
+| Popups for events and world bosses | ✅ | **Notices** with **Event Timers** |
+| Pet tracker route to the nearest pet | ❌ not yet | The map shows where each pet's monsters are; no route yet |
+| World loot log (items picked up, by session and map) | ❌ not yet | Needs the item pickup records decoded from a capture |
+| Auto-update | ❌ off | This fork has no release channel yet; A2Tools' updater is turned off so it can't replace the fork |
 
-## Requirements
+Each module can be turned off on the dashboard's **Overlay** page.
 
-**Windows**
+### The World Map
 
-- **Windows 10/11** (x86_64)
-- **[Npcap](https://npcap.com)** — required for packet capture
-  - During Npcap installation, check **"Install Npcap in WinPcap API-compatible Mode"**
-- **Administrator privileges** — required for raw packet capture
+The game's map art can't be shipped, so each map uses a picture you add: open the world map in game zoomed out to the whole region and take a screenshot (or use a map picture you have), then paste it (Ctrl+V), drop it on the map, or choose it. The markers are spread over it at once; **drag them** (and size, turn or mirror them) until the Kibelisks sit on the teleport statues, or **click three known places** (Kibelisks, or where you stand in game) for an exact fit. The picture stays on your computer.
 
-**Linux** (playing through Proton)
+The markers come from the openly licensed community data the A2Tools plugins ship (GPL-3.0: Kibelisks, pet soul monster areas, field bosses), what the game tells the app as you play (where you, your party and monsters are when they cast), your own pins, and marker files you import (JSON or CSV in game coordinates). The big fan maps (interactivemap.app, which aion2atlas.app's markers come from) don't allow their marker database to be copied or scraped, so hidden cubes, gathering nodes and the like aren't included.
 
-- **64-bit (x86_64) with WebKitGTK 4.1:** Ubuntu 22.04 or newer, Debian 12, Fedora 39 or newer, openSUSE, current Arch, CachyOS, Manjaro or EndeavourOS, Bazzite and other image-based Fedoras, or Steam Deck (SteamOS, through distrobox)
-- Packages and setup for each: the **[Linux guide](docs/linux.md)**
+### The Progression Guide
 
-## Installation
+Reads your character (gear and enchants, Daevanion boards node by node, skills, pet and wings) from the official AION 2 site's public profile, and the strongest players of your class: the top of a2tools.app's leaderboard for your region, players you've met in your fights, and any you add. It ranks what to improve first: enchant gaps, unfinished boards and the nodes most of them take, skills most of them equip or level higher. It compares numbers; it doesn't know what each step costs. **Look up a character** shows the same for anyone.
 
-1. Install [Npcap](https://npcap.com) with WinPcap API-compatible mode enabled
-2. Download the latest MSI installer from [Releases](https://github.com/taengu/A2Tools-DPS-Meter/releases)
-3. Run the installer
-4. Launch A2Tools DPS Meter (run as Administrator)
+The **Roadmap** tab shows your gear score against the milestones of [RaidRelay's gear score guide](https://raidrelay.com/aion-2-gear-score-guide) (1,000, 1,400, 1,600 … 2,800), what gets you to the next one, and checks on your own gear that need no comparison: empty accessory and rune slots, runes to +1 only, belt and amulet to +10 then Substance Morph, Stigma skills to level 20, better PvE titles.
 
-**Linux:** packages for Ubuntu/Debian (.deb), Fedora/openSUSE (.rpm), Bazzite, Arch/CachyOS/Manjaro and Steam Deck — see the **[Linux guide](docs/linux.md)**.
+### The Daily Planner
 
-[![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?logo=ubuntu&logoColor=white)](docs/linux.md#ubuntu-debian-linux-mint-pop_os) [![Debian](https://img.shields.io/badge/Debian-A81D33?logo=debian&logoColor=white)](docs/linux.md#ubuntu-debian-linux-mint-pop_os) [![Linux Mint](https://img.shields.io/badge/Linux_Mint-87CF3E?logo=linuxmint&logoColor=white)](docs/linux.md#ubuntu-debian-linux-mint-pop_os) [![Pop!_OS](https://img.shields.io/badge/Pop%21__OS-48B9C7?logo=popos&logoColor=white)](docs/linux.md#ubuntu-debian-linux-mint-pop_os) [![Fedora](https://img.shields.io/badge/Fedora-51A2DA?logo=fedora&logoColor=white)](docs/linux.md#fedora) [![Bazzite](https://img.shields.io/badge/Bazzite-8A3FFC?logo=fedora&logoColor=white)](docs/linux.md#bazzite-silverblue-kinoite-aurora-bluefin) [![Steam Deck](https://img.shields.io/badge/Steam_Deck-1A9FFF?logo=steamdeck&logoColor=white)](docs/linux.md#steam-deck-steamos) [![openSUSE](https://img.shields.io/badge/openSUSE-73BA25?logo=opensuse&logoColor=white)](docs/linux.md#opensuse) [![Arch](https://img.shields.io/badge/Arch-1793D1?logo=archlinux&logoColor=white)](docs/linux.md#cachyos-arch-manjaro-endeavouros) [![CachyOS](https://img.shields.io/badge/CachyOS-08A88A?logo=cachyos&logoColor=white)](docs/linux.md#cachyos-arch-manjaro-endeavouros) [![Manjaro](https://img.shields.io/badge/Manjaro-35BF5C?logo=manjaro&logoColor=white)](docs/linux.md#cachyos-arch-manjaro-endeavouros) [![EndeavourOS](https://img.shields.io/badge/EndeavourOS-7F3FBF?logo=endeavouros&logoColor=white)](docs/linux.md#cachyos-arch-manjaro-endeavouros)
+A checklist of each day's and week's runs, counted per character and reset at the game's resets (07:00 UTC, the weekly one on Wednesday; both can be changed): Duty Missions, Shugo Festival, Nightmare, Dimensional Invasion, Odyle Energy; Unknown Fissure's 14 entries, the Ascension Trial, Expedition reward counts, Substance Morph's Odyle crafts, Conquest and Transcendence counts, and the shops' weekly limits. More (raids, Subjugation, Battlefield, Command and Abyss Commands, Abyss time, the Daeva Pass) can be added under Edit tasks. A few hours before a reset it pops up what's left that would be lost. Every task can be changed, and your own added. From [metabot.gg](https://metabot.gg/en/aion-2/guides/daily-weekly-checklist)'s and [games.gg](https://games.gg/aion-2/guides/aion-2-daily-weekly-checklist/)'s checklists.
 
-## Streaming from another PC (OBS)
+### How cooldowns are known
 
-If OBS runs on a second PC, it cannot capture the meter's window on the game PC. The meter can serve its display over your home network instead:
+The game sends no record when a skill goes on cooldown, so Combat Assist learns each cooldown from use: the shortest time between two casts (a single much shorter one is taken as a cooldown another skill shortened, and marked ▼). A cooldown counts once the same gap is seen twice (a first guess shows as ~), and a skill whose hit lands after the cast (a delayed explosion) counts as one cast. Re-learn forgets a wrong one; or type the seconds yourself. A bar can also show its icons only while they're on cooldown.
 
-1. On the game PC, open **Settings → Streaming** and turn on **Stream overlay (OBS on another PC)**. The default port is 18731; change it if something else uses it.
-2. The first time, Windows Defender Firewall asks whether to allow the meter. Allow it on **Private networks** (your home network). The meter never adds a firewall rule by itself.
-3. Copy the URL shown (`http://<game PC's LAN IP>:18731/overlay?key=<key>`). If the PC has more than one network address, each is listed; use the one on the same network as the streaming PC.
-4. In OBS on the streaming PC, add a **Browser Source** with that URL. The background is transparent, and the rows scale with the source's width.
+## Install
 
-The overlay shows the boss, the fight timer and the rows the meter shows (name, class, DPS, damage, share), and updates a few times a second. It is read-only and only reachable with the key; **New key** cuts off every link handed out before. Add `&lang=ko` (or `en`, `de`, `ja`, …) to the URL to change the language of its few labels. Add `&rows=5` to show at most five rows, so they always fit the height you gave the source (about 0.43 × its width for five rows, plus 0.07 × width for each more); you stay on it, in the last row if you are below the cut. **Your name on stream** sets the name the overlay shows for you; leave it blank to show your character name. Turn the setting off and the meter stops listening.
+### Bazzite, Silverblue, Kinoite (image-based Fedora)
 
-## Building from Source
+Build the package (once, in a Fedora toolbox or distrobox with the [build dependencies](docs/linux.md#build-from-source-other-distributions) plus `rpm-build cpio`):
 
-### Prerequisites
+```bash
+packaging/linux/build-rpm.sh
+```
 
-- [Rust](https://rustup.rs/) (latest stable)
-- [Node.js](https://nodejs.org/) (v18+)
-- [Npcap](https://npcap.com) installed
+Then layer it and restart:
 
-### Build
+```bash
+rpm-ostree install ./out/daeva-companion-*.x86_64.rpm
+systemctl reboot
+```
+
+The package grants the packet-capture permission itself (no `setcap`). Start **Ezzar's Daeva Companion** from the app menu, then AION 2. On KDE Plasma the meter adds window rules to stay above the game, as upstream does ([Linux guide](docs/linux.md)).
+
+### Fedora
+
+```bash
+packaging/linux/build-rpm.sh
+sudo dnf install ./out/daeva-companion-*.x86_64.rpm
+```
+
+### Windows 10/11
+
+1. Install [Npcap](https://npcap.com) with **WinPcap API-compatible Mode** checked.
+2. Build the installer on Windows with [Rust](https://rustup.rs/) and [Node.js](https://nodejs.org/):
+
+   ```powershell
+   npm install
+   npx tauri build
+   ```
+
+   The MSI is in `src-tauri/target/release/bundle/msi/`.
+3. Run it as administrator (needed for packet capture).
+
+## Developing
 
 ```bash
 npm install
-npm run tauri build
+npx tauri dev
+cd src-tauri && cargo test            # parser, combat feed and plugin host tests
 ```
 
-The MSI installer will be at `src-tauri/target/release/bundle/msi/`.
+- `src-tauri/src/combat/combat_feed.rs`: what the bundled overlays read (your casts and learned cooldowns, live buffs and debuffs on you and your party, PvP, training dummy totals, the dungeon you're in).
+- `src-tauri/src/plugins/bundled.rs`: the bundled plugins, the dashboard and its overlay controls, the `feed:combat`, `notify:system` and `maps` permissions, fight events, notices, clipboard, map files.
+- `src-tauri/src/plugins/armory.rs`: characters from the official site and the comparison pool (`feed:armory`).
+- `public/dashboard.html`, `public/src/js/dashboard.js`: the dashboard, hosting each module's page.
+- `tools/build_world_map.py`: the World Map's places, from the A2Tools plugins' data.
+- `src-tauri/bundled-plugins/`: the plugins themselves (HTML/JS, see `src-tauri/src/plugins/a2.js` for their API).
+- `src-tauri/src/fork.rs`: this fork's name and identity in one place.
 
-### Development
+Upstream is kept as the `upstream` remote, and the fork's changes sit in new files where possible, so game-patch fixes merge in with `git pull upstream main`.
 
-```bash
-npm run tauri dev
-```
+## Credits and license
 
-### Building a private (offline) copy
+GPL-3.0, like what it is built on:
 
-For anyone who wants a meter that talks to nothing but the game: build it yourself without its online features.
+- [A2Tools DPS Meter](https://github.com/taengu/A2Tools-DPS-Meter) by taengu and contributors: the meter, the protocol work and the plugin host. Its own README is [README.upstream.md](README.upstream.md).
+- [A2Tools-Plugins](https://github.com/taengu/A2Tools-Plugins): Event Timers, Pet Soul Tracker and Ping, bundled here (Event Timers adds desktop notifications while the game is closed).
 
-```bash
-npm install
-npm run build:offline
-```
-
-That runs `tauri build -- --no-default-features --features desktop`, which leaves out the Cargo feature `online`. The code below is not switched off in this build, it is not in it: the network client (`reqwest`) and the Discord client are not linked at all, which `cargo tree --no-default-features --features desktop` shows.
-
-Left out:
-
-- the A2 Tools account, uploading logs to a2tools.app, and automatic uploads
-- the supporter roster download (gold names); a local `patrons-local.bin` still works
-- update checks and the updater
-- Send Logs to Dev
-- Discord activity ("what I'm playing")
-- the stream overlay for OBS (it serves the meter on your network)
-- downloading Npcap's installer: install [Npcap](https://npcap.com/#download) yourself first
-
-Settings and History hide what is not there. Everything else works the same, offline: capture, the meter, Details, History, buffs, screenshots, the upload preview (it writes what an upload would contain, to disk only).
-
-Two things still leave the computer, and only these: skill and buff icons, loaded from the game's own CDN (`assets.playnccdn.com`; the window's content security policy allows nothing else), and links you click yourself (Discord, Support), which open in your browser. `npm install` and the Rust build fetch their packages as usual. Run it without building with `npm run dev:offline`.
-
-## FAQ
-
-**Q: The meter shows "Connecting..."**
-A: Make sure AION 2 is running and the app has administrator privileges. If using a VPN or ping reducer, the app will detect the loopback adapter automatically.
-
-**Q: My name doesn't appear on the meter**
-A: Enter your character name and actor ID in Settings. The name is auto-detected from the AION 2 window title.
-
-**Q: Npcap is installed but capture doesn't work**
-A: Reinstall Npcap and ensure "WinPcap API-compatible Mode" is checked during installation.
-
-## Community
-
-- [Discord](https://discord.gg/Aion2Global)
-- [A2Tools.app](https://a2tools.app)
-
-### Building your own meter?
-
-Your meter can upload its logs to [a2tools.app](https://a2tools.app/logs) as well. The site stores them, gives each one a link to share, and puts them on the leaderboard and in its stats. To connect yours, join the [Discord](https://discord.gg/Aion2Global) and post in **#aion2-dpsmeter**.
-
-## Support
-
-Say thanks and fund new cool projects & features!
-
-- <img src="wechat.png" width="150">
-- ☕ [Buy me a Coffee](https://ko-fi.com/hiddencube)
-- ☕ [在爱发电支持我](https://afdian.com/a/hiddencube)
-- 🅿️ [Send with PayPal](https://www.paypal.me/taengoo)
-- 🎁 [Donate with Crypto](https://nowpayments.io/donation/thehiddencube)
-- **BTC**: `1GexKhgVZPYRqpfCKydXLoNUXRRRUoAUwT`
-- **ETH**: `0x38F0bc371A563A24eCa6034cFf77eB6173c7e3e7`
-- **USDC**: `0xA9571Fc95666350f6DFFB8Fb80ee27eE7db46b56`
-
-## License
-
-[GPL-3.0](LICENSE)
-
-### Fixes from Daevalog
-
-Some parser and storage fixes come from [Daevalog](https://github.com/Seralth/Daevalog), Seralth's GPL-3.0 fork of this meter. Each one is committed under Seralth's name, with a `Ported-from:` line naming the original commit. The buff and debuff parser (`src-tauri/src/capture/abnormal.rs`) and its data tables (`src/data/abnormals.json`, `src/data/i18n/abnormals/`) come from there too.
-
-### Fonts
-
-The meter comes with these fonts. Each is under the SIL Open Font License, version 1.1.
-
-- Noto Sans SC: [public/vendor/fonts/noto-sans-sc/LICENSE](public/vendor/fonts/noto-sans-sc/LICENSE)
-- Noto Sans TC: [public/vendor/fonts/noto-sans-tc/LICENSE](public/vendor/fonts/noto-sans-tc/LICENSE)
-- Pretendard: [public/vendor/fonts/pretendard/LICENSE](public/vendor/fonts/pretendard/LICENSE)
+Not affiliated with NCSOFT, Questlog or A2Tools. Third-party meters may be against the game's terms of service; use at your own risk.
