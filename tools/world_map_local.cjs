@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Builds the World Map's own copy of map files saved from gaming.tools
 // (`<map>.d.json`, saved from your browser), so the map shows their spots
-// without importing them. Personal: the output folder is git-ignored and
-// never goes in a commit.
+// without importing them. Personal: committed only to this private
+// repository, so its installers have them; never to a public one.
 //
 //   node tools/world_map_local.cjs ~/Downloads/1110.d.json [more .d.json…]
 //
@@ -35,5 +35,5 @@ for (const file of files) {
 }
 const out = path.join(__dirname, "../src-tauri/bundled-plugins/world-map/local");
 fs.mkdirSync(out, { recursive: true });
-fs.writeFileSync(path.join(out, "packs.js"), `// Made by tools/world_map_local.cjs from your saved map files. Personal: not committed.\nconst LOCAL_PACKS = ${JSON.stringify(packs)};\n`);
+fs.writeFileSync(path.join(out, "packs.js"), `// Made by tools/world_map_local.cjs from your saved map files. Personal: keep it private.\nconst LOCAL_PACKS = ${JSON.stringify(packs)};\n`);
 console.log(`wrote ${path.join(out, "packs.js")}`);
