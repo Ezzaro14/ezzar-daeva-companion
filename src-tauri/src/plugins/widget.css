@@ -1,0 +1,156 @@
+/* The look every widget over the game shares (fork), served as
+   /_sdk/widget.css: dark glass panels, one type scale, one set of colours.
+   A widget's own widget.css comes after it and only adds its layout. */
+:root {
+  --w-bg: rgba(11, 15, 23, 0.84);
+  --w-bg-strong: rgba(11, 15, 23, 0.93);
+  --w-raise: rgba(255, 255, 255, 0.05);
+  --w-line: rgba(255, 255, 255, 0.09);
+  --w-line-strong: rgba(255, 255, 255, 0.16);
+  --w-text: #eef2f8;
+  --w-muted: rgba(226, 232, 242, 0.66);
+  --w-faint: rgba(226, 232, 242, 0.4);
+  --w-info: #7cc4ff;
+  --w-gold: #f2c86d;
+  --w-good: #5fe3a1;
+  --w-warn: #ffb04a;
+  --w-bad: #ff6767;
+  --w-violet: #b897ff;
+  --w-accent: var(--w-info);
+  --w-radius: 10px;
+  --w-font: "Pretendard", "Segoe UI", system-ui, sans-serif;
+  --w-num: "Bahnschrift", "Saira", "Pretendard", "Segoe UI", sans-serif;
+  --w-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  color: var(--w-text);
+  font-family: var(--w-font);
+  font-size: 13px;
+  line-height: 1.3;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+
+/* A panel: the glass every widget sits on. */
+.w-panel {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0) 38%),
+    var(--w-bg);
+  border: 1px solid var(--w-line);
+  border-radius: var(--w-radius);
+  box-shadow: var(--w-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+/* A coloured edge down the left, for notices. */
+.w-edge::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--w-accent);
+  box-shadow: 0 0 10px var(--w-accent);
+}
+.is-info { --w-accent: var(--w-info); }
+.is-gold { --w-accent: var(--w-gold); }
+.is-good { --w-accent: var(--w-good); }
+.is-warn { --w-accent: var(--w-warn); }
+.is-bad { --w-accent: var(--w-bad); }
+.is-violet { --w-accent: var(--w-violet); }
+
+/* A small heading in capitals, as over a panel. */
+.w-kicker {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--w-muted);
+}
+.w-title { font-size: 15px; font-weight: 700; letter-spacing: 0.005em; }
+.w-sub { font-size: 12px; color: var(--w-muted); }
+.w-num { font-family: var(--w-num); font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: 0.01em; }
+.w-accent { color: var(--w-accent); }
+
+/* A thin progress track; set --w-fill (0 to 1). */
+.w-track {
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+.w-track > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--w-fill, 0) * 100%);
+  border-radius: inherit;
+  background: var(--w-accent);
+  box-shadow: 0 0 8px var(--w-accent);
+}
+
+/* An icon tile: the game's icon, rounded, with a hairline. */
+.w-icon {
+  flex: none;
+  display: block;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #141b28;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+.w-icon img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+.w-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--w-accent);
+  background: color-mix(in srgb, var(--w-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--w-accent) 38%, transparent);
+}
+
+.w-btn {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--w-text);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--w-line-strong);
+  border-radius: 7px;
+  padding: 4px 11px;
+  cursor: pointer;
+}
+.w-btn:hover { background: rgba(255, 255, 255, 0.13); }
+.w-btn.primary { background: color-mix(in srgb, var(--w-accent) 30%, transparent); border-color: var(--w-accent); }
+.w-select {
+  font: inherit;
+  font-size: 12px;
+  color: var(--w-text);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--w-line-strong);
+  border-radius: 7px;
+  padding: 3px 6px;
+  color-scheme: dark;
+}
+
+/* Coming and going. */
+@keyframes w-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.w-in { animation: w-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes w-pulse {
+  0%, 100% { box-shadow: var(--w-shadow), 0 0 0 0 color-mix(in srgb, var(--w-accent) 0%, transparent); }
+  50% { box-shadow: var(--w-shadow), 0 0 0 4px color-mix(in srgb, var(--w-accent) 30%, transparent); }
+}
+.w-pulse { animation: w-pulse 1.4s ease-in-out infinite; }

@@ -190,3 +190,9 @@ pub fn is_hidden_in_place(_window: &tauri::WebviewWindow) -> bool {
 pub fn reveal_in_place(_window: &tauri::WebviewWindow) -> bool {
     false
 }
+
+/// Windows has no input region: the overlay watches the pointer instead
+/// (`plugins::overlay`).
+pub fn take_mouse_over(_window: &tauri::WebviewWindow, _rects: &[(f64, f64, f64, f64)], _page_scale: f64, _all: bool) -> bool {
+    false
+}

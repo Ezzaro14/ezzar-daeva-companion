@@ -11,20 +11,20 @@
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
-const SERVICE: &str = "app.a2tools.DpsMeter";
+const SERVICE: &str = "app.ezzar.DaevaCompanion";
 const PATH: &str = "/Focus";
 /// The script's name in KWin, so a script left by an earlier run is replaced.
-const PLUGIN: &str = "a2tools-dps-meter-focus";
+const PLUGIN: &str = "daeva-companion-focus";
 
 /// Values are passed as strings: KWin hands JavaScript numbers to D-Bus as
 /// doubles, which an integer argument would refuse. KWin 6 has
 /// `windowActivated` and `windowAdded`, KWin 5 `clientActivated` and
 /// `clientAdded`. `__PID__` is the meter's process id: only its windows are
 /// placed.
-const SCRIPT: &str = r#"// A2Tools DPS Meter: tells the meter which window is active, so it can hide
+const SCRIPT: &str = r#"// Ezzar's Daeva Companion: tells the meter which window is active, so it can hide
 // while the game is not in front, and keeps the meter's own windows where
 // they were left. Loaded by the meter at each start.
-var SERVICE = "app.a2tools.DpsMeter", PATH = "/Focus", IFACE = "app.a2tools.DpsMeter.Focus";
+var SERVICE = "app.ezzar.DaevaCompanion", PATH = "/Focus", IFACE = "app.ezzar.DaevaCompanion.Focus";
 var MY_PID = __PID__;
 function report(w) {
     callDBus(SERVICE, PATH, IFACE, "Active",
@@ -109,8 +109,89 @@ function place(w) {
         });
     });
 }
+// The one overlay (plugins::overlay): it covers the screen the game is on, or
+// the one the player chose, and follows the game to another.
+var OVERLAY = "__OVERLAY__", METER = "__METER__";
+function isOverlay(w) {
+    return mine(w) && String(w.caption) === OVERLAY;
+}
+function isGame(w) {
+    if (!w || mine(w)) return false;
+    return String(w.caption).indexOf("AION2") === 0 || String(w.resourceClass).toLowerCase() === "aion2.exe";
+}
+function windows() {
+    return workspace.windowList ? workspace.windowList() : workspace.clientList();
+}
+function find(test) {
+    var list = windows();
+    for (var i = 0; i < list.length; i++) if (test(list[i])) return list[i];
+    return null;
+}
+// KWin 6 names its screens (Output.name, "DP-1"); KWin 5 numbers them.
+function screens() {
+    if (workspace.screens) {
+        return workspace.screens.map(function (o) {
+            return { key: String(o.name), label: [o.manufacturer, o.model].filter(Boolean).join(" "),
+                     area: workspace.clientArea(KWin.FullScreenArea, o, workspace.currentDesktop) };
+        });
+    }
+    var out = [];
+    for (var i = 0; i < workspace.numScreens; i++) {
+        out.push({ key: "screen-" + (i + 1), label: "", area: workspace.clientArea(KWin.FullScreenArea, i, workspace.currentDesktop) });
+    }
+    return out;
+}
+function reportScreens() {
+    var clean = function (s) { return String(s).replace(/[,;]/g, " "); };
+    callDBus(SERVICE, PATH, IFACE, "Screens", screens().map(function (s) {
+        var a = s.area;
+        return [clean(s.key), clean(s.label), Math.round(a.x), Math.round(a.y), Math.round(a.width), Math.round(a.height)].join(",");
+    }).join(";"));
+}
+function fit() {
+    var o = find(isOverlay);
+    if (!o) return;
+    callDBus(SERVICE, PATH, IFACE, "OverlayScreen", function (answer) {
+        var want = String(answer || ""), area = null;
+        if (want) screens().forEach(function (s) { if (s.key === want) area = s.area; });
+        var game = area ? null : find(isGame);
+        if (game) area = workspace.clientArea(KWin.FullScreenArea, game);
+        var meter = area ? null : find(function (w) { return mine(w) && String(w.caption) === METER; });
+        if (meter) area = workspace.clientArea(KWin.FullScreenArea, meter);
+        if (!area) return;
+        var g = o.frameGeometry;
+        if (Math.round(g.x) === Math.round(area.x) && Math.round(g.y) === Math.round(area.y)
+            && Math.round(g.width) === Math.round(area.width) && Math.round(g.height) === Math.round(area.height)) return;
+        o.frameGeometry = { x: area.x, y: area.y, width: area.width, height: area.height };
+    });
+}
+// Where the game's picture is (without its window's frame), for reading its
+// minimap; "" once it is gone.
+function reportGame(w) {
+    var g = w ? (w.clientGeometry || w.frameGeometry) : null;
+    callDBus(SERVICE, PATH, IFACE, "Game", g ? [Math.round(g.x), Math.round(g.y), Math.round(g.width), Math.round(g.height)].join(",") : "");
+}
 function follow(w) {
+    if (isGame(w)) {
+        w.frameGeometryChanged.connect(fit);
+        w.frameGeometryChanged.connect(function () { reportGame(w); });
+        fit();
+        reportGame(w);
+        return;
+    }
     if (!mine(w)) return;
+    // The overlay, its widgets and the meter stay off the taskbar: only the
+    // dashboard and the meter's tool windows are listed there. GTK's own
+    // request for that is X11's alone.
+    if (widget(w) || String(w.caption) === METER) {
+        w.skipTaskbar = true;
+        w.skipSwitcher = true;
+        w.skipPager = true;
+    }
+    if (isOverlay(w)) {
+        fit();
+        return;
+    }
     // An icon already active as it is added: KWin activated it first. The
     // focus goes back to the window active before it. (The KWin rule for
     // icons keeps them from taking it at all; this is for when the rule is
@@ -129,13 +210,18 @@ if (workspace.windowActivated) {
     workspace.windowActivated.connect(onActivated);
     report(workspace.activeWindow);
     workspace.windowAdded.connect(follow);
+    workspace.windowRemoved.connect(function (w) { if (isGame(w)) reportGame(null); });
     workspace.windowList().forEach(follow);
+    workspace.screensChanged.connect(function () { reportScreens(); fit(); });
 } else {
     workspace.clientActivated.connect(onActivated);
     report(workspace.activeClient);
     workspace.clientAdded.connect(follow);
+    workspace.clientRemoved.connect(function (w) { if (isGame(w)) reportGame(null); });
     workspace.clientList().forEach(follow);
+    workspace.numberScreensChanged.connect(function () { reportScreens(); fit(); });
 }
+reportScreens();
 "#;
 
 /// A window's place and size, as KWin gives them: x, y, width, height.
@@ -179,6 +265,68 @@ static ON_CHANGE: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
 static SCREENSHOT: AtomicBool = AtomicBool::new(false);
 static ON_SCREENSHOT: OnceLock<Box<dyn Fn(bool) + Send + Sync>> = OnceLock::new();
 
+/// The screen the player chose for the overlay ("" for the game's), and
+/// the screens KWin reported: (key, label, x, y, width, height).
+static OVERLAY_SCREEN: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+static SCREENS: std::sync::Mutex<Vec<Screen>> = std::sync::Mutex::new(Vec::new());
+/// Where the game's picture is, as KWin last said.
+static GAME: std::sync::Mutex<Option<Rect>> = std::sync::Mutex::new(None);
+/// The script is running, so KWin places the overlay.
+static SCRIPT_RUNNING: AtomicBool = AtomicBool::new(false);
+
+/// A screen as KWin names it: its key (KWin 6: the output's name, "DP-1";
+/// KWin 5: "screen-<n>"), a label (maker and model), and where it is.
+pub type Screen = (String, String, (i32, i32, i32, i32));
+
+/// Whether KWin places the overlay (the script runs).
+pub fn places_overlay() -> bool {
+    SCRIPT_RUNNING.load(Ordering::Relaxed)
+}
+
+/// Where the game's picture is (x, y, width, height), if KWin has said.
+pub fn game_area() -> Option<Rect> {
+    *GAME.lock().unwrap_or_else(|p| p.into_inner())
+}
+
+/// The screens KWin last reported.
+pub fn screens() -> Vec<Screen> {
+    SCREENS.lock().unwrap_or_else(|p| p.into_inner()).clone()
+}
+
+/// The screen the overlay goes on, by its key ("" for the game's). KWin is
+/// asked to place it again when that changes: the script runs afresh.
+pub fn set_overlay_screen(key: &str) {
+    let changed = {
+        let mut now = OVERLAY_SCREEN.lock().unwrap_or_else(|p| p.into_inner());
+        let changed = *now != key;
+        *now = key.to_string();
+        changed
+    };
+    if changed && let Some(connection) = CONNECTION.get() {
+        if let Err(e) = load_script(connection) {
+            tracing::warn!("KWin: could not load the script again: {e}");
+        }
+    }
+}
+
+fn parse_rect(text: &str) -> Option<Rect> {
+    let n: Vec<i32> = text.split(',').map(|v| v.trim().parse().ok()).collect::<Option<_>>()?;
+    let [x, y, w, h] = n[..] else { return None };
+    (w > 0 && h > 0).then_some((x, y, w, h))
+}
+
+fn parse_screens(list: &str) -> Vec<Screen> {
+    list.split(';')
+        .filter_map(|item| {
+            let parts: Vec<&str> = item.split(',').collect();
+            let [key, label, x, y, w, h] = parts[..] else { return None };
+            let n = |v: &str| v.trim().parse::<i32>().ok();
+            Some((key.to_string(), label.trim().to_string(), (n(x)?, n(y)?, n(w)?, n(h)?)))
+        })
+        .filter(|(key, _, (_, _, w, h))| !key.is_empty() && *w > 0 && *h > 0)
+        .collect()
+}
+
 /// Be told when a screenshot tool becomes, or stops being, the active window.
 pub fn watch_screenshot_tool(on_change: impl Fn(bool) + Send + Sync + 'static) {
     let _ = ON_SCREENSHOT.set(Box::new(on_change));
@@ -208,7 +356,7 @@ pub fn game_or_meter_active() -> Option<bool> {
 
 struct Focus;
 
-#[zbus::interface(name = "app.a2tools.DpsMeter.Focus")]
+#[zbus::interface(name = "app.ezzar.DaevaCompanion.Focus")]
 impl Focus {
     fn active(&self, pid: String, class: String, caption: String) {
         let shot = is_screenshot_tool(&class);
@@ -240,6 +388,21 @@ impl Focus {
         {
             (places.save)(&caption, (x, y, w, h));
         }
+    }
+
+    /// The screen the overlay goes on, by its key, or "" for the game's.
+    fn overlay_screen(&self) -> String {
+        OVERLAY_SCREEN.lock().unwrap_or_else(|p| p.into_inner()).clone()
+    }
+
+    /// Where the game's picture is, `"x,y,width,height"`, or "" once it is gone.
+    fn game(&self, rect: String) {
+        *GAME.lock().unwrap_or_else(|p| p.into_inner()) = parse_rect(&rect);
+    }
+
+    /// The screens, as `key,label,x,y,width,height` joined by `;`.
+    fn screens(&self, list: String) {
+        *SCREENS.lock().unwrap_or_else(|p| p.into_inner()) = parse_screens(&list);
     }
 
     /// Where one of the meter's windows belongs, `"x,y,width,height"`, or ""
@@ -290,12 +453,25 @@ pub fn watch(on_change: impl Fn() + Send + Sync + 'static) -> Result<(), String>
         .and_then(|b| b.build())
         .map_err(|e| format!("D-Bus service: {e}"))?;
 
+    let id = load_script(&connection)?;
+    let _ = ON_CHANGE.set(Box::new(on_change));
+    let _ = CONNECTION.set(connection);
+    tracing::info!("KWin reports the active window (script {id})");
+    Ok(())
+}
+
+/// Write the script and have KWin run it, replacing one already running.
+fn load_script(connection: &zbus::blocking::Connection) -> Result<i32, String> {
     let dir = std::env::var_os("XDG_RUNTIME_DIR").map(std::path::PathBuf::from).unwrap_or_else(std::env::temp_dir);
-    let path = dir.join("a2tools-dps-meter-focus.js");
-    let script = SCRIPT.replace("__PID__", &std::process::id().to_string());
+    let path = dir.join("daeva-companion-focus.js");
+    let js_string = |s: &str| serde_json::to_string(s).unwrap_or_default();
+    let script = SCRIPT
+        .replace("__PID__", &std::process::id().to_string())
+        .replace("\"__OVERLAY__\"", &js_string(&crate::platform::kwin_rules::widget_layer_title()))
+        .replace("\"__METER__\"", &js_string(crate::platform::kwin_rules::OVERLAY_TITLE));
     std::fs::write(&path, script).map_err(|e| format!("writing the script: {e}"))?;
 
-    let kwin = zbus::blocking::Proxy::new(&connection, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting")
+    let kwin = zbus::blocking::Proxy::new(connection, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting")
         .map_err(|e| format!("KWin scripting: {e}"))?;
     let _ = kwin.call_method("unloadScript", &(PLUGIN,));
     let id: i32 = kwin
@@ -305,15 +481,31 @@ pub fn watch(on_change: impl Fn() + Send + Sync + 'static) -> Result<(), String>
         return Err("KWin did not load the script".into());
     }
     kwin.call_method("start", &()).map_err(|e| format!("starting the script: {e}"))?;
-    let _ = ON_CHANGE.set(Box::new(on_change));
-    let _ = CONNECTION.set(connection);
-    tracing::info!("KWin reports the active window (script {id})");
-    Ok(())
+    SCRIPT_RUNNING.store(true, Ordering::Relaxed);
+    Ok(id)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn screens_read_back_from_the_script() {
+        let list = parse_screens("DP-1,Dell U2720Q,0,0,2560,1440;HDMI-A-1,,2560,0,1920,1080;bad;,x,0,0,1,1");
+        assert_eq!(list, vec![
+            ("DP-1".to_string(), "Dell U2720Q".to_string(), (0, 0, 2560, 1440)),
+            ("HDMI-A-1".to_string(), String::new(), (2560, 0, 1920, 1080)),
+        ]);
+        assert!(parse_screens("").is_empty());
+    }
+
+    #[test]
+    fn the_games_place_reads_back_from_the_script() {
+        assert_eq!(parse_rect("0,28,1911,1007"), Some((0, 28, 1911, 1007)));
+        assert_eq!(parse_rect(""), None);
+        assert_eq!(parse_rect("0,0,0,0"), None);
+        assert_eq!(parse_rect("1,2,3"), None);
+    }
 
     #[test]
     fn spectacle_is_known_by_its_class() {
@@ -327,7 +519,7 @@ mod tests {
     fn the_game_is_known_by_title_or_class_and_the_meter_by_itself() {
         assert_eq!(classify(0, "", "AION2"), Who::Game);
         assert_eq!(classify(0, "aion2.exe", ""), Who::Game);
-        assert_eq!(classify(std::process::id(), "a2tools-dps-meter", "A2Tools DPS Meter"), Who::Meter);
+        assert_eq!(classify(std::process::id(), crate::fork::BINARY, crate::fork::APP_NAME), Who::Meter);
         assert_eq!(classify(0, "firefox", "Mozilla Firefox"), Who::Other);
     }
 }

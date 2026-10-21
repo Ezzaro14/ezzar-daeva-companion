@@ -95,3 +95,8 @@ pub fn never_activate(_window: &tauri::WebviewWindow, _before: Option<isize>) {}
 
 /// Windows only (see the Windows version).
 pub fn give_front_back(_window: &tauri::WebviewWindow, _before: Option<isize>) {}
+
+/// No input region here: the overlay watches the pointer instead.
+pub fn take_mouse_over(_window: &tauri::WebviewWindow, _rects: &[(f64, f64, f64, f64)], _page_scale: f64, _all: bool) -> bool {
+    false
+}

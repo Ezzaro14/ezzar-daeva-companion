@@ -6,6 +6,9 @@ const SETTING_CHOICES = {
   trainSelectionMode: { allowed: ["all", "highestDamage"], fallback: "all" },
   // The figure beside each player's name, in the meter and in Details.
   partyStat: { allowed: ["combatPower", "gearScore", "both", "off"], fallback: "combatPower" },
+  meterScope: { allowed: ["everyone", "party", "me"], fallback: "everyone" },
+  // Seconds after the last hit the meter hides (app.rs's tick loop), or off.
+  hideOutOfCombat: { allowed: ["off", "10", "30", "60", "120"], fallback: "off" },
   // When the last fight leaves the screen after the zone changes.
   clearOnZone: { allowed: ["instance", "any", "never"], fallback: "instance" },
   // The number after the level in the Discord activity (presence.rs).
@@ -77,6 +80,8 @@ class DpsApp {
       updateRateMs: "dpsMeter.updateRateMs",
       trainSelectionMode: "dpsMeter.trainSelectionMode",
       partyStat: "dpsMeter.partyStat",
+      meterScope: "dpsMeter.meterScope",
+      hideOutOfCombat: "dpsMeter.hideOutOfCombat",
       clearOnZone: "dpsMeter.clearOnZone",
       barTexture: "dpsMeter.barTexture",
       barTextureOffset: "dpsMeter.barTextureOffset",
@@ -144,8 +149,9 @@ class DpsApp {
     this._windowHidden = false;
     this.displayMode = "dps";
     this.betaUi = true;
-    this.theme = "aion2";
+    this.theme = "companion";
     this.availableThemes = [
+      "companion",
       "aion2",
       "aion2-classes",
       "aion2-classes-vivid",
@@ -226,6 +232,8 @@ class DpsApp {
     this.localPlayerId = null;
     this.trainSelectionMode = "all";
     this.partyStat = "combatPower";
+    // Who the meter lists: everyone on the target, your party, or you.
+    this.meterScope = "everyone";
     this.barTexture = "none";
     // Whether the signed-in A2 Tools account is a supporter's (bar textures).
     this.isSupporter = false;
@@ -378,6 +386,7 @@ class DpsApp {
       getPinUserToTop: () => this.pinMeToTop,
       getPlayerLimit: () => this.playerLimit,
       getPartyStat: () => this.partyStat,
+      getScope: () => this.meterScope,
       getJobColor: (job) => this.getJobColor(job),
       onHoverUserRow: (row, event) => {
         if (row?.isOthers || this.shouldSuppressRowInteractions()) return;
@@ -1617,6 +1626,7 @@ class DpsApp {
         isSupporter: !!(isObj && value.isSupporter) && this.showSupporterColors !== false,
         // A party member who runs A2Tools too (party_presence.rs).
         usesA2tools: !!(isObj && value.usesA2tools),
+        inParty: !!(isObj && value.inParty),
       });
     }
 
@@ -2455,6 +2465,13 @@ class DpsApp {
     // so the whole top of the window is grab-and-drag surface. Details is opened
     // from a player row, History from its own header button.
 
+    // Ezzar's Daeva Companion: every module in one window (plugins/bundled.rs).
+    const dashboardBtn = document.querySelector(".dashboardBtn");
+    dashboardBtn?.addEventListener("click", () => {
+      if (this.isWindowDragging) return;
+      window.__TAURI__?.core?.invoke?.("dashboard_open", {}).catch?.(() => {});
+    });
+
     const historyBtn = document.querySelector(".historyBtn");
     if (historyBtn) {
       // History is part of the Details surface, not the overlay: opening it
@@ -2586,6 +2603,10 @@ class DpsApp {
     this.barTextureHint = document.querySelector(".barTextureHint");
     this.textureOffsetCheckbox = document.querySelector(".textureOffsetCheckbox");
     this.partyStatDropdownMenu = document.querySelector(".partyStatDropdownMenu");
+    this.meterScopeDropdownBtn = document.querySelector(".meterScopeDropdownBtn");
+    this.meterScopeDropdownMenu = document.querySelector(".meterScopeDropdownMenu");
+    this.hideOutOfCombatDropdownBtn = document.querySelector(".hideOutOfCombatDropdownBtn");
+    this.hideOutOfCombatDropdownMenu = document.querySelector(".hideOutOfCombatDropdownMenu");
     this.clearOnZoneDropdownBtn = document.querySelector(".clearOnZoneDropdownBtn");
     this.clearOnZoneDropdownMenu = document.querySelector(".clearOnZoneDropdownMenu");
     this.discordStatDropdownBtn = document.querySelector(".discordStatDropdownBtn");
@@ -2660,6 +2681,7 @@ class DpsApp {
       allTargetsWindowMs: "120000",
       trainSelectionMode: "all",
       partyStat: "combatPower",
+      meterScope: "everyone",
       discordStat: "off",
       barTexture: "none",
     };
@@ -2806,6 +2828,9 @@ class DpsApp {
 
     this.partyStat = pickSettingChoice("partyStat", storedPartyStat);
     this.settingsSelections.partyStat = this.partyStat;
+    this.meterScope = pickSettingChoice("meterScope", this.safeGetSetting(this.storageKeys.meterScope));
+    this.settingsSelections.meterScope = this.meterScope;
+    this.settingsSelections.hideOutOfCombat = pickSettingChoice("hideOutOfCombat", this.safeGetSetting(this.storageKeys.hideOutOfCombat));
     this.syncPreviewPartyStat();
     this.settingsSelections.discordStat = pickSettingChoice("discordStat", this.safeGetSetting(this.storageKeys.discordStat));
     this.settingsSelections.clearOnZone = pickSettingChoice("clearOnZone", this.safeGetSetting(this.storageKeys.clearOnZone));
@@ -3209,7 +3234,7 @@ class DpsApp {
       const storedWindowOpacity = this.safeGetStorage(this.storageKeys.windowOpacity);
       const resolvedWindowOpacity = storedWindowOpacity !== null && String(storedWindowOpacity).trim() !== ""
         ? Math.max(0, Math.min(100, Math.round(Number(storedWindowOpacity))))
-        : 40;
+        : 84;
       this.applyWindowOpacity(resolvedWindowOpacity, { persist: false });
       this.windowOpacityInput.value = String(resolvedWindowOpacity);
       this.windowOpacityValue.textContent = `${resolvedWindowOpacity}%`;
@@ -3583,7 +3608,7 @@ class DpsApp {
       const textColor = computed.getPropertyValue("--text-color").trim() || "#ffffff";
       const nameShadow = computed.getPropertyValue("--player-name-shadow").trim() || "none";
       const rowFill = computed.getPropertyValue("--row-fill").trim() || "#2f2f2f";
-      root.dataset.theme = previous || "aion2";
+      root.dataset.theme = previous || "companion";
       getComputedStyle(root).color; // settle the page back before transitions return
       root.classList.remove("readingThemes");
       const preview = { textColor, nameShadow, rowFill };
@@ -3666,6 +3691,7 @@ class DpsApp {
     ];
 
     const themeOptions = [
+      { value: "companion", label: this.i18n?.t("settings.theme.options.companion", "Daeva Companion") },
       { value: "aion2", label: this.i18n?.t("settings.theme.options.aion2", "AION2") },
       {
         value: "aion2-classes",
@@ -3690,6 +3716,8 @@ class DpsApp {
     ];
 
     themeOptions.sort((a, b) => a.label.localeCompare(b.label));
+    // The app's own look first.
+    themeOptions.unshift(...themeOptions.splice(themeOptions.findIndex((o) => o.value === "companion"), 1));
     // The vivid class colours straight after the regular ones, whatever the sort.
     const vividAt = themeOptions.findIndex((o) => o.value === "aion2-classes-vivid");
     if (vividAt >= 0) {
@@ -3813,6 +3841,41 @@ class DpsApp {
         this.safeSetSetting(this.storageKeys.allTargetsWindowMs, value);
         window.javaBridge?.setAllTargetsWindowMs?.(value);
         if (!this.isCollapse) this.fetchDps();
+      }
+    );
+
+    setupDropdown(
+      this.meterScopeDropdownBtn,
+      this.meterScopeDropdownMenu,
+      [
+        { value: "everyone", label: this.i18n?.t("settings.meterScope.options.everyone", "Everyone") },
+        { value: "party", label: this.i18n?.t("settings.meterScope.options.party", "My party") },
+        { value: "me", label: this.i18n?.t("settings.meterScope.options.me", "Only me") },
+      ],
+      this.settingsSelections.meterScope,
+      (value) => {
+        if (!value) return;
+        this.settingsSelections.meterScope = value;
+        this.meterScope = value;
+        this.safeSetSetting(this.storageKeys.meterScope, value);
+      }
+    );
+
+    setupDropdown(
+      this.hideOutOfCombatDropdownBtn,
+      this.hideOutOfCombatDropdownMenu,
+      [
+        { value: "off", label: this.i18n?.t("settings.hideOutOfCombat.options.off", "Never") },
+        { value: "10", label: this.i18n?.t("settings.hideOutOfCombat.options.10", "10 s after the fight") },
+        { value: "30", label: this.i18n?.t("settings.hideOutOfCombat.options.30", "30 s after the fight") },
+        { value: "60", label: this.i18n?.t("settings.hideOutOfCombat.options.60", "1 min after the fight") },
+        { value: "120", label: this.i18n?.t("settings.hideOutOfCombat.options.120", "2 min after the fight") },
+      ],
+      this.settingsSelections.hideOutOfCombat,
+      (value) => {
+        if (!value) return;
+        this.settingsSelections.hideOutOfCombat = value;
+        this.safeSetSetting(this.storageKeys.hideOutOfCombat, value);
       }
     );
 
@@ -5507,6 +5570,7 @@ class DpsApp {
       allTargetsWindowMs: "allTargetsWindow",
       updateRateMs: "updateRate",
       partyStat: "partyStat",
+      meterScope: "meterScope",
       discordStat: "discordStat",
       barTexture: "barTexture",
     };
@@ -5522,6 +5586,8 @@ class DpsApp {
         this.trainSelectionMode = normalized;
       } else if (name === "partyStat") {
         this.applyPartyStat(normalized);
+      } else if (name === "meterScope") {
+        this.meterScope = normalized;
       } else if (name === "barTexture") {
         this.applyBarTexture(normalized);
       } else if (name === "updateRateMs") {
@@ -6148,7 +6214,7 @@ class DpsApp {
       }
       return this.i18n?.t("target.train", "Training Scarecrow") ?? "Training Scarecrow";
     }
-    return this.i18n?.t("header.title", "A2Tools DPS Meter") ?? "A2Tools DPS Meter";
+    return this.i18n?.t("header.title", "Ezzar's Daeva Companion") ?? "Ezzar's Daeva Companion";
   }
 
   // "Gatekeeper Pinopi · Level 2": a Nightmare boss's level is its own, and

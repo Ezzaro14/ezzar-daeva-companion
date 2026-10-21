@@ -24,3 +24,21 @@ pub fn is_aion2_foreground() -> bool {
 pub fn describe_candidates() -> Vec<String> {
     Vec::new()
 }
+
+/// Where the game's window is (x, y, width, height): not knowable here.
+pub fn game_rect() -> Option<(i32, i32, i32, i32)> {
+    None
+}
+
+/// The app places the overlay itself here.
+pub fn desktop_places_overlay() -> bool {
+    false
+}
+
+/// Only KWin is told which screen the overlay goes on (see the Linux version).
+pub fn set_overlay_screen(_key: &str) {}
+
+/// The screens as the desktop names them: none here, the app's own list is used.
+pub fn desktop_screens() -> Vec<(String, String, (i32, i32, i32, i32))> {
+    Vec::new()
+}

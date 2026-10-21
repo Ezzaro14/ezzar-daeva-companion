@@ -54,6 +54,18 @@
       if (permission === "feed:boss-timers") {
         return t("settings.plugins.permBossTimers", "Read the field boss timers players share through a2tools.app");
       }
+      if (permission === "maps") {
+        return t("settings.plugins.permMaps", "Keep map images and marker files you pick");
+      }
+      if (permission === "feed:armory") {
+        return t("settings.plugins.permArmory", "Read characters' public profiles from the official AION 2 site, and a2tools.app's leaderboard");
+      }
+      if (permission === "notify:system") {
+        return t("settings.plugins.permSystemNotify", "Show desktop notifications while AION2 is closed");
+      }
+      if (permission === "feed:combat") {
+        return t("settings.plugins.permCombat", "See your skills, the buffs and debuffs on you and your party, and the players you fight");
+      }
       if (permission.startsWith("decoder:")) {
         return t("settings.plugins.permDecoder", "Read your own game data: {name}", { name: permission.slice(8) });
       }
@@ -252,7 +264,8 @@
             "hotkeyConsentConfirm",
           ));
         }
-        buttons.push(button(t("settings.plugins.remove", "Remove"), () => {
+        // One that comes with the meter is turned off instead.
+        if (!p.bundled) buttons.push(button(t("settings.plugins.remove", "Remove"), () => {
           say("");
           if (p.reviewed) run(invoke("plugin_uninstall", { id: p.id })).then(loadCatalog);
           else run(invoke("plugin_remove_folder", { path: p.path }));

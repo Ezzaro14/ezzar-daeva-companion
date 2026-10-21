@@ -36,7 +36,7 @@ const SHORTCUTS: &str = "org.freedesktop.portal.GlobalShortcuts";
 /// The app id the shortcuts are filed under: Tauri's identifier. The .deb and
 /// .rpm name their desktop file after the product ("A2Tools DPS Meter"),
 /// which is no valid app id, so the identifier is registered instead.
-const APP_ID: &str = "com.a2tools.dps-meter";
+const APP_ID: &str = crate::fork::APP_ID;
 
 /// The shortcut ids, stable: Hyprland users bind them by name.
 const RELOAD: &str = "reset";
@@ -60,7 +60,7 @@ fn shortcut_of(name: &str) -> Option<(&'static str, &'static str)> {
 pub const DEFAULT_ON: bool = false;
 
 /// The helper's file name, next to the meter's own executable.
-const HELPER: &str = "a2tools-hotkeys";
+pub(super) const HELPER: &str = "daeva-companion-hotkeys";
 
 pub struct HotkeyManager {
     /// The running helper, if any.

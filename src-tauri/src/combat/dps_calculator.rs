@@ -549,6 +549,7 @@ impl DpsCalculator {
             // account-level dbid, not the session entity id keyed here.
             let member = party_members.get(&data.nickname);
             data.combat_power = member.map(|m| m.combat_power).unwrap_or(0);
+            data.in_party = member.is_some();
             data.gear_score = member.map(|m| m.gear_score).unwrap_or(0);
             if data.job.is_empty() {
                 if local_ids.as_ref().is_some_and(|ids| ids.contains(&uid))
@@ -766,6 +767,7 @@ impl DpsCalculator {
                 .unwrap_or_else(|| "Unknown".to_string());
             entry.combat_power = member.combat_power;
             entry.gear_score = member.gear_score;
+            entry.in_party = true;
             dps_data.map.entry(uid).or_insert(entry);
         }
     }

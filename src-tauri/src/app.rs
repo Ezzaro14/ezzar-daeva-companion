@@ -125,7 +125,7 @@ pub struct OverlayLock {
 /// again (Settings → Plugins, the toggle hotkey, or a plugin window's bar).
 const SHOW_METER_KEY: &str = "dpsMeter.showMeter";
 
-fn meter_wanted(app: &tauri::AppHandle) -> bool {
+pub(crate) fn meter_wanted(app: &tauri::AppHandle) -> bool {
     app.try_state::<AppState>()
         .and_then(|s| s.settings.get(SHOW_METER_KEY))
         .as_deref()
@@ -135,7 +135,7 @@ fn meter_wanted(app: &tauri::AppHandle) -> bool {
 /// Show or hide the DPS meter and remember it. Hidden in place (Linux keeps
 /// it mapped, so it comes back where it was). Every window hears
 /// "meter-shown", so Settings and plugin bars follow.
-fn set_meter_wanted(app: &tauri::AppHandle, shown: bool) {
+pub(crate) fn set_meter_wanted(app: &tauri::AppHandle, shown: bool) {
     if let Some(state) = app.try_state::<AppState>() {
         state.settings.set(SHOW_METER_KEY, if shown { "true" } else { "false" });
     }
@@ -216,11 +216,12 @@ fn hide_with_meter(app: &tauri::AppHandle, hidden: &mut std::collections::HashSe
             platform::window::hide_in_place(&window);
             hidden.insert(label);
         }
-    }
+    }    crate::plugins::overlay::set_unfocused(app, true);
 }
 
 /// Show again those `hide_with_meter` hid.
 fn show_with_meter(app: &tauri::AppHandle, hidden: &mut std::collections::HashSet<String>) {
+    crate::plugins::overlay::set_unfocused(app, false);
     for label in hidden.drain() {
         let Some(window) = app.get_webview_window(&label) else { continue };
         if !platform::window::reveal_in_place(&window) {
@@ -271,8 +272,7 @@ fn load_window_place(app: &tauri::AppHandle, title: &str) -> Option<(i32, i32, i
     };
     match placed(&label) {
         Some((x, y, w, h)) => Some(if label == "main" { (x, y, 0, 0) } else { (x, y, w, h) }),
-        // A plugin's widget never moved: beside its others, not mid-screen.
-        None => crate::plugins::widgets::place_beside_others(app, &label, placed).map(|(x, y)| (x, y, 0, 0)),
+        None => None,
     }
 }
 
@@ -372,7 +372,7 @@ fn pointer_over_lock_button(app: &tauri::AppHandle, lock: &OverlayLock) -> bool 
 
 /// Lock or unlock the overlay. Locking starts the pointer watch, which ends
 /// by itself once unlocked.
-fn apply_overlay_lock(app: &tauri::AppHandle, locked: bool) {
+pub(crate) fn apply_overlay_lock(app: &tauri::AppHandle, locked: bool) {
     use std::sync::atomic::Ordering;
     let Some(state) = app.try_state::<AppState>() else { return };
     let lock = state.overlay_lock.clone();
@@ -990,15 +990,11 @@ fn start_hotkeys(app: &tauri::AppHandle, settings: &Settings) {
     }));
     let h = app.clone();
     let lock = binding("lock", "dpsMeter.lockHotkey", Box::new(move || {
-        // Toggle the click-through lock, and tell the page so
-        // its button and saved setting follow.
-        let locked = h
-            .try_state::<AppState>()
-            .is_some_and(|s| s.overlay_lock.locked.load(std::sync::atomic::Ordering::SeqCst));
-        if platform::window::cursor_position().is_none() && !locked {
-            return; // the lock is not offered here
-        }
-        apply_overlay_lock(&h, !locked);
+        // Toggle the click-through lock of everything on screen (the meter
+        // and the overlay's widgets, as the dashboard's Lock), and tell the
+        // meter's page so its button and saved setting follow.
+        let locked = crate::plugins::bundled::all_locked(&h);
+        crate::plugins::bundled::overlay_lock_all(h.clone(), !locked);
         let _ = h.emit("overlay-lock-changed", !locked);
     }));
     let h = app.clone();
@@ -1938,7 +1934,7 @@ fn open_details_on_monitor_inner(
         tauri::WebviewUrl::App("index.html".into()),
     )
     .initialization_script("window.__A2_VIEW__ = 'details';")
-    .title("A2Tools DPS Meter — Details")
+    .title(format!("{} — Details", crate::fork::APP_NAME))
     .decorations(false)
     .transparent(false)
     // Intentional: the point of this window is to stay readable on a second
@@ -2306,7 +2302,7 @@ fn build_settings_window(app: &tauri::AppHandle) -> Result<(), String> {
     // Injected before any page script. WebviewUrl::App is a path, so a ?query
     // gets percent-encoded — this is the one channel that is reliable.
     .initialization_script(SETTINGS_WINDOW_SCRIPT)
-    .title("A2Tools DPS Meter — Settings")
+    .title(format!("{} — Settings", crate::fork::APP_NAME))
     .decorations(false)
     .transparent(false)
     // Matches Details: the overlay itself is always-on-top, so a settings window
@@ -2557,7 +2553,7 @@ fn open_fight_window(app: &tauri::AppHandle, label: &str) -> Result<(), String> 
         tauri::WebviewUrl::App("index.html".into()),
     )
     .initialization_script("window.__A2_VIEW__ = 'details';")
-    .title("A2Tools DPS Meter — Fight")
+    .title(format!("{} — Fight", crate::fork::APP_NAME))
     .decorations(false)
     .transparent(false)
     .always_on_top(true)
@@ -2583,7 +2579,7 @@ fn open_history_window_inner(app: &tauri::AppHandle) -> Result<(), String> {
         tauri::WebviewUrl::App("index.html".into()),
     )
     .initialization_script("window.__A2_VIEW__ = 'history';")
-    .title("A2Tools DPS Meter — Battle History")
+    .title(format!("{} — Battle History", crate::fork::APP_NAME))
     .decorations(false)
     .transparent(false)
     .always_on_top(true)
@@ -2623,7 +2619,7 @@ fn open_details_windowed(app: &tauri::AppHandle) -> Result<(), String> {
         tauri::WebviewUrl::App("index.html".into()),
     )
     .initialization_script("window.__A2_VIEW__ = 'details';")
-    .title("A2Tools DPS Meter — Details")
+    .title(format!("{} — Details", crate::fork::APP_NAME))
     .decorations(false)
     .transparent(false)
     .always_on_top(true)
@@ -3093,6 +3089,9 @@ pub fn run() {
             })
             .build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         // Plugin files, each plugin's own origin (crate::plugins::serve).
         .register_uri_scheme_protocol(crate::plugins::SCHEME, |ctx, request| {
             crate::plugins::serve(ctx.app_handle(), request.uri().path())
@@ -3127,13 +3126,7 @@ pub fn run() {
             {
                 save_window_geometry(window.app_handle(), window.label(), FIGHT_WINDOW_KEY);
             }
-            // Plugin widgets (#77) open where they were left, and close with
-            // their plugin's window.
-            if let tauri::WindowEvent::Moved(at) = event
-                && window.label().starts_with("pw_")
-            {
-                crate::plugins::widgets::note_moved(window.app_handle(), window.label(), *at);
-            }
+            // Plugin widgets (#77) close with their plugin's window.
             if let tauri::WindowEvent::Destroyed = event
                 && let Some(id) = window.label().strip_prefix("plugin-")
             {
@@ -3153,6 +3146,14 @@ pub fn run() {
             {
                 api.prevent_close();
                 quit_app(window.app_handle().clone());
+            }
+            // The dashboard hosts the bundled plugins: closing it hides it,
+            // and they keep running.
+            if window.label() == crate::plugins::bundled::DASHBOARD
+                && let tauri::WindowEvent::CloseRequested { api, .. } = event
+            {
+                api.prevent_close();
+                let _ = window.hide();
             }
         })
         .setup(|app| {
@@ -3258,7 +3259,7 @@ pub fn run() {
                 i18n_data_dir: found_data_dir.clone(),
                 #[cfg(feature = "online")]
                 http: reqwest::Client::builder()
-                    .user_agent(concat!("A2Tools-DPS-Meter/", env!("CARGO_PKG_VERSION")))
+                    .user_agent(concat!("Daeva-Companion/", env!("CARGO_PKG_VERSION"), " (A2Tools DPS Meter fork)"))
                     .connect_timeout(Duration::from_secs(10))
                     .timeout(Duration::from_secs(30))
                     .build()
@@ -3424,6 +3425,13 @@ pub fn run() {
             app.manage(std::sync::Arc::clone(&plugin_host));
             plugin_host.reload(app.handle());
             crate::plugins::restore_windows(app.handle());
+            // Every plugin's widgets, in one window over the game.
+            if let Err(e) = crate::plugins::overlay::ensure(app.handle()) {
+                tracing::warn!("Overlay: {e}");
+            }
+            if let Err(e) = crate::plugins::bundled::open_dashboard(app.handle(), None, crate::plugins::bundled::shows_at_start(app.handle())) {
+                tracing::warn!("Dashboard: {e}");
+            }
             #[cfg(feature = "online")]
             crate::plugins::alert_updates_at_start(app.handle());
 
@@ -3507,6 +3515,8 @@ pub fn run() {
                 let mut last_ping: Option<u64> = None;
                 // The meter hidden because AION2 is closed (Settings).
                 let mut hidden_closed = false;
+                // Hidden because no fight for a while (dpsMeter.hideOutOfCombat).
+                let mut hidden_ooc = false;
                 // The other windows hidden with the meter (auto-hide), and how
                 // many ticks nothing of ours or the game has been in front.
                 let mut hidden_with_meter: std::collections::HashSet<String> = Default::default();
@@ -3562,9 +3572,37 @@ pub fn run() {
                             }
                         }
 
+                        // --- Hide out of combat (every tick) ---
+                        // The chosen seconds after the last hit the meter
+                        // goes, and the next hit brings it back. Not while it
+                        // has the focus (the last fight being read); the
+                        // meter's keybind can bring it back meanwhile.
+                        let ooc_secs: i64 = state.settings.get("dpsMeter.hideOutOfCombat")
+                            .and_then(|v| v.parse().ok())
+                            .unwrap_or(0);
+                        let meter_focused = handle.get_webview_window("main")
+                            .and_then(|w| w.is_focused().ok())
+                            .unwrap_or(false);
+                        let want_ooc = ooc_secs > 0
+                            && !hidden_closed
+                            && meter_wanted(&handle)
+                            && (hidden_ooc || !meter_focused)
+                            && crate::clock::now_ms() - state.data_storage.combat_feed().last_combat_ms() > ooc_secs * 1000;
+                        if want_ooc != hidden_ooc {
+                            if let Some(window) = handle.get_webview_window("main") {
+                                if want_ooc {
+                                    platform::window::minimize_off_top(&window);
+                                } else {
+                                    show_meter_again(&handle, &window);
+                                }
+                            }
+                            hidden_ooc = want_ooc;
+                        }
+
                         // --- Auto-hide when AION2 loses focus (every tick) ---
                         let auto_hide = tick_count > 20
                             && !hidden_closed
+                            && !hidden_ooc
                             && state.settings.get("dpsMeter.autoHideMeter")
                                 .unwrap_or_default() == "true"
                             && meter_wanted(&handle);
@@ -3777,16 +3815,36 @@ pub fn run() {
             crate::plugins::plugin_set_enabled,
             crate::plugins::plugin_set_hide,
             crate::plugins::plugin_hello,
+            crate::plugins::bundled::plugin_copy_text,
+            crate::plugins::bundled::plugin_system_notify,
+            crate::plugins::bundled::dashboard_open,
+            crate::plugins::bundled::plugin_toast,
+            crate::plugins::bundled::plugin_map_image,
+            crate::plugins::bundled::plugin_map_pick_image,
+            crate::plugins::bundled::plugin_map_save_image,
+            crate::plugins::bundled::plugin_map_pick_markers,
+            crate::plugins::bundled::plugin_map_minimap,
+            crate::plugins::armory::plugin_armory_character,
+            crate::plugins::armory::plugin_armory_pool,
+            crate::plugins::bundled::dashboard_modules,
+            crate::plugins::bundled::overlay_state,
+            crate::plugins::bundled::overlay_lock_all,
+            crate::plugins::bundled::overlay_edit,
+            crate::plugins::bundled::overlay_show_all,
             crate::plugins::widgets::plugin_widget_open,
+            crate::plugins::overlay::overlay_hello,
+            crate::plugins::overlay::overlay_metrics,
+            crate::plugins::overlay::overlay_input,
+            crate::plugins::overlay::overlay_moved,
+            crate::plugins::overlay::overlay_post,
+            crate::plugins::overlay::overlay_reset_layout,
+            crate::plugins::overlay::overlay_screens,
+            crate::plugins::overlay::overlay_set_screen,
             crate::plugins::widgets::plugin_widget_close,
             crate::plugins::widgets::plugin_widget_send,
             crate::plugins::widgets::plugin_widgets_lock,
             crate::plugins::widgets::plugin_widgets_locked,
-            crate::plugins::widgets::plugin_widget_hello,
-            crate::plugins::widgets::plugin_widget_post,
-            crate::plugins::widgets::plugin_widget_drag,
             crate::plugins::boss_live::plugin_boss_follow,
-            crate::plugins::widgets::plugin_widget_area,
             crate::plugins::widgets::plugin_widget_where,
             crate::plugins::widgets::plugin_widget_place,
             set_meter_shown,

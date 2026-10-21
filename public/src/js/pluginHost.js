@@ -30,6 +30,8 @@
     if (event.startsWith("decoded:") && !allowed(`decoder:${event.slice(8)}`)) return;
     if (event === "character" && !allowed("events:character")) return;
     if ((event === "bossMap" || event === "bossLive" || event === "abyss") && !allowed("feed:boss-timers")) return;
+    // The combat feed, for the plugins that come with the meter (plugins/bundled.rs).
+    if ((event === "combat" || event === "fight") && !allowed("feed:combat")) return;
     const msg = { event, data, ...extra };
     if (ready) send(msg);
     else queue.push(msg);
@@ -99,7 +101,7 @@
     // (plugin widgets, #77; permission "widgets").
     "widgets.open": ([name, size]) => {
       if (!allowed("widgets")) throw new Error('the plugin lacks the "widgets" permission');
-      return invoke("plugin_widget_open", { name: String(name), width: Number(size?.width) || 64, height: Number(size?.height) || 64 });
+      return invoke("plugin_widget_open", { name: String(name), width: Number(size?.width) || 64, height: Number(size?.height) || 64, label: size?.label ? String(size.label) : null, clickable: !!size?.clickable });
     },
     "widgets.close": ([name]) => {
       if (!allowed("widgets")) throw new Error('the plugin lacks the "widgets" permission');
@@ -124,6 +126,17 @@
     "widgets.place": ([name, at]) => {
       if (!allowed("widgets")) throw new Error('the plugin lacks the "widgets" permission');
       return invoke("plugin_widget_place", { name: String(name), x: Math.round(Number(at?.x)), y: Math.round(Number(at?.y)) });
+    },
+    // Text to the clipboard (a fight's summary for the game's chat), for the
+    // plugins that come with the meter.
+    "clipboard.write": ([text]) => {
+      if (!allowed("feed:combat")) throw new Error('the plugin lacks the "feed:combat" permission');
+      return invoke("plugin_copy_text", { text: String(text) });
+    },
+    // A desktop notification (an alert while AION2 is closed).
+    "notify.system": ([title, body]) => {
+      if (!allowed("notify:system")) throw new Error('the plugin lacks the "notify:system" permission');
+      return invoke("plugin_system_notify", { title: String(title), body: String(body) });
     },
     notify: ([text]) => {
       if (!allowed("notify")) throw new Error('the plugin lacks the "notify" permission');

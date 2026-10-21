@@ -186,6 +186,37 @@ pub fn click_through_except(window: &tauri::WebviewWindow, ignore: bool, keep: O
     .is_some()
 }
 
+/// The widget overlay's input region (`plugins::overlay`): the window takes
+/// the mouse over `rects` only (CSS px x, y, width, height at `page_scale`),
+/// everywhere with `all`, and nowhere but its top-left pixel with neither.
+/// Returns whether it was applied.
+pub fn take_mouse_over(window: &tauri::WebviewWindow, rects: &[(f64, f64, f64, f64)], page_scale: f64, all: bool) -> bool {
+    use gtk::{cairo, prelude::*};
+    let window = window.clone();
+    let rects = rects.to_vec();
+    super::dialog::on_gtk_thread(move || {
+        let gtk_window = window.gtk_window().ok()?;
+        if all {
+            gtk_window.input_shape_combine_region(None);
+            return Some(());
+        }
+        let surface = gtk_window.window()?;
+        let k = page_scale / f64::from(gtk_window.scale_factor().max(1));
+        let region = cairo::Region::create_rectangle(&cairo::RectangleInt::new(0, 0, 1, 1));
+        for (x, y, w, h) in rects {
+            let (left, top) = ((x * k).floor() as i32, (y * k).floor() as i32);
+            let (right, bottom) = (((x + w) * k).ceil() as i32, ((y + h) * k).ceil() as i32);
+            if right > left && bottom > top {
+                let _ = region.union_rectangle(&cairo::RectangleInt::new(left, top, right - left, bottom - top));
+            }
+        }
+        surface.input_shape_combine_region(&region, 0, 0);
+        Some(())
+    })
+    .flatten()
+    .is_some()
+}
+
 pub fn start_drag(window: &tauri::WebviewWindow) {
     let _ = window.start_dragging();
 }

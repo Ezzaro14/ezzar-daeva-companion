@@ -60,6 +60,7 @@ const createMeterUI = ({
   getPinUserToTop,
   getPlayerLimit,
   getPartyStat,
+  getScope,
   getJobColor,
 }) => {
   const MAX_CACHE = 32;
@@ -246,7 +247,13 @@ const createMeterUI = ({
     return view;
   };
 
-  const getDisplayRows = (sortedAll) => {
+  const getDisplayRows = (all) => {
+    // Who the meter lists (Settings): everyone, your party (and you), or you.
+    const scope = typeof getScope === "function" ? getScope() : "everyone";
+    const sortedAll =
+      scope === "me" ? all.filter((row) => row.isUser)
+      : scope === "party" ? all.filter((row) => row.isUser || row.inParty)
+      : all;
     const limit = (typeof getPlayerLimit === "function" ? getPlayerLimit() : 6) || 6;
     const topN = sortedAll.slice(0, limit);
     const user = sortedAll.find((x) => x.isUser);

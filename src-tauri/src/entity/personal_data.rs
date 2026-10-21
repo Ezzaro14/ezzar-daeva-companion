@@ -38,6 +38,9 @@ pub struct PersonalData {
     /// from the HP the boss lost (`DpsCalculator::world_boss_rows`).
     #[serde(default)]
     pub is_others: bool,
+    /// On your party's roster (or you): what the meter's "My party" shows.
+    #[serde(default)]
+    pub in_party: bool,
     #[serde(default)]
     pub hps: f64,
     #[serde(default)]
@@ -58,6 +61,7 @@ impl PersonalData {
             is_supporter: false,
             uses_a2tools: false,
             is_others: false,
+            in_party: false,
             hps: 0.0,
             heal_amount: 0.0,
         }
@@ -76,6 +80,7 @@ impl PersonalData {
             is_supporter: false,
             uses_a2tools: false,
             is_others: false,
+            in_party: false,
             hps: 0.0,
             heal_amount: 0.0,
         }

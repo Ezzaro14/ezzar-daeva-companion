@@ -20,7 +20,7 @@ use serde_json::Value;
 use tokio::sync::watch;
 use tokio_tungstenite::tungstenite::Message;
 
-use super::{host, require, window_plugin};
+use super::{host, plugin_of, require};
 
 /// Most bosses a plugin may follow on a server.
 const MAX_FOLLOW: usize = 50;
@@ -43,8 +43,8 @@ fn state() -> &'static Mutex<State> {
 /// Follow these bosses of `server` (replacing what the calling plugin followed
 /// there); none stops following.
 #[tauri::command]
-pub fn plugin_boss_follow(app: tauri::AppHandle, window: tauri::WebviewWindow, server: u32, bosses: Vec<String>) -> Result<(), String> {
-    let id = window_plugin(&window)?;
+pub fn plugin_boss_follow(app: tauri::AppHandle, window: tauri::WebviewWindow, server: u32, bosses: Vec<String>, plugin: Option<String>) -> Result<(), String> {
+    let id = plugin_of(&window, plugin)?;
     require(&app, &id, "feed:boss-timers")?;
     if !(1000..10000).contains(&server) {
         return Err("not a server id".into());

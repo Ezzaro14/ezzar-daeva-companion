@@ -12,8 +12,27 @@
 //! plugins from local folders, for authors to build and test them.
 
 #[cfg(feature = "online")]
+pub mod armory;
+/// Without the network there is no official site to read.
+#[cfg(not(feature = "online"))]
+pub mod armory {
+    pub const ARMORY: &str = "feed:armory";
+    #[tauri::command]
+    pub fn plugin_armory_character(name: Option<String>, server: Option<u16>, refresh: Option<bool>, plugin: Option<String>) -> Result<serde_json::Value, String> {
+        let _ = (name, server, refresh, plugin);
+        Err("the Progression Guide needs the online build".into())
+    }
+    #[tauri::command]
+    pub fn plugin_armory_pool(class: i32, server: u16, extra: Option<Vec<serde_json::Value>>, plugin: Option<String>) -> Result<(), String> {
+        let _ = (class, server, extra, plugin);
+        Err("the Progression Guide needs the online build".into())
+    }
+}
+pub mod bundled;
+#[cfg(feature = "online")]
 pub mod catalog;
 pub mod decoder;
+pub mod overlay;
 pub mod widgets;
 #[cfg(feature = "online")]
 pub mod boss_live;
@@ -135,7 +154,9 @@ pub fn sync_game_hiding(app: &tauri::AppHandle) {
         } else if hidden.remove(&label) && !crate::platform::window::reveal_in_place(&window) {
             crate::platform::window::show_on_top_without_focus(&window);
         }
-    }
+    }    drop(hidden);
+    // Widgets are in the overlay: it hides those plugins' own.
+    overlay::refresh(app);
 }
 /// Largest value one storage key may hold.
 const MAX_STORED: usize = 1024 * 1024;
@@ -174,6 +195,8 @@ struct Loaded {
     decoders: Vec<Decoder>,
     /// Installed from the signed catalog, not a developer folder.
     reviewed: bool,
+    /// Shipped with the meter (`bundled`).
+    bundled: bool,
 }
 
 /// What Settings lists.
@@ -188,6 +211,8 @@ pub struct PluginInfo {
     pub permissions: Vec<String>,
     /// Installed from the signed catalog (otherwise a developer folder).
     pub reviewed: bool,
+    /// Shipped with the meter: it can be turned off, not removed.
+    pub bundled: bool,
     /// Set when the folder could not be loaded.
     pub error: Option<String>,
 }
@@ -438,7 +463,7 @@ fn load_folder(dir: &Path) -> Result<Loaded, String> {
         }
         decoders.push(decoder);
     }
-    Ok(Loaded { manifest, dir: dir.to_path_buf(), decoders, reviewed: false })
+    Ok(Loaded { manifest, dir: dir.to_path_buf(), decoders, reviewed: false, bundled: false })
 }
 
 impl PluginHost {
@@ -470,6 +495,7 @@ impl PluginHost {
                     path: folder,
                     permissions: Vec::new(),
                     reviewed: false,
+                    bundled: false,
                     error: Some(e),
                 }),
             }
@@ -491,6 +517,15 @@ impl PluginHost {
                 Err(e) => tracing::warn!("Plugins: installed {} does not load: {e}", dir.display()),
             }
         }
+        // The bundled ones, where neither a developer folder nor an installed
+        // copy has the id.
+        for dir in bundled::dirs(app) {
+            match load_folder(&dir) {
+                Ok(l) if loaded.iter().any(|x: &Loaded| x.manifest.id == l.manifest.id) => {}
+                Ok(l) => loaded.push(Loaded { reviewed: true, bundled: true, ..l }),
+                Err(e) => tracing::warn!("Plugins: bundled {} does not load: {e}", dir.display()),
+            }
+        }
         let any_decoders = loaded.iter().any(|l| !l.decoders.is_empty());
         tracing::info!("Plugins: {} loaded (developer mode {})", loaded.len(), if dev { "on" } else { "off" });
         *self.loaded.write().unwrap_or_else(|p| p.into_inner()) = loaded;
@@ -510,6 +545,8 @@ impl PluginHost {
                 let mut ping: Option<i32> = None;
                 let mut map_seq = 0u64;
                 let mut abyss_seq = 0u64;
+                let mut ticker = bundled::Ticker::default();
+                let mut ticked = Instant::now();
                 loop {
                     // Woken by each queued event; the timeout lets settling
                     // events go once their wait is over.
@@ -517,13 +554,17 @@ impl PluginHost {
                         let mut pending = host.pending.lock().unwrap_or_else(|p| p.into_inner());
                         let mut ready = take_ready(&mut pending, Instant::now());
                         if ready.is_empty() {
-                            let wait = if pending.is_empty() { Duration::from_secs(1) } else { Duration::from_millis(50) };
+                            let wait = if pending.is_empty() { bundled::TICK } else { Duration::from_millis(50) };
                             pending = host.queued.wait_timeout(pending, wait).unwrap_or_else(|p| p.into_inner()).0;
                             ready = take_ready(&mut pending, Instant::now());
                         }
                         ready
                     };
                     host.flush(&app, ready);
+                    if ticked.elapsed() >= bundled::TICK {
+                        ticked = Instant::now();
+                        ticker.tick(&app, &host);
+                    }
                     // The character as the meter learns it (a login, a switch,
                     // or the meter starting mid-game): open plugins hear it then,
                     // not only when their window opens.
@@ -562,6 +603,8 @@ impl PluginHost {
                     if game_checked.elapsed() >= GAME_CHECK {
                         game_checked = Instant::now();
                         let running = crate::platform::window_detector::find_aion2_window();
+                        // The overlay follows the game to its screen.
+                        overlay::fit(&app);
                         if running != game {
                             game = running;
                             host.tell_all(&app, "game", serde_json::json!({ "running": running }));
@@ -656,7 +699,7 @@ impl PluginHost {
                     list.pop_front();
                 }
             }
-            let _ = app.emit_to(format!("plugin-{}", item.plugin), "plugin-event", event);
+            let _ = emit_plugin(app, &item.plugin, event);
         }
     }
 
@@ -667,7 +710,7 @@ impl PluginHost {
             self.loaded.read().unwrap_or_else(|p| p.into_inner()).iter().map(|l| l.manifest.id.clone()).collect();
         for id in ids {
             let msg = serde_json::json!({ "plugin": id, "event": event, "data": data });
-            let _ = app.emit_to(format!("plugin-{id}"), "plugin-event", msg);
+            let _ = emit_plugin(app, &id, msg);
         }
     }
 
@@ -683,7 +726,7 @@ impl PluginHost {
             .collect();
         for id in ids {
             let msg = serde_json::json!({ "plugin": id, "event": event, "data": data });
-            let _ = app.emit_to(format!("plugin-{id}"), "plugin-event", msg);
+            let _ = emit_plugin(app, &id, msg);
         }
     }
 
@@ -701,7 +744,7 @@ impl PluginHost {
             .collect();
         for id in ids {
             let event = serde_json::json!({ "plugin": id, "event": "character", "data": who });
-            let _ = app.emit_to(format!("plugin-{id}"), "plugin-event", event);
+            let _ = emit_plugin(app, &id, event);
         }
     }
 
@@ -725,8 +768,25 @@ fn info(l: &Loaded) -> PluginInfo {
         path: l.dir.to_string_lossy().into_owned(),
         permissions: l.manifest.permissions.clone(),
         reviewed: l.reviewed,
+        bundled: l.bundled,
         error: None,
     }
+}
+
+/// An event for plugin `id` (each names its plugin): to its window, and to
+/// the dashboard, which hosts the bundled plugins.
+fn emit_plugin(app: &tauri::AppHandle, id: &str, event: Value) -> tauri::Result<()> {
+    let _ = app.emit_to(bundled::DASHBOARD, "plugin-event", event.clone());
+    app.emit_to(format!("plugin-{id}"), "plugin-event", event)
+}
+
+/// The plugin a call is for: a `plugin-<id>` window's, or for the dashboard
+/// (which hosts the bundled plugins in one window) the one it names.
+fn plugin_of(window: &tauri::WebviewWindow, plugin: Option<String>) -> Result<String, String> {
+    if window.label() == bundled::DASHBOARD {
+        return plugin.filter(|id| valid_id(id)).ok_or_else(|| "the dashboard names no plugin".to_string());
+    }
+    window_plugin(window)
 }
 
 /// The plugin a `plugin-<id>` window belongs to.
@@ -927,6 +987,10 @@ struct PromptTexts {
     perm_widgets: String,
     perm_character: String,
     perm_decoder: String,
+    perm_combat: String,
+    perm_system_notify: String,
+    perm_armory: String,
+    perm_maps: String,
 }
 
 #[cfg_attr(not(feature = "online"), allow(dead_code))]
@@ -959,6 +1023,13 @@ fn prompt_texts(data_dir: Option<&Path>, lang: &str) -> PromptTexts {
         perm_widgets: perm("permWidgets", "Show small windows of its own, which you can move anywhere and lock in place"),
         perm_character: perm("permCharacter", "See your character's name, server, class and level"),
         perm_decoder: perm("permDecoder", "Read your own game data: {name}"),
+        perm_combat: perm(
+            "permCombat",
+            "See your skills, the buffs and debuffs on you and your party, and the players you fight",
+        ),
+        perm_system_notify: perm("permSystemNotify", "Show desktop notifications while AION2 is closed"),
+        perm_maps: perm("permMaps", "Keep map images and marker files you pick"),
+        perm_armory: perm("permArmory", "Read characters' public profiles from the official AION 2 site, and a2tools.app's leaderboard"),
     }
 }
 
@@ -971,6 +1042,10 @@ fn describe_permission(t: &PromptTexts, permission: &str) -> String {
         "window" => t.perm_window.clone(),
         "widgets" => t.perm_widgets.clone(),
         "events:character" => t.perm_character.clone(),
+        bundled::COMBAT_FEED => t.perm_combat.clone(),
+        bundled::SYSTEM_NOTIFY => t.perm_system_notify.clone(),
+        armory::ARMORY => t.perm_armory.clone(),
+        bundled::MAPS => t.perm_maps.clone(),
         p => match p.strip_prefix("decoder:") {
             Some(name) => t.perm_decoder.replace("{name}", name),
             None => p.to_string(),
@@ -1145,6 +1220,9 @@ pub async fn plugin_install(app: tauri::AppHandle, id: String) -> Result<Plugins
 pub fn plugin_uninstall(app: tauri::AppHandle, id: String) -> Result<PluginsView, String> {
     if !valid_id(&id) {
         return Err("not a plugin id".into());
+    }
+    if host(&app)?.with(&id, |l| l.bundled).unwrap_or(false) {
+        return Err("a plugin that comes with the meter can be turned off, not removed".into());
     }
     if let Some(window) = app.get_webview_window(&format!("plugin-{id}")) {
         let _ = window.close();
@@ -1389,6 +1467,9 @@ pub async fn plugin_open(app: tauri::AppHandle, id: String) -> Result<(), String
         return Err("that plugin is turned off".into());
     }
     reopened(&app, &id);
+    if host(&app)?.with(&id, |l| l.bundled).unwrap_or(false) {
+        return bundled::open_dashboard(&app, Some(&id), true);
+    }
     open_window(&app, &id, true)?;
     remember_window(&app, &id, Some("shown"));
     Ok(())
@@ -1419,10 +1500,18 @@ pub fn restore_windows(app: &tauri::AppHandle) {
     let off = disabled(app);
     let closed = host.closed.lock().unwrap_or_else(|e| e.into_inner()).clone();
     for p in host.list() {
+        // The dashboard hosts these (bundled::open_dashboard).
+        if p.bundled {
+            continue;
+        }
         if !should_start(&p, &off, &closed, app.get_webview_window(&format!("plugin-{}", p.id)).is_some()) {
             continue;
         }
-        let visible = windows.get(&p.id).and_then(Value::as_str) != Some("hidden");
+        // A bundled plugin runs in the background until opened from Settings.
+        let visible = match windows.get(&p.id).and_then(Value::as_str) {
+            Some(state) => state != "hidden",
+            None => !p.bundled,
+        };
         if let Err(e) = open_window(app, &p.id, visible) {
             tracing::info!("Plugins: not starting {}: {e}", p.id);
         }
@@ -1540,8 +1629,8 @@ pub fn plugin_close(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Resu
 /// events so far (the page delivers those it has not yet), and the character
 /// (for `events:character`).
 #[tauri::command]
-pub fn plugin_hello(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<Value, String> {
-    let id = window_plugin(&window)?;
+pub fn plugin_hello(app: tauri::AppHandle, window: tauri::WebviewWindow, plugin: Option<String>) -> Result<Value, String> {
+    let id = plugin_of(&window, plugin)?;
     let host = host(&app)?;
     let manifest = host.with(&id, |l| l.manifest.clone()).ok_or("plugin not loaded")?;
     let replay: Vec<Value> =
@@ -1557,6 +1646,8 @@ pub fn plugin_hello(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Resu
         "character": character,
         "language": language,
         "reviewed": reviewed,
+        // In the dashboard, which has its own Lock and Edit layout for all.
+        "hosted": window.label() == bundled::DASHBOARD,
         "game": crate::platform::window_detector::find_aion2_window(),
         "ping": app.try_state::<AppState>().and_then(|s| s.ping_tracker.current_ping_ms()),
     }))
@@ -1581,9 +1672,10 @@ pub fn plugin_debug_frame(app: tauri::AppHandle, hex: String) -> Result<(), Stri
 /// Tell every open plugin window something every plugin may know, such as the
 /// meter's language when the user changes it.
 pub fn broadcast(app: &tauri::AppHandle, event: &str, data: Value) {
-    for (label, window) in app.webview_windows() {
-        if label.starts_with("plugin-") {
-            let _ = window.emit("plugin-event", serde_json::json!({ "event": event, "data": data }));
+    // To each window by its label: a window's own `emit` goes to every window.
+    for label in app.webview_windows().into_keys() {
+        if label.starts_with("plugin-") || label == bundled::DASHBOARD {
+            let _ = app.emit_to(label.as_str(), "plugin-event", serde_json::json!({ "event": event, "data": data }));
         }
     }
 }
@@ -1598,8 +1690,8 @@ fn require(app: &tauri::AppHandle, id: &str, permission: &str) -> Result<(), Str
 /// `feed:boss-timers`: the published file as it is, or None when the server
 /// has none yet. Kept a minute, so plugins asking often fetch it once.
 #[tauri::command]
-pub async fn plugin_boss_timers(app: tauri::AppHandle, window: tauri::WebviewWindow, server: u32) -> Result<Option<Value>, String> {
-    let id = window_plugin(&window)?;
+pub async fn plugin_boss_timers(app: tauri::AppHandle, window: tauri::WebviewWindow, server: u32, plugin: Option<String>) -> Result<Option<Value>, String> {
+    let id = plugin_of(&window, plugin)?;
     require(&app, &id, "feed:boss-timers")?;
     if !(1000..10000).contains(&server) {
         return Err("not a server id".into());
@@ -1612,8 +1704,8 @@ pub async fn plugin_boss_timers(app: tauri::AppHandle, window: tauri::WebviewWin
 /// state and HP, the published file as it is, or None when the server has
 /// none yet. For plugins with `feed:boss-timers`. Meter 2.0.72 on.
 #[tauri::command]
-pub async fn plugin_abyss_siege(app: tauri::AppHandle, window: tauri::WebviewWindow, server: u32) -> Result<Option<Value>, String> {
-    let id = window_plugin(&window)?;
+pub async fn plugin_abyss_siege(app: tauri::AppHandle, window: tauri::WebviewWindow, server: u32, plugin: Option<String>) -> Result<Option<Value>, String> {
+    let id = plugin_of(&window, plugin)?;
     require(&app, &id, "feed:boss-timers")?;
     if !(1000..10000).contains(&server) {
         return Err("not a server id".into());
@@ -1663,15 +1755,15 @@ async fn feed_file(_app: &tauri::AppHandle, _feed: &'static str, _server: u32) -
 }
 
 #[tauri::command]
-pub fn plugin_storage_get(app: tauri::AppHandle, window: tauri::WebviewWindow, key: String) -> Result<Option<String>, String> {
-    let id = window_plugin(&window)?;
+pub fn plugin_storage_get(app: tauri::AppHandle, window: tauri::WebviewWindow, key: String, plugin: Option<String>) -> Result<Option<String>, String> {
+    let id = plugin_of(&window, plugin)?;
     require(&app, &id, "storage")?;
     Ok(std::fs::read_to_string(data_file(&app, &id, &key)?).ok())
 }
 
 #[tauri::command]
-pub fn plugin_storage_set(app: tauri::AppHandle, window: tauri::WebviewWindow, key: String, value: String) -> Result<(), String> {
-    let id = window_plugin(&window)?;
+pub fn plugin_storage_set(app: tauri::AppHandle, window: tauri::WebviewWindow, key: String, value: String, plugin: Option<String>) -> Result<(), String> {
+    let id = plugin_of(&window, plugin)?;
     require(&app, &id, "storage")?;
     if value.len() > MAX_STORED {
         return Err("value larger than 1 MB".into());
@@ -1687,6 +1779,9 @@ pub fn plugin_storage_set(app: tauri::AppHandle, window: tauri::WebviewWindow, k
 
 /// The `a2` object plugins load from `/_sdk/a2.js`.
 const SDK: &str = include_str!("a2.js");
+/// The look widgets share (fork): `/_sdk/widget.css`, the overlay's panels,
+/// type and colours, for any plugin's widget to use.
+const WIDGET_CSS: &str = include_str!("widget.css");
 
 /// Serve `/<id>/<path>` from that plugin's folder, and `/_sdk/a2.js`.
 /// The content policy for a plugin's files: its own folder and the SDK, and
@@ -1700,23 +1795,27 @@ const SDK: &str = include_str!("a2.js");
 /// scheme itself is allowed too, in case WebKit does not match a path on a
 /// custom scheme: that lets a plugin load another plugin's files, which gives
 /// it nothing (each runs in the same sandbox, with only its own permissions).
-fn content_policy(id: &str) -> String {
+fn content_policy(id: &str, icons: bool) -> String {
     let base = if cfg!(windows) { "http://a2plugin.localhost" } else { "a2plugin://localhost" };
-    let mut own = format!("'self' {base}/_sdk/a2.js");
+    let mut own = format!("'self' {base}/_sdk/a2.js {base}/_sdk/widget.css");
     if valid_id(id) {
         own.push_str(&format!(" {base}/{id}/"));
     }
     if !cfg!(windows) {
         own.push_str(" a2plugin:");
     }
+    let cdn = if icons { format!(" {}", bundled::ICON_CDN) } else { String::new() };
     format!(
-        "default-src 'none'; script-src {own}; style-src {own} 'unsafe-inline'; img-src {own} data:;          font-src {own} data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+        "default-src 'none'; script-src {own}; style-src {own} 'unsafe-inline'; img-src {own} data:{cdn};          font-src {own} data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
     )
 }
 
 pub fn serve(app: &tauri::AppHandle, path: &str) -> tauri::http::Response<Vec<u8>> {
     let path = percent_decode(path.trim_start_matches('/'));
-    let policy = content_policy(path.split('/').next().unwrap_or(""));
+    let first = path.split('/').next().unwrap_or("");
+    // The game's icons, for the plugins shipped with the meter.
+    let icons = host(app).ok().and_then(|h| h.with(first, |l| l.bundled)).unwrap_or(false);
+    let policy = content_policy(first, icons);
     let respond = |status: u16, kind: &str, body: Vec<u8>| {
         tauri::http::Response::builder()
             .status(status)
@@ -1728,6 +1827,9 @@ pub fn serve(app: &tauri::AppHandle, path: &str) -> tauri::http::Response<Vec<u8
     };
     if path == "_sdk/a2.js" {
         return respond(200, "text/javascript; charset=utf-8", SDK.as_bytes().to_vec());
+    }
+    if path == "_sdk/widget.css" {
+        return respond(200, "text/css; charset=utf-8", WIDGET_CSS.as_bytes().to_vec());
     }
     let Some((id, rest)) = path.split_once('/') else { return respond(404, "text/plain", Vec::new()) };
     let Ok(host) = host(app) else { return respond(404, "text/plain", Vec::new()) };
@@ -1750,7 +1852,7 @@ pub fn serve(app: &tauri::AppHandle, path: &str) -> tauri::http::Response<Vec<u8
         if let Ok(html) = std::fs::read_to_string(&file) {
             let (page, hashes) = inline_page(&html, &root, file.parent().unwrap_or(&root));
             let page = with_meter_fonts(&page);
-            let policy = inlined_policy(id, &hashes);
+            let policy = inlined_policy(id, &hashes, icons);
             return tauri::http::Response::builder()
                 .status(200)
                 .header("Content-Type", "text/html; charset=utf-8")
@@ -1794,6 +1896,9 @@ fn inline_page(html: &str, root: &Path, page_dir: &Path) -> (String, Vec<String>
     let read = |src: &str| -> Option<String> {
         if src.trim_start_matches('/') == "_sdk/a2.js" {
             return Some(SDK.to_string());
+        }
+        if src.trim_start_matches('/') == "_sdk/widget.css" {
+            return Some(WIDGET_CSS.to_string());
         }
         std::fs::read_to_string(file_of(src)?).ok()
     };
@@ -1922,11 +2027,12 @@ fn with_meter_fonts(page: &str) -> String {
     format!("{}{}{}", &page[..at], meter_fonts_style(), &page[at..])
 }
 
-fn inlined_policy(id: &str, hashes: &[String]) -> String {
+fn inlined_policy(id: &str, hashes: &[String], icons: bool) -> String {
     let scripts: String = hashes.iter().map(|h| format!(" 'sha256-{h}'")).collect();
     let own = if valid_id(id) { format!("a2plugin://localhost/{id}/") } else { "'none'".into() };
+    let cdn = if icons { format!(" {}", bundled::ICON_CDN) } else { String::new() };
     format!(
-        "default-src 'none'; script-src{}; style-src 'unsafe-inline'; img-src {own} data:; font-src {own} data:; \
+        "default-src 'none'; script-src{}; style-src 'unsafe-inline'; img-src {own} data:{cdn}; font-src {own} data:; \
          connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'",
         if scripts.is_empty() { " 'none'".to_string() } else { scripts }
     )
@@ -2033,6 +2139,7 @@ mod tests {
             path: String::new(),
             permissions: Vec::new(),
             reviewed: true,
+            bundled: false,
             error: error.map(str::to_string),
         };
         let off = vec!["off".to_string()];
@@ -2085,7 +2192,7 @@ mod tests {
         assert!(page.contains("<script src=\"../secret.js\"></script>"));
         assert!(page.contains("https://example.com/x.js"));
         assert_eq!(hashes.len(), 2);
-        let policy = inlined_policy("plugin", &hashes);
+        let policy = inlined_policy("plugin", &hashes, false);
         assert!(policy.contains(&format!("script-src 'sha256-{}' 'sha256-{}';", hashes[0], hashes[1])), "{policy}");
         assert!(policy.contains("connect-src 'none'"));
         let _ = std::fs::remove_dir_all(&dir);
@@ -2102,7 +2209,7 @@ mod tests {
     #[test]
     fn the_policy_names_the_plugins_own_files() {
         let base = if cfg!(windows) { "http://a2plugin.localhost" } else { "a2plugin://localhost" };
-        let policy = content_policy("pet-souls");
+        let policy = content_policy("pet-souls", false);
         for directive in ["script-src", "style-src"] {
             let sources = policy.split(';').find(|d| d.trim().starts_with(directive)).unwrap();
             // Not 'self' alone: WebKit refuses everything in a sandboxed frame then.
@@ -2111,7 +2218,16 @@ mod tests {
         }
         assert!(policy.contains("connect-src 'none'"));
         // A path that is not a plugin id adds no folder.
-        assert!(!content_policy("../x").contains("/../x/"));
+        assert!(!content_policy("../x", false).contains("/../x/"));
+    }
+
+    #[test]
+    fn only_a_bundled_plugin_may_show_the_games_icons() {
+        let img = |p: String| p.split(';').find(|d| d.trim().starts_with("img-src")).unwrap().to_string();
+        assert!(img(content_policy("combat-assist", true)).contains(super::bundled::ICON_CDN));
+        assert!(!img(content_policy("pet-souls", false)).contains("https:"));
+        assert!(img(inlined_policy("combat-assist", &[], true)).contains(super::bundled::ICON_CDN));
+        assert!(!content_policy("combat-assist", true).split(';').any(|d| d.contains("connect-src") && d.contains("https:")));
     }
 
     fn event(plugin: &str, name: &str, settle: bool, at: Instant) -> Pending {

@@ -84,6 +84,43 @@ pub fn find_aion2_window_title() -> Option<String> {
     })
 }
 
+/// The game's window: by title, or by the program that owns it.
+pub(super) fn game_window() -> Option<HWND> {
+    let windows = top_level_windows();
+    windows.iter().copied().find(|&h| is_game_title(&window_title(h))).or_else(|| {
+        windows.into_iter().find(|&h| {
+            unsafe { IsWindowVisible(h) }.as_bool() && !window_title(h).is_empty() && exe_path(h).is_some_and(|p| is_game_exe(&p))
+        })
+    })
+}
+
+/// Where the game's window is: x, y, width, height in physical screen
+/// pixels, for the overlay to cover its screen.
+pub fn game_rect() -> Option<(i32, i32, i32, i32)> {
+    use windows::Win32::Foundation::RECT;
+    use windows::Win32::UI::WindowsAndMessaging::{GetWindowRect, IsIconic};
+    let hwnd = game_window()?;
+    if unsafe { IsIconic(hwnd) }.as_bool() {
+        return None;
+    }
+    let mut r = RECT::default();
+    unsafe { GetWindowRect(hwnd, &mut r) }.ok()?;
+    (r.right > r.left && r.bottom > r.top).then(|| (r.left, r.top, r.right - r.left, r.bottom - r.top))
+}
+
+/// The app places the overlay itself here.
+pub fn desktop_places_overlay() -> bool {
+    false
+}
+
+/// Only KWin is told which screen the overlay goes on (see the Linux version).
+pub fn set_overlay_screen(_key: &str) {}
+
+/// The screens as the desktop names them: none here, the app's own list is used.
+pub fn desktop_screens() -> Vec<(String, String, (i32, i32, i32, i32))> {
+    Vec::new()
+}
+
 /// Check if the AION 2 game window is currently running.
 pub fn find_aion2_window() -> bool {
     find_aion2_window_title().is_some()

@@ -5,7 +5,7 @@
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1" />
-    <title>A2Tools DPS Meter</title>
+    <title>Ezzar's Daeva Companion</title>
     <script src="/src/js/settingsBootstrap.js"></script>
     <link
       href="/src/styles.css"
@@ -57,6 +57,7 @@
           <div class="headerBtns">
             <div class="headerBtn lockBtn" style="display:none" role="button" tabindex="0" aria-label="Lock overlay (click-through)" data-i18n-aria-label="settings.showLockBtn"><i data-lucide="lock-open"></i></div>
             <div class="headerBtn suspendBtn" style="display:none"><i data-lucide="power"></i></div>
+            <div class="headerBtn dashboardBtn" role="button" tabindex="0" aria-label="Dashboard" title="Dashboard"><i data-lucide="layout-dashboard"></i></div>
             <div class="headerBtn historyBtn" role="button" tabindex="0" aria-label="Fight history" data-i18n-aria-label="history.title"><i data-lucide="scroll-text"></i></div>
             <div class="headerBtn resetBtn"><i data-lucide="rotate-ccw"></i></div>
             <div class="headerBtn settingsBtn"><i data-lucide="settings"></i></div>
@@ -624,6 +625,18 @@
                   </div>
                   <div class="settingsRow settingsRowSelect">
                     <div class="settingsInfo">
+                      <div class="settingsLabel" data-i18n="settings.meterScope.label" title="Everyone hitting the target, your party's members (and you), or only you." data-i18n-title="settings.tips.meterScope">Show on the meter</div>
+                    </div>
+                    <div class="settingsDropdownWrapper meterScopeDropdownWrapper">
+                      <button class="settingsDropdownBtn meterScopeDropdownBtn" type="button">
+                        <span class="settingsDropdownText">-</span>
+                        <span class="settingsDropdownCaret" aria-hidden="true">▾</span>
+                      </button>
+                      <div class="settingsDropdownMenu meterScopeDropdownMenu" role="menu"></div>
+                    </div>
+                  </div>
+                  <div class="settingsRow settingsRowSelect">
+                    <div class="settingsInfo">
                       <div class="settingsLabel" data-i18n="settings.playerLimit.label" title="How many player rows the meter shows; the rest are left out." data-i18n-title="settings.tips.playerLimit">Max players shown</div>
                     </div>
                     <div class="settingsDropdownWrapper playerLimitDropdownWrapper playerLimitNarrow">
@@ -655,6 +668,18 @@
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
+                  <div class="settingsRow settingsRowSelect">
+                    <div class="settingsInfo">
+                      <div class="settingsLabel" data-i18n="settings.hideOutOfCombat.label" title="The meter goes out of sight a while after the last hit, and comes back with the next fight." data-i18n-title="settings.tips.hideOutOfCombat">Hide out of combat</div>
+                    </div>
+                    <div class="settingsDropdownWrapper hideOutOfCombatDropdownWrapper">
+                      <button class="settingsDropdownBtn hideOutOfCombatDropdownBtn" type="button">
+                        <span class="settingsDropdownText">-</span>
+                        <span class="settingsDropdownCaret" aria-hidden="true">▾</span>
+                      </button>
+                      <div class="settingsDropdownMenu hideOutOfCombatDropdownMenu" role="menu"></div>
+                    </div>
+                  </div>
                   <div class="settingsRow settingsRowSelect">
                     <div class="settingsInfo">
                       <div class="settingsLabel" data-i18n="settings.detailsMonitor.label" title="Opens the Details window on the chosen display and keeps it there." data-i18n-title="settings.tips.detailsMonitor">Details on second monitor</div>

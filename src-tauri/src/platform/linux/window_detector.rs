@@ -70,3 +70,25 @@ pub fn describe_candidates() -> Vec<String> {
     }
     out
 }
+
+/// Where the game's window is (x, y, width, height). Wayland does not say;
+/// on KDE the KWin script places the overlay over the game itself.
+pub fn game_rect() -> Option<(i32, i32, i32, i32)> {
+    None
+}
+
+/// Whether the desktop places the overlay over the game's screen (KDE, by
+/// the KWin script), so the app leaves it alone.
+pub fn desktop_places_overlay() -> bool {
+    super::focus::places_overlay()
+}
+
+/// The screen the overlay goes on, by the desktop's key, or "" for the game's.
+pub fn set_overlay_screen(key: &str) {
+    super::focus::set_overlay_screen(key);
+}
+
+/// The screens as KWin names them: key, label, and where (x, y, width, height).
+pub fn desktop_screens() -> Vec<(String, String, (i32, i32, i32, i32))> {
+    super::focus::screens()
+}
