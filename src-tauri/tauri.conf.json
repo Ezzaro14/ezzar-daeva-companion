@@ -1,0 +1,86 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "A2Tools DPS Meter",
+  "version": "2.0.73",
+  "identifier": "com.a2tools.dps-meter",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "A2Tools DPS Meter",
+        "width": 400,
+        "height": 300,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "resizable": true,
+        "shadow": false
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self' 'unsafe-hashes' 'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc=' 'sha256-E0wk1DOvyUPgKrx0o/UNs4cZQIUvB5heAW8Cz3IMQH0=' 'sha256-j4VbX71+GbO3b2jDDBol0yaFLV7EorWC6xbgZBPKmMk=' 'sha256-pwQduWxX3Cm7lLbQmAos7n73RLP4QrsCDFejmsBdZ78='",
+        "style-src": "'self' 'unsafe-inline'",
+        "font-src": "'self' data:",
+        "img-src": "'self' data: blob: https://assets.playnccdn.com",
+        "connect-src": "'self' ipc: http://ipc.localhost https://assets.playnccdn.com",
+        "object-src": "'none'",
+        "base-uri": "'none'",
+        "frame-src": "http://a2plugin.localhost a2plugin://localhost",
+        "form-action": "'none'"
+      },
+      "devCsp": {
+        "default-src": "'self'",
+        "script-src": "'self' 'unsafe-hashes' 'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc=' 'sha256-E0wk1DOvyUPgKrx0o/UNs4cZQIUvB5heAW8Cz3IMQH0=' 'sha256-j4VbX71+GbO3b2jDDBol0yaFLV7EorWC6xbgZBPKmMk=' 'sha256-pwQduWxX3Cm7lLbQmAos7n73RLP4QrsCDFejmsBdZ78='",
+        "style-src": "'self' 'unsafe-inline'",
+        "font-src": "'self' data:",
+        "img-src": "'self' data: blob: https://assets.playnccdn.com",
+        "connect-src": "'self' ipc: http://ipc.localhost https://assets.playnccdn.com ws://localhost:1420",
+        "object-src": "'none'",
+        "base-uri": "'none'",
+        "frame-src": "http://a2plugin.localhost a2plugin://localhost",
+        "form-action": "'none'"
+      },
+      "dangerousDisableAssetCspModification": ["style-src"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi"],
+    "resources": [
+      "../src/data"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "allowDowngrades": true,
+      "wix": {
+        "template": "wix/main.wxs"
+      },
+      "webviewInstallMode": {
+        "type": "skip"
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libpcap0.8t64 | libpcap0.8",
+          "libcap2-bin"
+        ],
+        "postInstallScript": "../packaging/linux/postinst.sh"
+      }
+    }
+  }
+}

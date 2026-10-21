@@ -1,0 +1,3740 @@
+// Each DoT row goes under the direct row of its skill, matched by skill code
+// (a DoT row's code is the skill's code plus "-dot"), never by its name,
+// which each language words differently. A DoT with no direct row stays.
+const foldDotRows = (rows) => {
+  const dots = rows.filter((row) => row.isDot);
+  const attached = new Set();
+  const out = [];
+  for (const hit of rows) {
+    if (hit.isDot) continue;
+    const dot = dots.find((d) => !attached.has(d) && String(d.code ?? "").replace(/-dot$/, "") === String(hit.code ?? ""));
+    if (dot) attached.add(dot);
+    hit._dotChild = dot || null;
+    hit._combinedDmg = (Number(hit.dmg) || 0) + (dot ? Number(dot.dmg) || 0 : 0);
+    out.push(hit);
+  }
+  for (const dot of dots) {
+    if (attached.has(dot)) continue;
+    dot._dotChild = null;
+    dot._combinedDmg = Number(dot.dmg) || 0;
+    out.push(dot);
+  }
+  return out;
+};
+
+const createDetailsUI = ({
+  detailsPanel,
+  detailsClose,
+  detailsBackBtn,
+  detailsFightTitleEl,
+  detailsPartyListEl,
+  detailsStatsEl,
+  skillsListEl,
+  dpsFormatter,
+  getDetails,
+  getDetailsContext,
+  getDungeonId,
+  getPartyStat,
+  onPinnedRowChange,
+  onBack,
+}) => {
+  let openedRowId = null;
+  let pinnedRowId = null;
+  let openSeq = 0;
+  let autoRefreshTimer = null;
+  let lastRow = null;
+  let lastDetails = null;
+  let detailsContext = null;
+  let detailsActors = new Map();
+  let detailsTargets = [];
+  let selectedTargetId = null;
+  let selectedAttackerIds = null;
+  let selectedAttackerLabel = "";
+  let sortMode = "recent";
+  let detectedJobByActorId = new Map();
+  let skillSortKey = "dmg";
+  let skillSortDir = "desc";
+  let activeCompactMode = false;
+  // "dmg" shows damage skills; "heal" shows healing done. Always resets to "dmg"
+  // when a fight is opened (see open/openHistoryFight).
+  let detailsMode = "dmg";
+  let historyRecord = null;
+  let fightStartMs = 0;
+  let fightBossName = "";
+  // The instance the fight was in (0 in the open world), for its difficulty.
+  let fightDungeonId = 0;
+  let fightMobCode = 0;
+  let lastUnfilteredDetails = null;
+  const detailsCacheByRowId = new Map();
+  const COMPACT_MAX_SKILLS = 5;
+  const expandedDotParents = new Set();
+  const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
+
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+  const formatNum = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "-";
+    return dpsFormatter.format(n);
+  };
+  const formatCount = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "-";
+    if (Math.abs(n) < 1000) {
+      return `${Math.round(n)}`;
+    }
+    return dpsFormatter.format(n);
+  };
+  const pctText = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? `${n.toFixed(1)}%` : "-";
+  };
+  const formatCompactNumber = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "-";
+    if (n >= 1_000_000) {
+      return `${(n / 1_000_000).toFixed(2)}m`;
+    }
+    if (n >= 1_000) {
+      return `${(n / 1_000).toFixed(1)}k`;
+    }
+    return `${Math.round(n)}`;
+  };
+  const formatDamageCompact = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "-";
+    const abs = Math.abs(n);
+    if (abs >= 1_000_000) {
+      return `${(n / 1_000_000).toFixed(2)}m`;
+    }
+    if (abs >= 1_000) {
+      return `${(n / 1_000).toFixed(2)}k`;
+    }
+    return `${Math.round(n)}`;
+  };
+  const formatMinutesSince = (timestampMs) => {
+    const ts = Number(timestampMs);
+    if (!Number.isFinite(ts) || ts <= 0) return "-";
+    const minutes = (Date.now() - ts) / 60000;
+    if (!Number.isFinite(minutes) || minutes < 0) return "-";
+    return `${minutes.toFixed(1)}m`;
+  };
+  const formatBattleTime = (ms) => {
+    const totalMs = Number(ms);
+    if (!Number.isFinite(totalMs) || totalMs <= 0) return "00:00";
+    const totalSeconds = Math.floor(totalMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  };
+  const i18n = window.i18n;
+  const labelText = (key, fallback) => i18n?.t?.(key, fallback) ?? fallback;
+
+  const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const formatFightDateTime = (ms) => {
+    const d = new Date(Number(ms));
+    if (isNaN(d.getTime())) return "";
+    const yr = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const h24 = d.getHours();
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const lang = i18n?.lang ?? "en";
+    if (lang === "ko") {
+      const period = h24 < 12 ? "\uC624\uC804" : "\uC624\uD6C4"; // 오전/오후
+      const h12 = h24 % 12 || 12;
+      return `${yr}-${mo}-${day} @ ${period} ${h12}:${mm}`;
+    }
+    if (lang === "zh-Hans" || lang === "zh-Hant") {
+      const period = h24 < 12 ? "\u4E0A\u5348" : "\u4E0B\u5348"; // 上午/下午
+      const h12 = h24 % 12 || 12;
+      return `${yr}-${mo}-${day} @ ${period} ${h12}:${mm}`;
+    }
+    const period = h24 < 12 ? "AM" : "PM";
+    const h12 = h24 % 12 || 12;
+    return `${yr}-${mo}-${day} @ ${h12}:${mm} ${period}`;
+  };
+
+  const renderFightTitle = () => {
+    if (!detailsFightTitleEl) return;
+    const target = getTargetById(selectedTargetId) || detailsTargets[0];
+    const bossName = fightBossName || (target ? getTargetLabel(target) : "");
+    const dateStr = fightStartMs > 0 ? formatFightDateTime(fightStartMs) : "";
+    if (!bossName) { detailsFightTitleEl.innerHTML = ""; return; }
+    const fightVs = labelText("details.fightVs", "Fight vs");
+    const suffix = dateStr ? ` - ${dateStr}` : "";
+    // Where and how hard: "Krao Cave" with its tier, or for an instance the
+    // dungeon table does not name (Nightmare), the boss's category and its own
+    // level.
+    const i18n = window.i18n;
+    let place = fightDungeonId > 0 ? (i18n?.getDungeonName?.(fightDungeonId) || "") : "";
+    let tier = fightDungeonId > 0 ? i18n?.getDungeonDifficulty?.(fightDungeonId) : null;
+    if (fightMobCode > 0) {
+      if (!place) place = i18n?.getNpcCategory?.(fightMobCode) || "";
+      const level = i18n?.getNpcLevel?.(fightMobCode) || "";
+      if (level) tier = { key: "level", label: level };
+    }
+    const escape = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    const placeHtml = place ? ` <span class="fightTitleDungeon">${escape(place)}</span>` : "";
+    const tierBadge = tier
+      ? ` <span class="difficultyBadge difficulty-${tier.key}">${escape(tier.label)}</span>`
+      : "";
+    // How long the fight took (everyone's combat time), once known.
+    const time = (lastUnfilteredDetails || lastDetails)?.combatTime;
+    const timeHtml = time
+      ? ` <span class="fightTitleTime" title="${escape(labelText("details.stats.combatTime", "Combat Time"))}">${escape(time)}</span>`
+      : "";
+    detailsFightTitleEl.innerHTML = `${fightVs} <span class="fightTitleBossName">${bossName}</span>${placeHtml}${tierBadge}${timeHtml}${suffix}`;
+  };
+
+  // Deaths in the fight: the selected players' (the fight's own details are
+  // everyone's), or "-" where they aren't known (several targets together).
+  const deathCount = (d) => {
+    if (!Array.isArray(d?.deaths)) return "-";
+    const ids = d !== lastUnfilteredDetails && Array.isArray(selectedAttackerIds) && selectedAttackerIds.length
+      ? new Set(selectedAttackerIds.map(Number))
+      : null;
+    return formatCount(ids ? d.deaths.filter((x) => ids.has(Number(x?.actorId))).length : d.deaths.length);
+  };
+
+  // Damage taken in the fight: the selected players', or the whole party's.
+  const damageTaken = (d) => {
+    const ids = d !== lastUnfilteredDetails && Array.isArray(selectedAttackerIds) && selectedAttackerIds.length
+      ? selectedAttackerIds
+      : [...detailsActors.keys()];
+    if (!detailsActors.size) return "-";
+    const sum = ids.reduce((total, id) => total + (Number(detailsActors.get(Number(id))?.damageReceived) || 0), 0);
+    return formatDamageCompact(sum);
+  };
+
+  // Every hit's time (ms into the fight) and its share of the skill's
+  // damage, from the skills' own hit times.
+  const hitsOf = (skills, keep = () => true) => {
+    const hits = [];
+    for (const skill of Array.isArray(skills) ? skills : []) {
+      if (!skill || !keep(skill)) continue;
+      const times = Array.isArray(skill.hitTimestamps) ? skill.hitTimestamps : [];
+      if (!times.length) continue;
+      const each = (Number(skill.dmg) || 0) / times.length;
+      for (const ts of times) hits.push({ ts: Number(ts), dmg: each });
+    }
+    return hits.sort((a, b) => a.ts - b.ts);
+  };
+
+  // The most damage done in any 5 seconds of the fight, per second: the
+  // selected players' together (everyone's for the fight as a whole).
+  const BURST_WINDOW_MS = 5000;
+  const peakOf = (hits) => {
+    let best = 0;
+    let sum = 0;
+    let lo = 0;
+    for (const hit of hits) {
+      sum += hit.dmg;
+      while (hits[lo].ts <= hit.ts - BURST_WINDOW_MS) sum -= hits[lo++].dmg;
+      if (sum > best) best = sum;
+    }
+    // Hits spanning less than the window (a short fight, a single hit) are
+    // over that span, at least a second, not over 5 s they didn't last.
+    const span = hits.length ? hits[hits.length - 1].ts - hits[0].ts : 0;
+    return best / (Math.min(BURST_WINDOW_MS, Math.max(1000, span)) / 1000);
+  };
+  // Damage over the whole fight's time (everyone's, also for a selected
+  // player, as the meter counts it).
+  const avgDps = (d) => {
+    const ms = Number(lastUnfilteredDetails?.battleTimeMs) || Number(d?.battleTimeMs) || 0;
+    const dmg = Number(d?.totalDmg) || 0;
+    if (ms <= 0 || dmg <= 0) return "-";
+    return `${formatDamageCompact(dmg / (Math.max(ms, 1000) / 1000))}${labelText("meter.dpsSuffix", "/s")}`;
+  };
+
+  const peakDps = (d) => {
+    const hits = hitsOf(d?.skills);
+    return hits.length ? `${formatDamageCompact(peakOf(hits))}${labelText("meter.dpsSuffix", "/s")}` : "-";
+  };
+
+  // The party list can show each player's peak beside their average (a
+  // switch in Details' settings menu; this viewer's choice, kept here).
+  const PEAK_KEY = "a2.details.showPeak";
+  let showPeak = false;
+  try { showPeak = localStorage.getItem(PEAK_KEY) === "1"; } catch {}
+
+  // Each player's first and last hit (ms into the fight), for the DPS over
+  // the time they were hitting.
+  const hitSpans = (details) => {
+    const spans = new Map();
+    for (const skill of Array.isArray(details?.skills) ? details.skills : []) {
+      const actorId = Number(skill?.actorId);
+      const times = Array.isArray(skill?.hitTimestamps) ? skill.hitTimestamps.map(Number) : [];
+      if (!Number.isFinite(actorId) || !times.length) continue;
+      const span = spans.get(actorId) || { first: Infinity, last: -Infinity };
+      span.first = Math.min(span.first, ...times);
+      span.last = Math.max(span.last, ...times);
+      spans.set(actorId, span);
+    }
+    return spans;
+  };
+
+  const STATUS = [
+    {
+      key: "details.stats.totalDamage",
+      fallback: "Total Damage",
+      getValue: (d) => formatDamageCompact(d?.totalDmg),
+    },
+    { key: "details.stats.contribution", fallback: "Contribution", getValue: (d) => pctText(d?.contributionPct) },
+    { key: "details.stats.avgDps", fallback: "Avg DPS", getValue: (d) => avgDps(d) },
+    {
+      key: "details.stats.peakDps",
+      fallback: "Peak DPS",
+      tip: ["details.stats.peakDpsTip", "The highest DPS over any 5 seconds of the fight"],
+      getValue: (d) => peakDps(d),
+    },
+    { key: "details.stats.damageReceived", fallback: "Damage Taken", getValue: (d) => damageTaken(d) },
+    { key: "details.stats.deaths", fallback: "Deaths", getValue: (d) => deathCount(d) },
+    { key: "details.skills.hits", fallback: "Hits", getValue: (d) => formatCount(d?.totalHits) },
+    { key: "details.stats.critRate", fallback: "Crit Rate", getValue: (d) => pctText(d?.totalCritPct) },
+    { key: "details.stats.multiHitHits", fallback: "Multi-Hits", getValue: (d) => pctText(d?.multiHitPct) },
+    {
+      key: "details.stats.multiHitDamage",
+      fallback: "Multi-Hit Damage",
+      getValue: (d) => formatDamageCompact(d?.multiHitDamage),
+    },
+    { key: "details.stats.perfectRate", fallback: "Perfect Rate", getValue: (d) => pctText(d?.totalPerfectPct) },
+    { key: "details.stats.doubleRate", fallback: "Double Rate", getValue: (d) => pctText(d?.totalDoublePct) },
+    { key: "details.stats.parryRate", fallback: "Parry Rate", getValue: (d) => pctText(d?.totalParryPct) },
+    { key: "details.stats.regen", fallback: "Regen", getValue: (d) => formatDamageCompact(d?.totalRegen) },
+  ];
+
+  // Stats shown when the DMG/HEAL toggle is on HEAL. Fewer, healing-relevant rows;
+  // remaining stat slots are hidden in heal mode.
+  const HEAL_STATUS = [
+    { key: "details.stats.totalHealing", fallback: "Total Healing", getValue: (d) => formatDamageCompact(d?.totalHeal) },
+    { key: "details.stats.hps", fallback: "HPS", getValue: (d) => d?.healPerSecText ?? "-" },
+    { key: "details.stats.damageReceived", fallback: "Damage Taken", getValue: (d) => damageTaken(d) },
+    { key: "details.stats.deaths", fallback: "Deaths", getValue: (d) => deathCount(d) },
+    { key: "details.stats.healTicks", fallback: "Heal Ticks", getValue: (d) => formatCount(d?.healTicks) },
+    { key: "details.stats.hotTicks", fallback: "HoT Ticks", getValue: (d) => formatCount(d?.healHotTicks) },
+    { key: "details.stats.healSkills", fallback: "Skills", getValue: (d) => formatCount(d?.healSkillCount) },
+  ];
+
+  const createStatView = (labelKey, fallbackLabel, { isPlaceholder = false } = {}) => {
+    const statEl = document.createElement("div");
+    statEl.className = "stat";
+    if (isPlaceholder) {
+      statEl.classList.add("statEmpty");
+    }
+
+    const labelEl = document.createElement("p");
+    labelEl.className = "label";
+    labelEl.textContent = isPlaceholder ? "" : labelText(labelKey, fallbackLabel);
+
+    const valueEl = document.createElement("p");
+    valueEl.className = "value";
+    valueEl.textContent = isPlaceholder ? "" : "-";
+
+    statEl.appendChild(labelEl);
+    statEl.appendChild(valueEl);
+
+    return { statEl, labelEl, valueEl, labelKey, fallbackLabel };
+  };
+
+  const statSlots = STATUS.map((def) =>
+    createStatView(def.key, def.fallback, { isPlaceholder: def.isPlaceholder })
+  );
+  statSlots.forEach((value) => detailsStatsEl.appendChild(value.statEl));
+
+  const getTargetById = (targetId) =>
+    detailsTargets.find((target) => Number(target?.targetId) === Number(targetId));
+
+  const getActorDamage = (actorDamage, actorId) => {
+    if (!actorDamage || typeof actorDamage !== "object") return 0;
+    const byNumber = actorDamage[actorId];
+    const byString = actorDamage[String(actorId)];
+    return Number(byNumber ?? byString ?? 0) || 0;
+  };
+
+  const getTargetLabel = (target) => {
+    if (!target) return "";
+    const targetId = Number(target?.targetId);
+    const targetName = typeof target.targetName === "string" ? target.targetName.trim() : "";
+    const localizedName = Number.isFinite(targetId) && targetId > 0
+      ? (i18n?.getNpcName?.(targetId, targetName) ?? targetName)
+      : targetName;
+    return localizedName || `Mob #${target.targetId}`;
+  };
+
+  const getTargetDamageForSelection = (target) => {
+    if (!target) return 0;
+    if (!Array.isArray(selectedAttackerIds) || selectedAttackerIds.length === 0) {
+      return Number(target.totalDamage) || 0;
+    }
+    return selectedAttackerIds.reduce(
+      (sum, actorId) => sum + getActorDamage(target.actorDamage, actorId),
+      0
+    );
+  };
+
+  const formatTargetSuffix = (target) => {
+    if (!target) return "";
+    if (sortMode === "recent") {
+      return "";
+    }
+    if (sortMode === "time") {
+      return formatBattleTime(target.battleTime);
+    }
+    return formatCompactNumber(getTargetDamageForSelection(target));
+  };
+
+  const jobColorMap = {
+    정령성: "#E06BFF",
+    Spiritmaster: "#E06BFF",
+    궁성: "#41D98A",
+    Ranger: "#41D98A",
+    살성: "#7BE35A",
+    Assassin: "#7BE35A",
+    수호성: "#5F8CFF",
+    Templar: "#5F8CFF",
+    마도성: "#9A6BFF",
+    Sorcerer: "#9A6BFF",
+    호법성: "#FF9A3D",
+    Chanter: "#FF9A3D",
+    치유성: "#F2C15A",
+    Cleric: "#F2C15A",
+    검성: "#4FD1C5",
+    Gladiator: "#4FD1C5",
+    권성: "#E85D5D",
+    Brawler: "#E85D5D",
+    Fighter: "#E85D5D",
+  };
+
+  const getJobColor = (job) => jobColorMap[job] || "";
+
+  const getActorJob = (actorId) => {
+    const numericId = Number(actorId);
+    if (!Number.isFinite(numericId) || numericId <= 0) return "";
+    const contextJob = detailsActors.get(numericId)?.job;
+    if (contextJob) return contextJob;
+    const detectedJob = detectedJobByActorId.get(numericId);
+    if (detectedJob) return detectedJob;
+    if (Number(lastRow?.id) === numericId) {
+      return String(lastRow?.job || "");
+    }
+    return "";
+  };
+
+  const rememberJobsFromDetails = (details) => {
+    if (!details || typeof details !== "object") return;
+    const actorStats = Array.isArray(details.perActorStats) ? details.perActorStats : [];
+    actorStats.forEach((entry) => {
+      const actorId = Number(entry?.actorId);
+      const job = String(entry?.job || "").trim();
+      if (Number.isFinite(actorId) && actorId > 0 && job) {
+        detectedJobByActorId.set(actorId, job);
+      }
+    });
+    const skills = Array.isArray(details.skills) ? details.skills : [];
+    skills.forEach((skill) => {
+      const actorId = Number(skill?.actorId);
+      const job = String(skill?.job || "").trim();
+      if (Number.isFinite(actorId) && actorId > 0 && job) {
+        detectedJobByActorId.set(actorId, job);
+      }
+    });
+  };
+
+  const updateHeaderText = () => {
+    renderFightTitle();
+  };
+
+  const updateLabels = () => {
+    for (let i = 0; i < statSlots.length; i++) {
+      const slot = statSlots[i];
+      if (slot.labelKey === "details.stats.empty") {
+        slot.labelEl.textContent = "";
+      } else {
+        slot.labelEl.textContent = labelText(slot.labelKey, slot.fallbackLabel);
+      }
+    }
+    updateHeaderText();
+    updateGridColumns();
+    syncSkillHeaderMode?.();
+  };
+
+  const resolveStatValue = (statKey, data) => {
+    if (!data) return "-";
+    switch (statKey) {
+      case "details.stats.totalDamage":
+        return formatDamageCompact(data.totalDmg);
+      case "details.stats.maxHp":
+        return data.maxHp > 0 ? formatDamageCompact(data.maxHp) : "-";
+      case "details.stats.hits":
+      case "details.skills.hits":
+        return formatCount(data.totalHits);
+      case "details.stats.multiHitDamage":
+        return formatDamageCompact(data.multiHitDamage);
+      case "details.stats.contribution":
+        return pctText(data.contributionPct);
+      case "details.stats.critRate":
+        return pctText(data.totalCritPct);
+      case "details.stats.perfectRate":
+        return pctText(data.totalPerfectPct);
+      case "details.stats.doubleRate":
+        return pctText(data.totalDoublePct);
+      case "details.stats.backRate":
+        return pctText(data.totalBackPct);
+      case "details.stats.parryRate":
+        return pctText(data.totalParryPct);
+      case "details.stats.regen":
+        return formatDamageCompact(data.totalRegen);
+      case "details.stats.partyHeal":
+        return formatDamageCompact(data.totalPartyHeal);
+      case "details.stats.damageReceived":
+        return damageTaken(data);
+      case "details.stats.empty":
+        return "";
+      case "details.stats.combatTime":
+        return data.combatTime ?? "-";
+      default:
+        return STATUS.find((stat) => stat.key === statKey)?.getValue(data) ?? "-";
+    }
+  };
+
+  const COMPACT_STAT_KEYS = new Set([
+    "details.stats.totalDamage",
+    "details.stats.contribution",
+    "details.stats.avgDps",
+    "details.skills.hits",
+    "details.stats.critRate",
+  ]);
+
+  const renderStats = (details, { compact = false } = {}) => {
+    const statusList = detailsMode === "heal" ? HEAL_STATUS : STATUS;
+    const hasPlayerSelected = Array.isArray(selectedAttackerIds) && selectedAttackerIds.length > 0;
+    // A selected player's value beside everyone's, in both modes.
+    const showSplit = hasPlayerSelected && !compact && lastUnfilteredDetails && lastUnfilteredDetails !== details;
+    // Resolve the selected player's class colour for the X value
+    const playerColor = showSplit && selectedAttackerIds.length === 1
+      ? getJobColor(getActorJob(selectedAttackerIds[0]))
+      : "";
+
+    for (let i = 0; i < statSlots.length; i++) {
+      const slot = statSlots[i];
+      const def = statusList[i];
+      if (!def) { slot.statEl.style.display = "none"; continue; }
+      const statKey = def.key;
+      const shouldShow = detailsMode === "heal" || !compact || COMPACT_STAT_KEYS.has(statKey);
+      slot.statEl.style.display = shouldShow ? "" : "none";
+      if (!shouldShow) continue;
+
+      // Label may differ between DMG and HEAL stat sets — keep it in sync.
+      slot.labelEl.textContent = labelText(def.key, def.fallback);
+      slot.labelEl.title = def.tip ? labelText(...def.tip) : "";
+
+      slot.valueEl.innerHTML = "";
+      slot.valueEl.style.display = "";
+      slot.valueEl.style.flexWrap = "";
+      slot.valueEl.style.gap = "";
+      slot.valueEl.style.justifyContent = "";
+      slot.valueEl.style.alignItems = "";
+
+      if (showSplit && statKey !== "details.stats.empty") {
+        // Heal stats are read straight off their definitions.
+        const valueOf = (d) => (detailsMode === "heal" ? def.getValue(d) : resolveStatValue(statKey, d));
+        const playerVal = valueOf(details);
+        const totalVal = valueOf(lastUnfilteredDetails);
+        slot.valueEl.style.display = "flex";
+        slot.valueEl.style.gap = "3px";
+        slot.valueEl.style.justifyContent = "flex-end";
+        slot.valueEl.style.alignItems = "baseline";
+
+        const playerSpan = document.createElement("span");
+        playerSpan.textContent = playerVal;
+        playerSpan.style.fontWeight = "400";
+        if (playerColor) playerSpan.style.color = playerColor;
+
+        const sepSpan = document.createElement("span");
+        sepSpan.textContent = " / ";
+        sepSpan.style.fontWeight = "400";
+        sepSpan.style.opacity = "0.5";
+
+        const totalSpan = document.createElement("span");
+        totalSpan.textContent = totalVal;
+        totalSpan.style.fontWeight = "700";
+
+        slot.valueEl.appendChild(playerSpan);
+        slot.valueEl.appendChild(sepSpan);
+        slot.valueEl.appendChild(totalSpan);
+      } else {
+        slot.valueEl.textContent = def.getValue(details);
+      }
+    }
+  };
+
+  // Build party bar stats from detailsContext actorDamage (live fights).
+  // Falls back to null if context has no actorDamage data (history fights use details.perActorStats).
+  // Returns { stats, battleTimeMs } where battleTimeMs is the context's overall fight time.
+  // Always uses ALL targets so stats stay stable regardless of which player is selected.
+  const buildPartyBarStats = () => {
+    // Heal mode: bars become a healing leaderboard, aggregated per actor from the
+    // fight's healSkills (dmg field = heal amount).
+    if (detailsMode === "heal") {
+      // Leaderboard always shows ALL members, so use the unfiltered details even when
+      // a single member is selected (their per-skill view is rendered separately).
+      const src = lastUnfilteredDetails || lastDetails;
+      const heals = Array.isArray(src?.healSkills) ? src.healSkills : [];
+      const combined = new Map();
+      heals.forEach((s) => {
+        const actorId = Number(s?.actorId);
+        if (!Number.isFinite(actorId) || actorId <= 0) return;
+        combined.set(actorId, (combined.get(actorId) || 0) + (Number(s?.dmg) || 0));
+      });
+      if (combined.size === 0) return null;
+      const total = [...combined.values()].reduce((a, b) => a + b, 0) || 1;
+      return {
+        stats: [...combined.entries()]
+          .map(([actorId, heal]) => ({
+            actorId,
+            job: detectedJobByActorId.get(actorId) || detailsActors.get(actorId)?.job || "",
+            totalDmg: heal,
+            contributionPct: (heal / total) * 100,
+          }))
+          .sort((a, b) => b.totalDmg - a.totalDmg),
+        battleTimeMs: Number(lastDetails?.battleTime) || 0,
+      };
+    }
+    const allTargets = detailsTargets.filter((t) => Number(t?.targetId) > 0);
+    const targets = selectedTargetId
+      ? (getTargetById(selectedTargetId) ? [getTargetById(selectedTargetId)] : allTargets)
+      : allTargets;
+    const combined = new Map();
+    let maxBattleTimeMs = 0;
+    targets.forEach((target) => {
+      const actorDmg = target?.actorDamage;
+      if (!actorDmg || typeof actorDmg !== "object") return;
+      const bt = Number(target?.battleTime) || 0;
+      if (bt > maxBattleTimeMs) maxBattleTimeMs = bt;
+      Object.entries(actorDmg).forEach(([id, dmg]) => {
+        const actorId = Number(id);
+        if (!Number.isFinite(actorId) || actorId <= 0) return;
+        combined.set(actorId, (combined.get(actorId) || 0) + (Number(dmg) || 0));
+      });
+    });
+    if (combined.size === 0) return null;
+    const total = [...combined.values()].reduce((s, v) => s + v, 0) || 1;
+    return {
+      stats: [...combined.entries()]
+        .map(([actorId, dmg]) => ({
+          actorId,
+          job: detectedJobByActorId.get(actorId) || detailsActors.get(actorId)?.job || "",
+          totalDmg: dmg,
+          contributionPct: (dmg / total) * 100,
+        }))
+        .sort((a, b) => b.totalDmg - a.totalDmg),
+      battleTimeMs: maxBattleTimeMs,
+    };
+  };
+
+  const reducedMotion = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  // While a fight's first show waits to build its skills, chart and
+  // timeline (renderRest), nothing else draws them: a resize as the window
+  // settled drew the whole chart, which then vanished to be drawn in.
+  let sectionsHeld = false;
+  // The chart's draw-in waits until every section is built (renderRest), so
+  // no section's build lands in the middle of it and drops its frames.
+  let pendingStarts = null;
+  const whenBuilt = (start) => {
+    if (pendingStarts) pendingStarts.push(start);
+    else requestAnimationFrame(start);
+  };
+  const startPending = () => {
+    const starts = pendingStarts || [];
+    pendingStarts = null;
+    starts.forEach((start) => start());
+  };
+  // Count every figure under `root` up from 0 to what it says, keeping its
+  // format ("1.23M", "45.6%", "1,234", "9:21"), and end on the exact text.
+  // For a fight's first show: figures that appear at once looked jarring.
+  const COUNTED = /\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g;
+  const countUpIn = (root, duration = 700) => {
+    if (!root || reducedMotion()) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      const text = node.nodeValue || "";
+      if (!/\d/.test(text)) continue;
+      const pieces = [];
+      let last = 0;
+      text.replace(COUNTED, (match, at) => {
+        pieces.push(text.slice(last, at));
+        pieces.push({ value: parseFloat(match.replace(/,/g, "")), decimals: (match.split(".")[1] || "").length, grouped: match.includes(",") });
+        last = at + match.length;
+        return match;
+      });
+      pieces.push(text.slice(last));
+      nodes.push({ node, text, pieces });
+    }
+    if (!nodes.length) return;
+    const show = (p, f) => {
+      const v = p.value * f;
+      return p.grouped
+        ? v.toLocaleString("en-US", { minimumFractionDigits: p.decimals, maximumFractionDigits: p.decimals })
+        : v.toFixed(p.decimals);
+    };
+    for (const { node, pieces } of nodes) node.nodeValue = pieces.map((p) => (typeof p === "string" ? p : show(p, 0))).join("");
+    let start = 0;
+    const step = (now) => {
+      if (!start) start = now;
+      const t = Math.min(1, Math.max(0, (now - start) / duration));
+      const f = 1 - Math.pow(1 - t, 3);
+      for (const { node, text, pieces } of nodes) {
+        if (!node.isConnected) continue;
+        node.nodeValue = t >= 1 ? text : pieces.map((p) => (typeof p === "string" ? p : show(p, f))).join("");
+      }
+      if (t < 1) requestAnimationFrame(step);
+    };
+    // At once: the party and its figures go first, and the other sections
+    // are built after (renderRest), so nothing interrupts them.
+    requestAnimationFrame(step);
+  };
+
+  // While a replay plays, the party bars are drawn ten times a second; the
+  // replay's twenty-a-second step (advancePartyBars) moves each part of the
+  // way from its last length to its new one, so they do not jump. No
+  // transition: a running one makes the browser draw a frame at every
+  // screen refresh (2026-10-18).
+  const lastBarRatio = new Map();
+  let barSteps = null;
+  const advancePartyBars = () => {
+    if (!barSteps) return;
+    const p = Math.min(1, (performance.now() - barSteps.started) / 100);
+    for (const [fillEl, from, to] of barSteps.items) {
+      fillEl.style.transform = `scaleX(${(from + (to - from) * p).toFixed(4)})`;
+    }
+    if (p >= 1) barSteps = null;
+  };
+  // The first time a fight's figures show, its bars slide out from empty
+  // (render sets this; see `renderRest`).
+  let fillBarsFromZero = false;
+  const renderPartyBars = (stats, battleTimeMs) => {
+    if (!detailsPartyListEl) return;
+    const sliding = fillBarsFromZero && !reducedMotion();
+    fillBarsFromZero = false;
+    const slides = [];
+    const stepping = !sliding && detailsPanel.classList.contains("isReplayPlaying") && !reducedMotion();
+    const steps = [];
+    detailsPartyListEl.innerHTML = "";
+    const allActors = Array.isArray(stats) ? stats : [];
+    if (allActors.length === 0) return;
+    // Cap party list to 8 players to prevent overflow in large fights
+    const actors = allActors.slice(0, 8);
+
+    const topDmg = actors.reduce((m, a) => Math.max(m, Number(a.totalDmg) || 0), 1);
+    const btMs = Number(battleTimeMs) || Number(lastDetails?.battleTimeMs) || 0;
+    const dpsSuffix = labelText("meter.dpsSuffix", "/s");
+    const spans = hitSpans(lastUnfilteredDetails || lastDetails);
+    const peaks = new Map();
+    const fightSkills = (lastUnfilteredDetails || lastDetails)?.skills;
+    const peakFor = (actorId) => {
+      if (!peaks.has(actorId)) peaks.set(actorId, peakOf(hitsOf(fightSkills, (s) => Number(s.actorId) === actorId)));
+      return peaks.get(actorId);
+    };
+    const localId = Number(window._dpsApp?.localPlayerId);
+    detailsPartyListEl.classList.toggle("withPeak", showPeak);
+
+
+    // "All" bar
+    const allBar = document.createElement("div");
+    allBar.className = "detailsPartyBar" + (!selectedAttackerIds || selectedAttackerIds.length === 0 ? " isSelected" : "");
+    allBar.innerHTML = `<div class="detailsPartyBarFill" style="transform:none;width:100%"></div><div class="detailsPartyBarContent"><span class="detailsPartyBarName">All</span></div>`;
+    allBar.dataset.partyAll = "1";
+    detailsPartyListEl.appendChild(allBar);
+
+    actors.forEach((actor) => {
+      const actorId = Number(actor.actorId);
+      const job = actor.job || getActorJob(actorId);
+      const name = detailsActors.get(actorId)?.nickname || resolveActorLabel(actorId);
+      const dmg = Number(actor.totalDmg) || 0;
+      const pct = Number(actor.contributionPct) || 0;
+      const ratio = topDmg > 0 ? dmg / topDmg : 0;
+      const color = getJobColor(job);
+      const isSelected = Array.isArray(selectedAttackerIds) && selectedAttackerIds.includes(actorId);
+
+      const bar = document.createElement("div");
+      bar.className = "detailsPartyBar" + (isSelected ? " isSelected" : "") + (actorId === localId ? " isUser" : "");
+      // The meter's colour theme: the class colour, and the place from the
+      // top (for the spectrum themes).
+      if (color) bar.style.setProperty("--class-fill", color);
+      bar.style.setProperty("--row-pos", String(actors.indexOf(actor)));
+
+      const fillEl = document.createElement("div");
+      fillEl.className = "detailsPartyBarFill";
+      // A width rather than a stretch, so a bar texture keeps its size.
+      fillEl.style.transform = "none";
+      const clamped = Math.max(0, Math.min(1, ratio));
+      const fillWidth = `${(clamped * 100).toFixed(2)}%`;
+      const was = lastBarRatio.get(actorId);
+      lastBarRatio.set(actorId, clamped);
+      if (stepping) {
+        // Stretched while stepping: a transform, not a width, so no layout.
+        fillEl.style.width = "100%";
+        fillEl.style.transformOrigin = "left center";
+        fillEl.style.transform = `scaleX(${(was ?? clamped).toFixed(4)})`;
+        if (was !== undefined && was !== clamped) steps.push([fillEl, was, clamped]);
+      } else {
+        fillEl.style.width = fillWidth;
+      }
+      if (sliding) {
+        // A transform, not the width: the width made every frame lay the
+        // page out again, and the slide stuttered.
+        fillEl.classList.add("isSliding");
+        fillEl.style.transform = "scaleX(0)";
+        slides.push(fillEl);
+      }
+
+      const contentEl = document.createElement("div");
+      contentEl.className = "detailsPartyBarContent";
+
+      if (job) {
+        const iconEl = document.createElement("img");
+        iconEl.className = "detailsPartyBarIcon";
+        iconEl.src = `./assets/${job}.png`;
+        iconEl.alt = job;
+        iconEl.onerror = () => { iconEl.style.display = "none"; };
+        contentEl.appendChild(iconEl);
+      }
+
+      const nameEl = document.createElement("span");
+      const actorRow = detailsActors.get(actorId);
+      nameEl.className =
+        "detailsPartyBarName" +
+        (cjkRegex.test(name) ? " isCjk" : "") +
+        (actorRow?.isSupporter ? " isSupporter" : "");
+      nameEl.textContent = name;
+      if (color) nameEl.style.color = color;
+      // Combat power or gear score after the name, as in the meter.
+      const statText = partyStatText(actorRow, getPartyStat?.());
+
+      const dpsEl = document.createElement("span");
+      dpsEl.className = "detailsPartyBarDps";
+      const peak = peakFor(actorId);
+      const peakText = peak > 0 ? `${formatDamageCompact(peak)}${dpsSuffix}` : "";
+      dpsEl.textContent = btMs > 0 ? `${formatDamageCompact(dmg / btMs * 1000)}${dpsSuffix}` : "-";
+      if (showPeak && btMs > 0 && peak > 0) {
+        const peakEl = document.createElement("span");
+        peakEl.className = "detailsPartyBarPeak";
+        peakEl.textContent = ` (${formatDamageCompact(peak)})`;
+        dpsEl.appendChild(peakEl);
+      }
+      // The figure is over the whole fight; the tooltip gives it over the time
+      // this player was hitting (first hit to last; at least a second), and
+      // their best 5 seconds.
+      const span = spans.get(actorId);
+      const tip = [];
+      if (span && btMs > 0) {
+        const activeMs = Math.max(1000, span.last - span.first);
+        tip.push(labelText("details.party.activeDps", "Active-time DPS: {dps} ({active} of the fight's {total})")
+          .replace("{dps}", `${formatDamageCompact(dmg / activeMs * 1000)}${dpsSuffix}`)
+          .replace("{active}", ftlTime(activeMs / 1000))
+          .replace("{total}", ftlTime(btMs / 1000)));
+      }
+      if (peakText) tip.push(`${labelText("details.stats.peakDps", "Peak DPS")}: ${peakText}`);
+      if (tip.length) dpsEl.title = tip.join("\n");
+
+      const dmgEl = document.createElement("span");
+      dmgEl.className = "detailsPartyBarDmg";
+      dmgEl.textContent = formatDamageCompact(dmg);
+
+      const pctEl = document.createElement("span");
+      pctEl.className = "detailsPartyBarPct";
+      pctEl.textContent = `${pct.toFixed(1)}%`;
+
+      // Name and stat share the name's space, so the figures to the right
+      // stay lined up whatever the name's length.
+      const nameWrapEl = document.createElement("span");
+      nameWrapEl.className = "detailsPartyBarNameWrap";
+      nameWrapEl.appendChild(nameEl);
+      if (statText) {
+        const statEl = document.createElement("span");
+        statEl.className = "detailsPartyBarStat";
+        statEl.textContent = statText;
+        nameWrapEl.appendChild(statEl);
+      }
+      // Hovering the name shows the other figure: gear score beside combat
+      // power, combat power beside gear score.
+      // With the figure off, or both shown, no tooltip either.
+      const shownStat = getPartyStat?.();
+      const otherStat = shownStat === "gearScore" ? "combatPower" : "gearScore";
+      const otherValue = shownStat === "off" || shownStat === "both" ? 0 : Number(actorRow?.[otherStat]) || 0;
+      if (otherValue > 0) {
+        const otherLabel = labelText(`settings.partyStat.options.${otherStat}`,
+          otherStat === "gearScore" ? "Gear score" : "Combat power");
+        nameWrapEl.title = `${otherLabel}: ${otherValue.toLocaleString()}`;
+      }
+      contentEl.appendChild(nameWrapEl);
+
+      // Same crown the meter rows use, so a supporter is marked the same way
+      // wherever their name appears rather than only on the live overlay.
+      if (actorRow?.isSupporter) {
+        const badgeEl = document.createElement("span");
+        badgeEl.className = "supporterBadge";
+        badgeEl.style.display = "inline-flex";
+        badgeEl.setAttribute("aria-hidden", "true");
+        badgeEl.innerHTML =
+          '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="rgba(28,16,0,0.9)" ' +
+          'stroke-width="1.3" stroke-linejoin="round" paint-order="stroke" aria-hidden="true">' +
+          '<path d="M3 9l4.6 3.4L12 6l4.4 6.4L21 9l-1.9 8.6H4.9z"/><rect x="4.6" y="18.6" width="14.8" height="2.4" rx="0.6"/>' +
+          '<circle cx="3" cy="8.4" r="1.7"/><circle cx="12" cy="5" r="1.9"/><circle cx="21" cy="8.4" r="1.7"/></svg>';
+        contentEl.appendChild(badgeEl);
+      }
+      contentEl.appendChild(dpsEl);
+      contentEl.appendChild(dmgEl);
+      contentEl.appendChild(pctEl);
+      bar.appendChild(fillEl);
+      bar.appendChild(contentEl);
+
+      // Clicks are taken by one listener on the list (below renderPartyBars).
+      bar.dataset.actorId = String(actorId);
+      bar.dataset.actorName = name;
+
+      detailsPartyListEl.appendChild(bar);
+    });
+    barSteps = steps.length ? { started: performance.now(), items: steps } : null;
+    if (sliding) {
+      requestAnimationFrame(() => {
+        slides.forEach((fillEl, i) => {
+          fillEl.style.transitionDelay = `${i * 40}ms`;
+          fillEl.style.transform = "scaleX(1)";
+        });
+      });
+      countUpIn(detailsPartyListEl);
+    }
+  };
+  // One click listener for the party list: its bars are rebuilt with every
+  // redraw (ten a second during a replay), and a listener on each bar was
+  // added afresh each time (2026-10-18).
+  detailsPartyListEl?.addEventListener("click", async (event) => {
+    const bar = event.target instanceof Element ? event.target.closest(".detailsPartyBar") : null;
+    if (!bar || !detailsPartyListEl.contains(bar)) return;
+    const actorId = Number(bar.dataset.actorId);
+    if (bar.dataset.partyAll || !(actorId > 0) || selectedAttackerIds?.includes?.(actorId)) {
+      selectedAttackerIds = null;
+      selectedAttackerLabel = labelText("details.all", "All");
+    } else {
+      selectedAttackerIds = [actorId];
+      selectedAttackerLabel = bar.dataset.actorName || resolveActorLabel(actorId);
+    }
+    const ctx = buildPartyBarStats();
+    renderPartyBars(ctx?.stats || lastDetails?.perActorStats, ctx?.battleTimeMs || lastDetails?.battleTimeMs);
+    await refreshDetailsView();
+  });
+
+  // Hit results from the record's flags byte and hit type, after Front:
+  // [column, skill field, shown as]. Misses and resists are not hits, so
+  // they show as counts.
+  const HIT_RESULTS = [
+    ["block", "shieldBlock", "pct"],
+    ["perfectblock", "perfectBlock", "pct"],
+    ["ironwall", "ironWall", "pct"],
+    ["regeneration", "regeneration", "pct"],
+    ["miss", "miss", "count"],
+    ["resist", "resist", "count"],
+  ];
+  const hitResultText = (skill, field, kind, hits) => {
+    const n = Number(skill?.[field]) || 0;
+    if (kind === "count") return `${n}`;
+    return `${hits > 0 ? Math.round((n / hits) * 100) : 0}%`;
+  };
+
+  const createSkillView = () => {
+    const rowEl = document.createElement("div");
+    rowEl.className = "skillRow";
+
+    const rowFillEl = document.createElement("div");
+    rowFillEl.className = "rowFill";
+    rowEl.appendChild(rowFillEl);
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "cell name";
+
+    const dotToggleEl = document.createElement("span");
+    dotToggleEl.className = "dotToggle";
+    dotToggleEl.textContent = "\u25B6"; // ▶
+
+    const iconEl = document.createElement("img");
+    iconEl.className = "skillIcon";
+    iconEl.alt = "";
+    iconEl.loading = "lazy";
+    iconEl.decoding = "async";
+    iconEl.referrerPolicy = "no-referrer";
+    iconEl.addEventListener("error", () => window.skillIcons?.handleImgError?.(iconEl));
+
+    const nameTextEl = document.createElement("span");
+    nameTextEl.className = "skillNameText";
+
+    const specEl = document.createElement("span");
+    specEl.className = "skillSpecIndicator";
+    for (let s = 0; s < 5; s++) {
+      const dot = document.createElement("span");
+      dot.className = "specDot";
+      specEl.appendChild(dot);
+    }
+
+    nameEl.appendChild(iconEl);
+    nameEl.appendChild(dotToggleEl);
+    nameEl.appendChild(nameTextEl);
+    nameEl.appendChild(specEl);
+
+    const hitEl = document.createElement("div");
+    hitEl.className = "cell center hit";
+
+    const dmgEl = document.createElement("div");
+    dmgEl.className = "cell center dmg";
+
+    const dmgPctEl = document.createElement("div");
+    dmgPctEl.className = "cell center dmgpct";
+
+    const multiHitEl = document.createElement("div");
+    multiHitEl.className = "cell center mhit";
+
+    const multiHitDamageEl = document.createElement("div");
+    multiHitDamageEl.className = "cell center mdmg";
+
+    const critEl = document.createElement("div");
+    critEl.className = "cell center crit";
+
+    const parryEl = document.createElement("div");
+    parryEl.className = "cell center parry";
+
+    const backEl = document.createElement("div");
+    backEl.className = "cell center back";
+
+    const frontalEl = document.createElement("div");
+    frontalEl.className = "cell center frontal";
+
+    const perfectEl = document.createElement("div");
+    perfectEl.className = "cell center perfect";
+
+    const doubleEl = document.createElement("div");
+    doubleEl.className = "cell center double";
+
+    const hitResultEls = HIT_RESULTS.map(([col]) => {
+      const el = document.createElement("div");
+      el.className = `cell center ${col}`;
+      return el;
+    });
+
+    const regenEl = document.createElement("div");
+    regenEl.className = "cell center regen";
+
+    const minDmgEl = document.createElement("div");
+    minDmgEl.className = "cell center mindmg";
+
+    const avgDmgEl = document.createElement("div");
+    avgDmgEl.className = "cell center avgdmg";
+
+    const maxDmgEl = document.createElement("div");
+    maxDmgEl.className = "cell center maxdmg";
+
+    rowEl.appendChild(nameEl);
+    rowEl.appendChild(hitEl);
+    rowEl.appendChild(dmgEl);
+    rowEl.appendChild(dmgPctEl);
+    rowEl.appendChild(multiHitEl);
+    rowEl.appendChild(multiHitDamageEl);
+    rowEl.appendChild(critEl);
+    rowEl.appendChild(parryEl);
+    rowEl.appendChild(perfectEl);
+    rowEl.appendChild(doubleEl);
+    rowEl.appendChild(backEl);
+    rowEl.appendChild(frontalEl);
+    hitResultEls.forEach((el) => rowEl.appendChild(el));
+    rowEl.appendChild(regenEl);
+    rowEl.appendChild(minDmgEl);
+    rowEl.appendChild(avgDmgEl);
+    rowEl.appendChild(maxDmgEl);
+
+    return {
+      rowEl,
+      rowFillEl,
+      nameEl,
+      dotToggleEl,
+      iconEl,
+      nameTextEl,
+      specEl,
+      hitEl,
+      dmgEl,
+      dmgPctEl,
+      multiHitEl,
+      multiHitDamageEl,
+      critEl,
+      parryEl,
+      backEl,
+      frontalEl,
+      perfectEl,
+      doubleEl,
+      hitResultEls,
+      regenEl,
+      minDmgEl,
+      avgDmgEl,
+      maxDmgEl,
+    };
+  };
+
+  const skillSlots = [];
+  const ensureSkillSlots = (n) => {
+    while (skillSlots.length < n) {
+      const v = createSkillView();
+      skillSlots.push(v);
+      skillsListEl.appendChild(v.rowEl);
+    }
+  };
+
+  const getSkillSortValue = (skill, key) => {
+    const hits = Number(skill?.time) || 0;
+    const dmg = Number(skill?._combinedDmg) || Number(skill?.dmg) || 0;
+    switch (key) {
+      case "name":
+        return String(skill?.name || "").toLowerCase();
+      case "hit":
+        return hits;
+      case "mhit": {
+        const mhCount = Number(skill?.multiHitCount) || 0;
+        return hits > 0 ? mhCount / hits : 0;
+      }
+      case "mdmg":
+        return Number(skill?.multiHitDamage) || 0;
+      case "dmgpct":
+      case "dmg":
+        return dmg;
+      case "crit":
+        return hits > 0 ? (Number(skill?.crit) || 0) / hits : 0;
+      case "parry":
+        return hits > 0 ? (Number(skill?.parry) || 0) / hits : 0;
+      case "perfect":
+        return hits > 0 ? (Number(skill?.perfect) || 0) / hits : 0;
+      case "double":
+        return hits > 0 ? (Number(skill?.double) || 0) / hits : 0;
+      case "back":
+        return hits > 0 ? (Number(skill?.back) || 0) / hits : 0;
+      case "frontal":
+        return hits > 0 ? (Number(skill?.frontal) || 0) / hits : 0;
+      case "block":
+      case "perfectblock":
+      case "ironwall":
+      case "regeneration": {
+        const field = HIT_RESULTS.find(([col]) => col === key)[1];
+        return hits > 0 ? (Number(skill?.[field]) || 0) / hits : 0;
+      }
+      case "miss":
+        return Number(skill?.miss) || 0;
+      case "resist":
+        return Number(skill?.resist) || 0;
+      case "regen":
+        return Number(skill?.regen) || 0;
+      case "mindmg":
+        return Number(skill?.minDmg) || 0;
+      case "avgdmg":
+        return hits > 0 ? dmg / hits : 0;
+      case "maxdmg":
+        return Number(skill?.maxDmg) || 0;
+      default:
+        return dmg;
+    }
+  };
+
+  const compareSkillSort = (a, b) => {
+    const key = skillSortKey;
+    const dir = skillSortDir === "asc" ? 1 : -1;
+    const aVal = getSkillSortValue(a, key);
+    const bVal = getSkillSortValue(b, key);
+    if (key === "name") {
+      return aVal.localeCompare(bVal) * dir;
+    }
+    if (aVal === bVal) {
+      return (Number(b?.dmg) || 0) - (Number(a?.dmg) || 0);
+    }
+    return (aVal - bVal) * dir;
+  };
+
+  const updateSkillHeaderSortState = () => {
+    const headerCells = detailsPanel?.querySelectorAll?.(".detailsSkills .skillHeader .cell");
+    headerCells?.forEach?.((cell) => {
+      const key = cell?.dataset?.sortKey;
+      if (!key) return;
+      const isActive = key === skillSortKey;
+      cell.classList.toggle("isSorted", isActive);
+      if (isActive) {
+        cell.setAttribute("data-sort-dir", skillSortDir);
+      } else {
+        cell.removeAttribute("data-sort-dir");
+      }
+    });
+  };
+
+  // Column definitions: name → grid track template fragment
+  // Each column's least width is in characters of its own figures
+  // ("302.93k", "18.95k", "100%"), so a bigger Details font widens the
+  // columns instead of clipping their digits; past the table's width it
+  // scrolls sideways (the header follows, see syncSkillHeaderScroll).
+  const GRID_COL_DEFS = {
+    name: "minmax(90px, 3fr)",
+    hit: "minmax(4.2ch, 0.75fr)",
+    dmg: "minmax(6.6ch, 1.0fr)",
+    dmgpct: "minmax(4.8ch, 0.85fr)",
+    mhit: "minmax(4.2ch, 0.6fr)",
+    mdmg: "minmax(6ch, 0.9fr)",
+    crit: "minmax(4.2ch, 0.65fr)",
+    parry: "minmax(4.2ch, 0.6fr)",
+    perfect: "minmax(4.2ch, 0.65fr)",
+    double: "minmax(4.2ch, 0.65fr)",
+    back: "minmax(4.2ch, 0.6fr)",
+    // "FRONT" is the widest header in the 0.6fr group and clips at the shared
+    // share; it needs the extra room its neighbours don't.
+    frontal: "minmax(4.8ch, 0.72fr)",
+    block: "minmax(4.2ch, 0.6fr)",
+    perfectblock: "minmax(4.2ch, 0.65fr)",
+    ironwall: "minmax(4.2ch, 0.65fr)",
+    regeneration: "minmax(4.2ch, 0.65fr)",
+    miss: "minmax(4.2ch, 0.65fr)",
+    resist: "minmax(4.2ch, 0.6fr)",
+    regen: "minmax(6ch, 0.8fr)",
+    mindmg: "minmax(6ch, 0.8fr)",
+    avgdmg: "minmax(6ch, 0.8fr)",
+    maxdmg: "minmax(6ch, 0.8fr)",
+  };
+  const HEAL_COLUMNS = new Set(["name", "hit", "dmg", "dmgpct"]);
+  const GRID_COL_ORDER = ["name", "hit", "dmg", "dmgpct", "mhit", "mdmg", "crit", "parry", "perfect", "double", "back", "frontal",
+    ...HIT_RESULTS.map(([col]) => col), "regen", "mindmg", "avgdmg", "maxdmg"];
+
+  // The header scrolls sideways with the rows when the table is wider than
+  // its column (a large Details font beside the sidebar).
+  const syncSkillHeaderScroll = (() => {
+    const rows = detailsPanel?.querySelector?.(".detailsSkills .skills");
+    const header = detailsPanel?.querySelector?.(".detailsSkills .skillHeader");
+    if (!rows || !header) return () => {};
+    const sync = () => { header.scrollLeft = rows.scrollLeft; };
+    rows.addEventListener("scroll", sync, { passive: true });
+    return sync;
+  })();
+
+  let lastMeasuredNameWidth = 0;
+  const updateGridColumns = () => {
+    if (!detailsPanel) return;
+    const skillsContainer = detailsPanel.querySelector(".detailsSkills");
+    if (!skillsContainer) return;
+
+    // Measure actual scrollbar width so the header padding matches exactly
+    const skillsEl = skillsContainer.querySelector(".skills");
+    if (skillsEl) {
+      const scrollbarW = skillsEl.offsetWidth - skillsEl.clientWidth;
+      skillsContainer.style.setProperty("--scrollbar-w", `${scrollbarW}px`);
+    }
+
+    // HEAL shows what a heal has: its casts, its amount and its share. The
+    // damage columns (multi-hit, crit, parry, positionals, min/avg/max) are
+    // all zero for heals.
+    const visibleCols = GRID_COL_ORDER.filter((col) => !detailsPanel.classList.contains(`hide-col-${col}`)
+      && (detailsMode !== "heal" || HEAL_COLUMNS.has(col)));
+    if (lastMeasuredNameWidth > 0) {
+      const dataCols = visibleCols.filter((c) => c !== "name");
+      // Beside the sidebar the table is narrower: the longest name takes at
+      // most about a quarter of it (the rest ends in "..."), so the figures
+      // keep their room.
+      const cap = Math.max(170, Math.round((skillsContainer.clientWidth || 0) * 0.24));
+      const nameWidth = skillsContainer.clientWidth > 0 ? Math.min(lastMeasuredNameWidth, cap) : lastMeasuredNameWidth;
+      const template = `${nameWidth}px ${dataCols.map((col) => GRID_COL_DEFS[col]).join(" ")}`;
+      if (skillsContainer.style.getPropertyValue("--skill-grid-cols") !== template) {
+        skillsContainer.style.setProperty("--skill-grid-cols", template);
+      }
+    } else {
+      const cols = visibleCols.map((col) => GRID_COL_DEFS[col]);
+      skillsContainer.style.setProperty("--skill-grid-cols", cols.join(" "));
+    }
+  };
+
+
+  const bindSkillHeaderSorting = () => {
+    const headerCells = detailsPanel?.querySelectorAll?.(".detailsSkills .skillHeader .cell[data-sort-key]");
+    headerCells?.forEach?.((cell) => {
+      cell.addEventListener("click", () => {
+        const key = cell?.dataset?.sortKey;
+        if (!key) return;
+        if (skillSortKey === key) {
+          skillSortDir = skillSortDir === "asc" ? "desc" : "asc";
+        } else {
+          skillSortKey = key;
+          skillSortDir = key === "name" ? "asc" : "desc";
+        }
+        updateSkillHeaderSortState();
+        if (lastDetails) {
+          renderSkills(lastDetails, { compact: activeCompactMode });
+          renderTimeline(lastDetails);
+        }
+      });
+    });
+    updateSkillHeaderSortState();
+  };
+
+  bindSkillHeaderSorting();
+  updateGridColumns();
+
+  // What renderSkills measured last: the names it showed, their widths and
+  // the font they were measured in.
+  let lastNameKey = "";
+  let nameFont = "";
+  const nameWidths = new Map();
+  const nameCanvas = document.createElement("canvas").getContext("2d");
+  // While a replay plays, the skill table shows its first rows only, and
+  // says how many more there are (renderFigures).
+  let skillsMoreEl = null;
+  const showSkillsMore = (hidden) => {
+    if (!skillsMoreEl && hidden > 0 && skillsListEl?.parentElement) {
+      skillsMoreEl = document.createElement("div");
+      skillsMoreEl.className = "skillsReplayMore";
+      skillsListEl.after(skillsMoreEl);
+    }
+    if (!skillsMoreEl) return;
+    skillsMoreEl.hidden = !(hidden > 0);
+    if (hidden > 0) {
+      skillsMoreEl.textContent = labelText("details.replay.moreSkills", "+{n} more, shown when paused")
+        .replace("{n}", String(hidden));
+    }
+  };
+  const renderSkills = (details, { compact = false, limit = 0 } = {}) => {
+    if (sectionsHeld) return;
+    const skills =
+      detailsMode === "heal"
+        ? (Array.isArray(details?.healSkills) ? details.healSkills : [])
+        : (Array.isArray(details?.skills) ? details.skills : []);
+    const groupedSkills = new Map();
+    skills.forEach((skill) => {
+      if (!skill) return;
+      const name = String(skill.name ?? "");
+      const key = `${name}::${skill.isDot ? "dot" : "hit"}`;
+      const existing = groupedSkills.get(key);
+      if (!existing) {
+        groupedSkills.set(key, { ...skill });
+        return;
+      }
+      const nextActorId = Number(existing.actorId);
+      const skillActorId = Number(skill.actorId);
+      const resolvedActorId =
+        Number.isFinite(nextActorId) && Number.isFinite(skillActorId) && nextActorId === skillActorId
+          ? nextActorId
+          : null;
+      const existMinDmg = Number(existing.minDmg) || 0;
+      const skillMinDmg = Number(skill.minDmg) || 0;
+      const mergedMin = existMinDmg > 0 && skillMinDmg > 0
+        ? Math.min(existMinDmg, skillMinDmg)
+        : existMinDmg || skillMinDmg;
+      groupedSkills.set(key, {
+        ...existing,
+        actorId: resolvedActorId,
+        job: existing.job || skill.job || "",
+        time: (Number(existing.time) || 0) + (Number(skill.time) || 0),
+        dmg: (Number(existing.dmg) || 0) + (Number(skill.dmg) || 0),
+        crit: (Number(existing.crit) || 0) + (Number(skill.crit) || 0),
+        parry: (Number(existing.parry) || 0) + (Number(skill.parry) || 0),
+        back: (Number(existing.back) || 0) + (Number(skill.back) || 0),
+        frontal: (Number(existing.frontal) || 0) + (Number(skill.frontal) || 0),
+        perfect: (Number(existing.perfect) || 0) + (Number(skill.perfect) || 0),
+        double: (Number(existing.double) || 0) + (Number(skill.double) || 0),
+        ...Object.fromEntries(HIT_RESULTS.map(([, field]) => [field, (Number(existing[field]) || 0) + (Number(skill[field]) || 0)])),
+        regen: (Number(existing.regen) || 0) + (Number(skill.regen) || 0),
+        multiHitCount: (Number(existing.multiHitCount) || 0) + (Number(skill.multiHitCount) || 0),
+        multiHitDamage: (Number(existing.multiHitDamage) || 0) + (Number(skill.multiHitDamage) || 0),
+        multiHitHits: (Number(existing.multiHitHits) || 0) + (Number(skill.multiHitHits) || 0),
+        minDmg: mergedMin,
+        maxDmg: Math.max((Number(existing.maxDmg) || 0), (Number(skill.maxDmg) || 0)),
+        specs: (existing.specs || [false,false,false,false,false]).map((v, i) => v || !!(skill.specs && skill.specs[i])),
+      });
+    });
+    const displaySkills = foldDotRows([...groupedSkills.values()]);
+
+    displaySkills.sort(compareSkillSort);
+    const limited = !compact && limit > 0 && displaySkills.length > limit;
+    const topDisplay = compact
+      ? displaySkills.slice(0, COMPACT_MAX_SKILLS)
+      : limited ? displaySkills.slice(0, limit) : displaySkills;
+    showSkillsMore(limited ? displaySkills.length - limit : 0);
+
+    // In heal mode there's no target-total to normalise against, so percentages are
+    // relative to the total healing shown (aggregatedDamage = summed heal amounts).
+    const totalDamage = detailsMode === "heal" ? 0 : Number(details?.totalDmg);
+    const aggregatedDamage = (limited ? displaySkills : topDisplay).reduce((sum, s) => sum + (s._combinedDmg || 0), 0);
+    const percentBaseTotal = totalDamage > 0 ? totalDamage : aggregatedDamage;
+
+    ensureSkillSlots(topDisplay.length);
+
+    // Measure longest skill name and set name column width. Only when the
+    // names shown change: reading the styles after the rows were rebuilt laid
+    // the page out at once, and a replay redraws the table ten times a second
+    // (it lagged a whole browser by the end of a long fight, 2026-10-18).
+    // A replay keeps the columns of the whole fight, playing or paused: at
+    // its start a player has one or two skills, and the name column was
+    // measured from those and shrank (2026-10-18). Ending it measures again.
+    const nameKey = `${detailsMode}|${topDisplay.map((s) => s?.name ?? "").join("")}`;
+    const holdColumns = (limited || limit > 0 || detailsPanel.classList.contains("isReplaying")) && lastMeasuredNameWidth > 0;
+    if (!holdColumns && (nameKey !== lastNameKey || !(lastMeasuredNameWidth > 0))) {
+      lastNameKey = nameKey;
+      const iconSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--details-skill-icon-size") || "36", 10);
+      const iconMargin = 6;
+      const namePad = 4;
+      // .skillRow .cell is 0.875em of the panel font and .skillNameText another
+      // 0.84em inside it (styles.css), so the name renders at their product.
+      // Measuring at any other size sizes the column for text never drawn.
+      const fontSize = parseFloat(getComputedStyle(skillsListEl).fontSize) * 0.875 * 0.84;
+      const font = `700 ${fontSize}px ${getComputedStyle(skillsListEl).fontFamily}`;
+      if (font !== nameFont) {
+        nameFont = font;
+        nameWidths.clear();
+      }
+      nameCanvas.font = font;
+      let maxNameWidth = 0;
+      topDisplay.forEach((skill) => {
+        const name = skill?.name ?? "";
+        let w = nameWidths.get(name);
+        if (w === undefined) {
+          w = nameCanvas.measureText(name).width;
+          nameWidths.set(name, w);
+        }
+        if (w > maxNameWidth) maxNameWidth = w;
+      });
+      const arrowSpace = 14; // dotToggle: 10px width + 2px margin each side
+      const measured = Math.ceil(iconSize + iconMargin + arrowSpace + maxNameWidth + namePad);
+      if (measured !== lastMeasuredNameWidth) {
+        lastMeasuredNameWidth = measured;
+        updateGridColumns();
+      }
+    }
+
+    for (let i = 0; i < skillSlots.length; i++) {
+      const view = skillSlots[i];
+      const skill = topDisplay[i];
+
+      if (!skill) {
+        view.rowEl.style.display = "none";
+        view.rowFillEl.style.transform = "scaleX(0)";
+        if (view.iconEl) view.iconEl.style.display = "none";
+        if (view.dotSubRow) view.dotSubRow.style.display = "none";
+        continue;
+      }
+
+      const hasDotChild = !!skill._dotChild;
+      const skillName = String(skill.name ?? "");
+      const isExpanded = hasDotChild && expandedDotParents.has(skillName);
+
+      view.rowEl.style.display = "";
+      view.rowEl.classList.toggle("hasDotChild", hasDotChild);
+      view.rowEl.classList.toggle("isDotExpanded", isExpanded);
+
+      // Toggle expand on click for parent rows with DOT children
+      if (hasDotChild) {
+        if (!view._dotToggleHandler) {
+          view._dotToggleHandler = () => {
+            const name = view._dotParentName;
+            if (!name) return;
+            if (expandedDotParents.has(name)) {
+              expandedDotParents.delete(name);
+            } else {
+              expandedDotParents.add(name);
+            }
+            if (lastDetails) renderSkills(lastDetails, { compact: activeCompactMode });
+          };
+          view.rowEl.addEventListener("click", view._dotToggleHandler);
+        }
+        view._dotParentName = skillName;
+        view.rowEl.style.cursor = "pointer";
+      } else {
+        view._dotParentName = null;
+        view.rowEl.style.cursor = "";
+      }
+
+      // Render DOT sub-row inside the parent row element
+      if (hasDotChild) {
+        if (!view.dotSubRow) {
+          view.dotSubRow = document.createElement("div");
+          view.dotSubRow.className = "skillRow isDotChild";
+          view.rowEl.parentNode.insertBefore(view.dotSubRow, view.rowEl.nextSibling);
+        }
+        const dot = skill._dotChild;
+        const dotDmg = Number(dot.dmg) || 0;
+        const dotHits = Number(dot.time) || 0;
+        const dotCrit = Number(dot.crit) || 0;
+        const dotDmgRate = percentBaseTotal > 0 ? (dotDmg / percentBaseTotal) * 100 : 0;
+        const dotCritRate = dotHits > 0 ? Math.round((dotCrit / dotHits) * 100) : 0;
+        const dotMhCount = Number(dot.multiHitCount) || 0;
+        const dotMhDmg = Number(dot.multiHitDamage) || 0;
+        const dotMhRate = dotHits > 0 ? Math.round((dotMhCount / dotHits) * 100) : 0;
+        const dotParry = dotHits > 0 ? Math.round(((Number(dot.parry) || 0) / dotHits) * 100) : 0;
+        const dotPerfect = dotHits > 0 ? Math.round(((Number(dot.perfect) || 0) / dotHits) * 100) : 0;
+        const dotDouble = dotHits > 0 ? Math.round(((Number(dot.double) || 0) / dotHits) * 100) : 0;
+        const dotBack = dotHits > 0 ? Math.round(((Number(dot.back) || 0) / dotHits) * 100) : 0;
+        const dotFrontal = dotHits > 0 ? Math.round(((Number(dot.frontal) || 0) / dotHits) * 100) : 0;
+        const dotRegen = Number(dot.regen) || 0;
+        const dotRawMin = Number(dot.minDmg) || 0;
+        const dotMin = dotRawMin >= 2147483647 ? 0 : dotRawMin;
+        const dotMax = Number(dot.maxDmg) || 0;
+        const dotAvg = dotHits > 0 ? Math.round(dotDmg / dotHits) : 0;
+
+        view.dotSubRow.style.display = isExpanded ? "" : "none";
+        if (isExpanded) {
+          view.dotSubRow.innerHTML = "";
+
+          // Name cell: icon + spacer + name text (same structure as parent)
+          const nameCell = document.createElement("div");
+          nameCell.className = "cell name";
+          const dotIcon = document.createElement("img");
+          dotIcon.className = "skillIcon";
+          dotIcon.alt = "";
+          dotIcon.loading = "lazy";
+          dotIcon.decoding = "async";
+          dotIcon.referrerPolicy = "no-referrer";
+          dotIcon.addEventListener("error", () => window.skillIcons?.handleImgError?.(dotIcon));
+          const resolvedDotJob = dot.job || getActorJob(dot.actorId);
+          window.skillIcons?.applyIconToImage?.(dotIcon, { ...dot, job: resolvedDotJob });
+          const dotSpacer = document.createElement("span");
+          dotSpacer.className = "dotToggle";
+          const dotNameText = document.createElement("span");
+          dotNameText.className = "skillNameText";
+          dotNameText.textContent = `\u2022 ${dot.name ?? ""}`;
+          dotNameText.style.fontStyle = "italic";
+          const dotTheostoneColor = window.skillIcons?.getTheostoneNameColor?.(dot) || "";
+          const dotSkillColor = dotTheostoneColor || (resolvedDotJob ? getJobColor(resolvedDotJob) : "");
+          if (dotSkillColor) dotNameText.style.color = dotSkillColor;
+          nameCell.appendChild(dotIcon);
+          nameCell.appendChild(dotSpacer);
+          nameCell.appendChild(dotNameText);
+
+          // Data cells
+          const dataCells = [
+            { cls: "cell center hit", text: `${dotHits}` },
+            { cls: "cell center dmg", text: `${formatDamageCompact(dotDmg)}` },
+            { cls: "cell center dmgpct", text: `${dotDmgRate.toFixed(1)}%` },
+            { cls: "cell center mhit", text: `${dotMhRate}%` },
+            { cls: "cell center mdmg", text: `${formatDamageCompact(dotMhDmg)}` },
+            { cls: "cell center crit", text: `${dotCritRate}%` },
+            { cls: "cell center parry", text: `${dotParry}%` },
+            { cls: "cell center perfect", text: `${dotPerfect}%` },
+            { cls: "cell center double", text: `${dotDouble}%` },
+            { cls: "cell center back", text: `${dotBack}%` },
+            { cls: "cell center frontal", text: `${dotFrontal}%` },
+            ...HIT_RESULTS.map(([col, field, kind]) => ({ cls: `cell center ${col}`, text: hitResultText(dot, field, kind, dotHits) })),
+            { cls: "cell center regen", text: `${formatDamageCompact(dotRegen)}` },
+            { cls: "cell center mindmg", text: `${formatDamageCompact(dotMin)}` },
+            { cls: "cell center avgdmg", text: `${formatDamageCompact(dotAvg)}` },
+            { cls: "cell center maxdmg", text: `${formatDamageCompact(dotMax)}` },
+          ];
+          view.dotSubRow.appendChild(nameCell);
+          dataCells.forEach(({ cls, text }) => {
+            const el = document.createElement("div");
+            el.className = cls;
+            el.textContent = text;
+            view.dotSubRow.appendChild(el);
+          });
+        }
+      } else if (view.dotSubRow) {
+        view.dotSubRow.style.display = "none";
+      }
+
+      // When collapsed with a DOT child, combine Dmg, D%, Min/Avg/Max only
+      const dotChild = skill._dotChild;
+      const showCombined = hasDotChild && !isExpanded;
+      const damage = (skill.dmg || 0) + (showCombined ? (Number(dotChild?.dmg) || 0) : 0);
+      const barFillRatio = clamp01(damage / percentBaseTotal);
+      const hits = skill.time || 0;
+      const crits = skill.crit || 0;
+      const parry = skill.parry || 0;
+      const perfect = skill.perfect || 0;
+      const double = skill.double || 0;
+      const back = skill.back || 0;
+      const frontal = skill.frontal || 0;
+      const regen = skill.regen || 0;
+      // Multi-hit rate as the game's Damage Analyzer counts it: hits that
+      // had additional hits (multiHitCount), not the additional hits
+      // themselves (multiHitHits), which can outnumber the hits (140%).
+      const multiHitCount = skill.multiHitCount || 0;
+      const multiHitDamage = skill.multiHitDamage || 0;
+      const rawMinDmg = Number(skill.minDmg) || 0;
+      const dotRawMinDmg = showCombined ? (Number(dotChild?.minDmg) || 0) : 0;
+      const minDmgA = rawMinDmg >= 2147483647 ? 0 : rawMinDmg;
+      const minDmgB = dotRawMinDmg >= 2147483647 ? 0 : dotRawMinDmg;
+      const minDmg = showCombined && minDmgA > 0 && minDmgB > 0 ? Math.min(minDmgA, minDmgB) : (minDmgA || minDmgB);
+      const maxDmg = Math.max(skill.maxDmg || 0, showCombined ? (Number(dotChild?.maxDmg) || 0) : 0);
+      const combinedHits = hits + (showCombined ? (Number(dotChild?.time) || 0) : 0);
+      const avgDmg = combinedHits > 0 ? Math.round(damage / combinedHits) : 0;
+
+      const pct = (num, den) => (den > 0 ? Math.round((num / den) * 100) : 0);
+
+      const damageRate = percentBaseTotal > 0 ? (damage / percentBaseTotal) * 100 : 0;
+
+      const critRate = pct(crits, hits);
+      const parryRate = pct(parry, hits);
+      const backRate = pct(back, hits);
+      const frontalRate = pct(frontal, hits);
+      const perfectRate = pct(perfect, hits);
+      const doubleRate = pct(double, hits);
+      const multiHitRate = pct(multiHitCount, hits);
+
+      // Show/hide DOT toggle arrow
+      view.dotToggleEl.textContent = hasDotChild ? "\u25BC" : "";
+      view.dotToggleEl.style.transform = hasDotChild && !isExpanded ? "rotate(-90deg)" : "";
+
+      view.nameTextEl.textContent = skill.name ?? "";
+      const specs = skill.specs || [];
+      const hasAnySpec = specs.some(Boolean);
+      view.specEl.style.display = hasAnySpec ? "inline-flex" : "none";
+      if (hasAnySpec) {
+        const dots = view.specEl.children;
+        for (let s = 0; s < 5; s++) {
+          dots[s].classList.toggle("isActive", !!specs[s]);
+        }
+      }
+      const resolvedJob = skill.job || getActorJob(skill.actorId);
+      window.skillIcons?.applyIconToImage?.(view.iconEl, { ...skill, job: resolvedJob });
+      const theostoneNameColor = window.skillIcons?.getTheostoneNameColor?.(skill) || "";
+      const skillColor = theostoneNameColor || (resolvedJob ? getJobColor(resolvedJob) : "");
+      view.nameTextEl.style.color = skillColor || "";
+      view.hitEl.textContent = `${hits}`;
+      view.dmgEl.textContent = `${formatDamageCompact(damage)}`;
+      view.dmgPctEl.textContent = `${damageRate.toFixed(1)}%`;
+      view.critEl.textContent = `${critRate}%`;
+      view.parryEl.textContent = `${parryRate}%`;
+      view.backEl.textContent = `${backRate}%`;
+      view.frontalEl.textContent = `${frontalRate}%`;
+      view.perfectEl.textContent = `${perfectRate}%`;
+      view.doubleEl.textContent = `${doubleRate}%`;
+      HIT_RESULTS.forEach(([, field, kind], i) => {
+        view.hitResultEls[i].textContent = hitResultText(skill, field, kind, hits);
+      });
+      view.regenEl.textContent = `${formatDamageCompact(regen)}`;
+      view.multiHitEl.textContent = `${multiHitRate}%`;
+      view.multiHitDamageEl.textContent = `${formatDamageCompact(multiHitDamage)}`;
+      view.minDmgEl.textContent = `${formatDamageCompact(minDmg)}`;
+      view.avgDmgEl.textContent = `${formatDamageCompact(avgDmg)}`;
+      view.maxDmgEl.textContent = `${formatDamageCompact(maxDmg)}`;
+
+      view.rowFillEl.style.transform = `scaleX(${barFillRatio})`;
+    }
+
+  };
+
+  // ── Fight timeline ──
+  // Skills sit beside the party and stats; under them, the DPS chart, the
+  // buffs and the casts share one time axis: the same label gutter on the
+  // left, the same margin on the right (--ftl-gutter, --ftl-right) and one
+  // axis at the bottom. Nothing collapses, so nothing squeezes anything.
+  const fightTimeline = detailsPanel?.querySelector?.(".fightTimeline");
+  const fightTimelineScroll = fightTimeline?.querySelector?.(".fightTimelineScroll");
+  const fightTimelineAxisLane = fightTimeline?.querySelector?.(".fightTimelineAxisLane");
+  const ftlMetrics = () => {
+    const cs = fightTimeline ? getComputedStyle(fightTimeline) : null;
+    const num = (name, fallback) => {
+      const v = parseFloat(cs?.getPropertyValue?.(name));
+      return Number.isFinite(v) ? v : fallback;
+    };
+    // The timeline's text follows the Details font size (styles.css): the
+    // canvases draw theirs at the same size, and grow their rows with it.
+    const text = parseFloat(cs?.fontSize) || 12;
+    return {
+      gutter: num("--ftl-gutter", 340),
+      right: num("--ftl-right", 52),
+      chartHeight: Math.max(num("--ftl-chart-h", 150), Math.round(text * 12)),
+      text,
+    };
+  };
+  // One grid step for the chart, the casts and the axis, so their lines meet.
+  const ftlStepSec = (durationSec) =>
+    durationSec > 600 ? 120 : durationSec > 300 ? 60 : durationSec > 120 ? 30 : durationSec > 40 ? 10 : 5;
+  const ftlTime = (sec) => {
+    const whole = Math.max(0, Math.round(sec));
+    return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+  };
+  // The fight's length on the axis: what the chart drew, and what buffs and
+  // the cursor are laid out against.
+  let ftlDurationMs = 0;
+  const renderFightAxis = (durationMs) => {
+    ftlDurationMs = Number(durationMs) || 0;
+    syncFtlScrollbar?.();
+    if (!fightTimelineAxisLane) return;
+    fightTimelineAxisLane.replaceChildren();
+    if (ftlDurationMs <= 0) return;
+    const durationSec = ftlDurationMs / 1000;
+    const step = ftlStepSec(durationSec);
+    const ticks = [];
+    for (let sec = 0; sec < durationSec - step * 0.4; sec += step) ticks.push(sec);
+    ticks.push(durationSec);
+    ticks.forEach((sec, i) => {
+      const span = document.createElement("span");
+      span.style.left = `${(sec / durationSec) * 100}%`;
+      if (i === ticks.length - 1) span.classList.add("isEnd");
+      span.textContent = ftlTime(sec);
+      fightTimelineAxisLane.appendChild(span);
+    });
+  };
+
+  // The axis's right column also covers the timeline's scrollbar, which the
+  // lanes above it do not have, so the two ends meet.
+  const syncFtlScrollbar = () => {
+    if (!fightTimeline || !fightTimelineScroll) return;
+    const sb = Math.max(0, fightTimelineScroll.offsetWidth - fightTimelineScroll.clientWidth);
+    fightTimeline.style.setProperty("--ftl-sb", `${sb}px`);
+  };
+
+  // The time cursor: a line through every lane under the pointer, and its
+  // time on the axis.
+  const ftlCursor = fightTimeline?.querySelector?.(".fightTimelineCursor");
+  const ftlAxis = fightTimeline?.querySelector?.(".fightTimelineAxis");
+  const ftlAxisTag = (() => {
+    if (!ftlAxis) return null;
+    const tag = document.createElement("span");
+    tag.className = "fightTimelineAxisTag";
+    tag.hidden = true;
+    ftlAxis.appendChild(tag);
+    return tag;
+  })();
+  const hideFtlCursor = () => {
+    if (ftlCursor) ftlCursor.hidden = true;
+    if (ftlAxisTag) ftlAxisTag.hidden = true;
+  };
+  fightTimelineScroll?.addEventListener("mousemove", (event) => {
+    if (!ftlCursor || ftlDurationMs <= 0) return hideFtlCursor();
+    const m = ftlMetrics();
+    const rect = fightTimelineScroll.getBoundingClientRect();
+    const laneLeft = m.gutter;
+    const laneRight = fightTimelineScroll.clientWidth - m.right;
+    const x = event.clientX - rect.left;
+    if (x < laneLeft || x > laneRight || laneRight <= laneLeft) return hideFtlCursor();
+    const sec = ((x - laneLeft) / (laneRight - laneLeft)) * (ftlDurationMs / 1000);
+    ftlCursor.hidden = false;
+    ftlCursor.style.left = `${Math.round(x)}px`;
+    ftlCursor.style.height = `${fightTimelineScroll.scrollHeight}px`;
+    if (ftlAxisTag) {
+      ftlAxisTag.hidden = false;
+      ftlAxisTag.style.left = `${Math.round(x)}px`;
+      ftlAxisTag.textContent = ftlTime(sec);
+    }
+  });
+  fightTimelineScroll?.addEventListener("mouseleave", hideFtlCursor);
+
+  // The split between the top (party, stats, skills) and the timeline: drag
+  // the bar between them; kept as the top's share of the height.
+  const detailsBody = detailsPanel?.querySelector?.(".detailsBody");
+  const detailsSplitter = detailsPanel?.querySelector?.(".detailsSplitter");
+  const SPLIT_KEY = "dpsMeter.detailsSplit";
+  // The dividers are kept with the app's settings (so they last past a
+  // restart), with localStorage as the fallback before those have loaded.
+  const readLayout = (key) => {
+    try {
+      const v = window.javaBridge?.getSetting?.(key);
+      if (v !== undefined && v !== null) return v;
+    } catch { /* below */ }
+    try { return localStorage.getItem(key); } catch { return null; }
+  };
+  const keepLayout = (key, value) => {
+    try { window.javaBridge?.setSetting?.(key, String(value)); } catch { /* below */ }
+    try { localStorage.setItem(key, String(value)); } catch { /* not kept */ }
+  };
+  const applySplit = (share) => {
+    const top = Math.min(0.8, Math.max(0.2, Number(share) || 0.52));
+    detailsBody?.style?.setProperty("--details-top", `${top}fr`);
+    detailsBody?.style?.setProperty("--details-bottom", `${1 - top}fr`);
+    if (detailsBody) detailsBody.dataset.split = String(top);
+    return top;
+  };
+  applySplit(readLayout(SPLIT_KEY));
+  detailsSplitter?.addEventListener("pointerdown", (event) => {
+    if (!detailsBody) return;
+    event.preventDefault();
+    detailsSplitter.setPointerCapture?.(event.pointerId);
+    detailsSplitter.classList.add("isDragging");
+    const rect = detailsBody.getBoundingClientRect();
+    let share = null;
+    const move = (e) => { share = applySplit((e.clientY - rect.top) / Math.max(1, rect.height)); };
+    const up = () => {
+      detailsSplitter.removeEventListener("pointermove", move);
+      detailsSplitter.removeEventListener("pointerup", up);
+      detailsSplitter.removeEventListener("pointercancel", up);
+      detailsSplitter.classList.remove("isDragging");
+      if (share !== null) {
+        keepLayout(SPLIT_KEY, share);
+      }
+    };
+    detailsSplitter.addEventListener("pointermove", move);
+    detailsSplitter.addEventListener("pointerup", up);
+    detailsSplitter.addEventListener("pointercancel", up);
+  });
+  detailsSplitter?.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    const now = Number(detailsBody?.dataset?.split) || 0.52;
+    const share = applySplit(now + (event.key === "ArrowDown" ? 0.04 : -0.04));
+    keepLayout(SPLIT_KEY, share);
+  });
+
+  // The sidebar's width (the party and the figures; also the timeline's label
+  // gutter): drag the bar on its edge; kept in pixels.
+  const sideSplitter = detailsPanel?.querySelector?.(".detailsSideSplitter");
+  const SIDE_KEY = "dpsMeter.detailsSidebarWidth";
+  const SIDE_MIN = 180;
+  const sideMax = () => Math.max(SIDE_MIN, Math.round((detailsBody?.clientWidth || 1200) * 0.5));
+  let sideRedraw = 0;
+  const applySideWidth = (px) => {
+    const n = Number(px);
+    if (!detailsPanel || !Number.isFinite(n) || n <= 0) {
+      detailsPanel?.style?.removeProperty("--details-sidebar-set");
+      return null;
+    }
+    const width = Math.round(Math.min(sideMax(), Math.max(SIDE_MIN, n)));
+    detailsPanel.style.setProperty("--details-sidebar-set", `${width}px`);
+    // The canvases take the gutter from the style: draw them again.
+    if (!sideRedraw) {
+      sideRedraw = requestAnimationFrame(() => {
+        sideRedraw = 0;
+        updateGridColumns();
+        if (lastDetails) { renderDpsChart(lastDetails); renderTimeline(lastDetails); }
+      });
+    }
+    return width;
+  };
+  applySideWidth(readLayout(SIDE_KEY));
+  const sideWidthNow = () => {
+    const first = detailsBody?.querySelector?.(":scope > .detailsStatsRow");
+    return first?.getBoundingClientRect?.().width || 340;
+  };
+  // The settings arrive after this runs: the dividers are set again on each
+  // opening, from what was kept.
+  const restoreLayout = () => {
+    applySplit(readLayout(SPLIT_KEY));
+    applySideWidth(readLayout(SIDE_KEY));
+  };
+  const keepSideWidth = (width) => {
+    if (width === null) return;
+    keepLayout(SIDE_KEY, width);
+  };
+  sideSplitter?.addEventListener("pointerdown", (event) => {
+    if (!detailsBody) return;
+    event.preventDefault();
+    sideSplitter.setPointerCapture?.(event.pointerId);
+    sideSplitter.classList.add("isDragging");
+    const left = detailsBody.getBoundingClientRect().left;
+    let width = null;
+    const move = (e) => { width = applySideWidth(e.clientX - left); };
+    const up = () => {
+      sideSplitter.removeEventListener("pointermove", move);
+      sideSplitter.removeEventListener("pointerup", up);
+      sideSplitter.removeEventListener("pointercancel", up);
+      sideSplitter.classList.remove("isDragging");
+      keepSideWidth(width);
+    };
+    sideSplitter.addEventListener("pointermove", move);
+    sideSplitter.addEventListener("pointerup", up);
+    sideSplitter.addEventListener("pointercancel", up);
+  });
+  sideSplitter?.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    keepSideWidth(applySideWidth(sideWidthNow() + (event.key === "ArrowRight" ? 16 : -16)));
+  });
+  // Double-click: back to the default width.
+  sideSplitter?.addEventListener("dblclick", () => {
+    applySideWidth(null);
+    keepLayout(SIDE_KEY, "");
+    requestAnimationFrame(() => {
+      updateGridColumns();
+      if (lastDetails) { renderDpsChart(lastDetails); renderTimeline(lastDetails); }
+    });
+  });
+
+  // Which of the timeline's sections show (chart, buffs, casts): the chips at
+  // the bar's right; kept between openings.
+  const SECTIONS_KEY = "dpsMeter.timelineSections";
+  const FTL_SECTIONS = ["dps", "buffs", "casts"];
+  const ftlShown = { dps: true, buffs: true, casts: true };
+  try {
+    const saved = JSON.parse(localStorage.getItem(SECTIONS_KEY) || "null");
+    if (saved && typeof saved === "object") {
+      for (const k of FTL_SECTIONS) if (typeof saved[k] === "boolean") ftlShown[k] = saved[k];
+    }
+  } catch { /* all shown */ }
+  const sectionChips = fightTimeline?.querySelectorAll?.("[data-ftl-section]") ?? [];
+  const applyFtlSections = () => {
+    for (const k of FTL_SECTIONS) fightTimeline?.classList?.toggle?.(`hide-${k}`, !ftlShown[k]);
+    sectionChips.forEach((chip) => {
+      const on = !!ftlShown[chip.dataset.ftlSection];
+      chip.classList.toggle("isActive", on);
+      chip.setAttribute("aria-pressed", String(on));
+    });
+  };
+  applyFtlSections();
+  sectionChips.forEach((chip) => chip.addEventListener("click", () => {
+    const k = chip.dataset.ftlSection;
+    if (!FTL_SECTIONS.includes(k)) return;
+    ftlShown[k] = !ftlShown[k];
+    applyFtlSections();
+    try { localStorage.setItem(SECTIONS_KEY, JSON.stringify(ftlShown)); } catch { /* not kept */ }
+    // A canvas hidden has no width: draw it again when it shows.
+    if (ftlShown[k] && lastDetails) {
+      if (k === "dps") renderDpsChart(lastDetails);
+      if (k === "casts") renderTimeline(lastDetails);
+    }
+  }));
+
+  // Each section's heading folds it, keeping the heading: the chart and the
+  // casts (kept between openings), and each player's buffs (this window).
+  const FOLD_KEY = "dpsMeter.timelineFolded";
+  const ftlFolded = { dps: false, casts: false };
+  try {
+    const saved = JSON.parse(localStorage.getItem(FOLD_KEY) || "null");
+    if (saved && typeof saved === "object") for (const k of Object.keys(ftlFolded)) ftlFolded[k] = saved[k] === true;
+  } catch { /* all open */ }
+  const foldHeading = (heading, isFolded, onToggle) => {
+    if (!heading || heading.dataset.foldable) return;
+    heading.dataset.foldable = "1";
+    heading.classList.add("ftlFoldHeading");
+    heading.setAttribute("role", "button");
+    heading.tabIndex = 0;
+    // The text in a span of its own, which takes the heading's translation
+    // key: setting the heading's text (a language or DMG/HEAL change) would
+    // drop the chevron.
+    if (heading.dataset.i18n) {
+      const text = document.createElement("span");
+      text.className = "ftlFoldText";
+      text.dataset.i18n = heading.dataset.i18n;
+      text.append(...heading.childNodes);
+      delete heading.dataset.i18n;
+      heading.append(text);
+    }
+    const chevron = document.createElement("i");
+    chevron.className = "ftlFoldChevron";
+    chevron.setAttribute("aria-hidden", "true");
+    heading.prepend(chevron);
+    const sync = () => heading.setAttribute("aria-expanded", String(!isFolded()));
+    sync();
+    const toggle = (event) => {
+      if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      onToggle();
+      sync();
+    };
+    heading.addEventListener("click", toggle);
+    heading.addEventListener("keydown", toggle);
+  };
+  for (const [k, cls] of [["dps", "ftlGroupDps"], ["casts", "ftlGroupCasts"]]) {
+    const groupEl = fightTimeline?.querySelector?.(`.${cls}`);
+    groupEl?.classList?.toggle?.("isFolded", ftlFolded[k]);
+    foldHeading(groupEl?.querySelector?.(".ftlGroupTitle"), () => ftlFolded[k], () => {
+      ftlFolded[k] = !ftlFolded[k];
+      groupEl.classList.toggle("isFolded", ftlFolded[k]);
+      try { localStorage.setItem(FOLD_KEY, JSON.stringify(ftlFolded)); } catch { /* not kept */ }
+      // A canvas folded away has no width: draw it again when it opens.
+      if (!ftlFolded[k] && lastDetails) {
+        if (k === "dps") renderDpsChart(lastDetails);
+        else renderTimeline(lastDetails);
+      }
+    });
+  }
+  // Each player's buffs fold by the group's heading (buffTimeline.js
+  // draws them afresh, so the folded names are remembered here).
+  const foldedBuffGroups = new Set();
+  const buffBodyEl = fightTimeline?.querySelector?.(".buffBody");
+  const foldBuffGroups = () => {
+    buffBodyEl?.querySelectorAll?.(".buffGroup").forEach((g) => {
+      const heading = g.querySelector(".buffGroupHeader");
+      const name = heading?.firstElementChild?.textContent || "";
+      g.classList.toggle("isFolded", foldedBuffGroups.has(name));
+      foldHeading(heading, () => foldedBuffGroups.has(name), () => {
+        if (foldedBuffGroups.has(name)) foldedBuffGroups.delete(name);
+        else foldedBuffGroups.add(name);
+        g.classList.toggle("isFolded", foldedBuffGroups.has(name));
+      });
+    });
+  };
+  if (buffBodyEl && typeof MutationObserver === "function") {
+    new MutationObserver(foldBuffGroups).observe(buffBodyEl, { childList: true });
+  }
+
+  // The canvases are drawn to their width: draw again when it changes.
+  let ftlWidth = 0;
+  if (typeof ResizeObserver === "function" && fightTimeline) {
+    new ResizeObserver(() => {
+      const w = fightTimeline.clientWidth;
+      if (!w || w === ftlWidth) return;
+      ftlWidth = w;
+      syncFtlScrollbar();
+      updateGridColumns();
+      if (lastDetails) requestAnimationFrame(() => { renderDpsChart(lastDetails); renderTimeline(lastDetails); });
+    }).observe(fightTimeline);
+  }
+
+  // ── DPS Chart ──
+  const dpsChartCanvas = detailsPanel?.querySelector?.(".dpsChartCanvas");
+  const dpsChartXAxis = detailsPanel?.querySelector?.(".dpsChartXAxis");
+  const dpsChartLegend = detailsPanel?.querySelector?.(".dpsChartLegend");
+
+  // ── Timeline chart ──
+  const timelineCanvas = detailsPanel?.querySelector?.(".timelineCanvas");
+  const timelineViewport = detailsPanel?.querySelector?.(".timelineViewport");
+  const timelineLegend = detailsPanel?.querySelector?.(".timelineLegend");
+  const timelineXAxis = detailsPanel?.querySelector?.(".timelineXAxis");
+
+  // Color palette for skill lanes
+  const LANE_COLORS = [
+    "#6aa6ff", "#ff7eb3", "#7be35a", "#ffc658", "#b580ff",
+    "#5fcaff", "#ff6f4f", "#41d98a", "#e06bff", "#f2b94f",
+    "#8fd3ff", "#ff4f7a", "#ffe062", "#7b6dff", "#52b35c",
+  ];
+
+  const timelineIconCache = new Map(); // skill key → { img, ready }
+  let timelineRedrawScheduled = false;
+
+  const scheduleTimelineRedraw = () => {
+    if (timelineRedrawScheduled) return;
+    timelineRedrawScheduled = true;
+    requestAnimationFrame(() => {
+      timelineRedrawScheduled = false;
+      if (lastDetails) renderTimeline(lastDetails);
+    });
+  };
+
+  const loadTimelineIcon = (skill) => {
+    const key = `${skill.code}::${skill.isDot ? "dot" : "hit"}`;
+    if (timelineIconCache.has(key)) return timelineIconCache.get(key);
+
+    const candidates = window.skillIcons?.getIconCandidates?.(skill) || [];
+    if (!candidates.length) {
+      timelineIconCache.set(key, null);
+      return null;
+    }
+
+    const entry = { img: new Image(), ready: false };
+    entry.img.crossOrigin = "anonymous";
+
+    const tryLoad = (idx) => {
+      if (idx >= candidates.length) return;
+      const url = candidates[idx];
+      // For data: URIs, load directly
+      if (!url.startsWith("http")) {
+        entry.img.src = url;
+        entry.img.onload = () => { entry.ready = true; scheduleTimelineRedraw(); };
+        return;
+      }
+      // Use skillIcons blob cache (fetchAsBlob) if available, else fetch directly
+      const fetchPromise = window.skillIcons?._fetchAsBlob
+        ? window.skillIcons._fetchAsBlob(url)
+        : fetch(url, { mode: "cors", credentials: "omit" })
+            .then((r) => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+            .then((blob) => URL.createObjectURL(blob));
+      fetchPromise
+        .then((blobUrl) => {
+          if (!blobUrl) throw new Error("no blob");
+          entry.img.src = blobUrl;
+          entry.img.onload = () => { entry.ready = true; scheduleTimelineRedraw(); };
+        })
+        .catch(() => tryLoad(idx + 1));
+    };
+    tryLoad(0);
+    timelineIconCache.set(key, entry);
+    return entry;
+  };
+
+  // A death's cross on the DPS chart names who died when pointed at.
+  dpsChartCanvas?.addEventListener("mousemove", (event) => {
+    const marks = dpsChartCanvas.deathMarks || [];
+    const x = event.clientX - dpsChartCanvas.getBoundingClientRect().left;
+    const near = marks.filter((m) => Math.abs(m.x - x) <= 6).map((m) => m.label);
+    const title = near.join("\n");
+    if (dpsChartCanvas.title !== title) dpsChartCanvas.title = title;
+  });
+
+  // The chart's lines draw in from the left the first time a fight shows:
+  // what is drawn is kept and revealed over a moment, not drawn again.
+  let chartRevealSeq = 0;
+  let chartRevealPending = false;
+  const revealChart = () => {
+    const w = dpsChartCanvas.width;
+    const h = dpsChartCanvas.height;
+    if (!w || !h || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+    const snap = document.createElement("canvas");
+    snap.width = w;
+    snap.height = h;
+    snap.getContext("2d").drawImage(dpsChartCanvas, 0, 0);
+    const ctx = dpsChartCanvas.getContext("2d");
+    const token = chartRevealSeq;
+    let start = 0;
+    const duration = 750;
+    const paint = (now) => {
+      if (token !== chartRevealSeq) return;
+      if (!start) start = now;
+      const p = Math.min(1, (now - start) / duration);
+      const shown = Math.max(1, Math.round(w * (1 - Math.pow(1 - p, 3))));
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(snap, 0, 0, shown, h, 0, 0, shown, h);
+      ctx.restore();
+      if (p < 1) requestAnimationFrame(paint);
+    };
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.restore();
+    whenBuilt(() => requestAnimationFrame(paint));
+  };
+
+  const renderDpsChart = (details) => {
+    if (!dpsChartCanvas || !dpsChartXAxis || !dpsChartLegend) return;
+    if (sectionsHeld) return;
+    // A redraw (a refresh, a resize) ends a reveal still under way.
+    chartRevealSeq++;
+
+    // Use unfiltered skills for DPS lines + boss health; filtered details for ping + battleTime
+    const unfilteredDetails = lastUnfilteredDetails || details;
+    // HEAL charts healing per second from the heals' own times, without the
+    // boss's HP; a fight saved before heals had times has none to draw.
+    const healMode = detailsMode === "heal";
+    const chartSource = healMode ? unfilteredDetails?.healSkills : unfilteredDetails?.skills;
+    const chartSkills = Array.isArray(chartSource) ? chartSource : [];
+    const noHealTiming = healMode
+      && !chartSkills.some((s) => Array.isArray(s?.hitTimestamps) && s.hitTimestamps.length > 0);
+    fightTimeline?.classList?.toggle?.("noHealTiming", noHealTiming);
+    const battleTimeMs = Number(unfilteredDetails?.battleTimeMs) || Number(details?.battleTimeMs) || 0;
+    if (battleTimeMs <= 0 || chartSkills.length === 0) {
+      dpsChartCanvas.width = 0;
+      dpsChartCanvas.height = 0;
+      dpsChartXAxis.innerHTML = "";
+      dpsChartLegend.innerHTML = "";
+      renderFightAxis(0);
+      return;
+    }
+
+    // Group hits by actor (from ALL actors, unfiltered)
+    const actorHits = new Map(); // actorId -> [{ts, dmg}]
+    const allHits = []; // flat list for boss cumulative damage
+    chartSkills.forEach((skill) => {
+      if (!skill) return;
+      const actorId = Number(skill.actorId);
+      if (!Number.isFinite(actorId) || actorId <= 0) return;
+      const timestamps = Array.isArray(skill.hitTimestamps) ? skill.hitTimestamps : [];
+      const dmg = Number(skill.dmg) || 0;
+      const perHitDmg = timestamps.length > 0 ? dmg / timestamps.length : 0;
+      if (!actorHits.has(actorId)) actorHits.set(actorId, []);
+      const arr = actorHits.get(actorId);
+      timestamps.forEach((ts) => {
+        const hit = { ts: Number(ts), dmg: perHitDmg };
+        arr.push(hit);
+        allHits.push(hit);
+      });
+    });
+
+    if (actorHits.size === 0) {
+      dpsChartCanvas.width = 0;
+      dpsChartCanvas.height = 0;
+      dpsChartXAxis.innerHTML = "";
+      dpsChartLegend.innerHTML = "";
+      return;
+    }
+
+    // Sort hits per actor and all hits by time
+    actorHits.forEach((hits) => hits.sort((a, b) => a.ts - b.ts));
+    allHits.sort((a, b) => a.ts - b.ts);
+
+    // Build actor list sorted by total damage descending
+    const actorList = [...actorHits.entries()]
+      .map(([actorId, hits]) => ({
+        actorId,
+        hits,
+        totalDmg: hits.reduce((s, h) => s + h.dmg, 0),
+        job: detectedJobByActorId.get(actorId) || detailsActors.get(actorId)?.job || "",
+      }))
+      .sort((a, b) => b.totalDmg - a.totalDmg);
+
+    // Determine rolling window: ~10% of fight, clamped 5s–15s
+    const windowMs = Math.max(5000, Math.min(15000, battleTimeMs * 0.1));
+
+    // Sample DPS at N evenly-spaced time points
+    const SAMPLES = 100;
+    const sampleDps = (hits, t) => {
+      const lo = t - windowMs;
+      let total = 0;
+      for (const h of hits) {
+        if (h.ts > t) break;
+        if (h.ts > lo) total += h.dmg;
+      }
+      return total / (windowMs / 1000);
+    };
+
+    // Canvas dimensions: the plot runs between the timeline's label gutter and
+    // its right margin, like the buff and cast lanes under it.
+    const metrics = ftlMetrics();
+    const CHART_HEIGHT = metrics.chartHeight;
+    const PAD_TOP = 8;
+    const PAD_BOTTOM = 4;
+    const PAD_LEFT = metrics.gutter;
+    const PAD_RIGHT = metrics.right;
+    const plotHeight = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM;
+    const dpr = window.devicePixelRatio || 1;
+    const chartWidth = dpsChartCanvas.parentElement
+      ? dpsChartCanvas.parentElement.clientWidth
+      : 300;
+
+    // Ping data (needed early to decide whether to show right axis)
+    const pingHistory = Array.isArray(details?.pingHistory) ? details.pingHistory : [];
+    const hasPing = pingHistory.length >= 1;
+    const maxPing = hasPing ? pingHistory.reduce((mx, p) => Math.max(mx, p.pingMs), 0) || 1 : 1;
+
+    dpsChartCanvas.width = Math.ceil(chartWidth * dpr);
+    dpsChartCanvas.height = Math.ceil(CHART_HEIGHT * dpr);
+    dpsChartCanvas.style.width = `${chartWidth}px`;
+    dpsChartCanvas.style.height = `${CHART_HEIGHT}px`;
+
+    const ctx = dpsChartCanvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, chartWidth, CHART_HEIGHT);
+
+    const xAt = (t) => PAD_LEFT + (t / battleTimeMs) * (chartWidth - PAD_LEFT - PAD_RIGHT);
+
+    // Compute DPS samples for all actors
+    const allSamples = actorList.map((actor) => {
+      const pts = [];
+      for (let i = 0; i <= SAMPLES; i++) {
+        const t = (i / SAMPLES) * battleTimeMs;
+        pts.push(sampleDps(actor.hits, t));
+      }
+      return { actor, pts };
+    });
+
+    const globalMax = allSamples.reduce((mx, { pts }) => Math.max(mx, ...pts), 0) || 1;
+
+    // Determine time grid interval
+    const durationSec = battleTimeMs / 1000;
+    const gridIntervalSec = ftlStepSec(durationSec);
+
+    // Draw grid lines (horizontal)
+    const gridCount = 4;
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.lineWidth = 1;
+    for (let g = 0; g <= gridCount; g++) {
+      const y = Math.round(PAD_TOP + (g / gridCount) * plotHeight) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(PAD_LEFT, y);
+      ctx.lineTo(chartWidth - PAD_RIGHT, y);
+      ctx.stroke();
+    }
+
+    // Draw vertical grid lines
+    for (let sec = gridIntervalSec; sec < durationSec; sec += gridIntervalSec) {
+      const x = Math.round(xAt(sec * 1000)) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(x, PAD_TOP);
+      ctx.lineTo(x, PAD_TOP + plotHeight);
+      ctx.stroke();
+    }
+
+    // ── Y-axis labels ──
+    const fmtDps = (v) => {
+      if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+      if (v >= 1_000) return (v / 1_000).toFixed(v >= 10_000 ? 0 : 1).replace(/\.0$/, "") + "K";
+      return String(Math.round(v));
+    };
+    ctx.font = `${Math.round(metrics.text * 0.85 * 10) / 10}px sans-serif`;
+    ctx.textBaseline = "middle";
+    // Left axis — DPS
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.textAlign = "right";
+    for (let g = 0; g <= gridCount; g++) {
+      const y = PAD_TOP + (g / gridCount) * plotHeight;
+      const val = globalMax * (1 - g / gridCount);
+      ctx.fillText(fmtDps(val), PAD_LEFT - 8, y);
+    }
+    // Right axis — Ping (ms)
+    if (hasPing) {
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.textAlign = "left";
+      for (let g = 0; g <= gridCount; g++) {
+        const y = PAD_TOP + (g / gridCount) * plotHeight;
+        const val = maxPing * (1 - g / gridCount);
+        ctx.fillText(Math.round(val) + "ms", chartWidth - PAD_RIGHT + 4, y);
+      }
+    }
+
+    // ── Boss cumulative damage (grey, dashed) ──
+    const totalBossDmg = allHits.reduce((s, h) => s + h.dmg, 0) || 1;
+    if (allHits.length > 0 && !healMode) {
+      ctx.beginPath();
+      ctx.strokeStyle = "rgba(220,60,60,0.85)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 4]);
+      let cumDmg = 0;
+      let hitIdx = 0;
+      for (let i = 0; i <= SAMPLES; i++) {
+        const t = (i / SAMPLES) * battleTimeMs;
+        while (hitIdx < allHits.length && allHits[hitIdx].ts <= t) {
+          cumDmg += allHits[hitIdx].dmg;
+          hitIdx++;
+        }
+        const healthFraction = Math.max(0, 1 - cumDmg / totalBossDmg);
+        const x = xAt(t);
+        const y = PAD_TOP + (1 - healthFraction) * plotHeight;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // ── Actor DPS lines ──
+    const isSelectedActor = (actorId) =>
+      !Array.isArray(selectedAttackerIds) || selectedAttackerIds.includes(actorId);
+
+    // While a player is down (from their death to their revive, or the
+    // fight's end), their line is drawn grey.
+    const downTimes = new Map(); // actorId -> [[from ms, to ms], ...]
+    for (const d of Array.isArray(unfilteredDetails?.deaths) ? unfilteredDetails.deaths : []) {
+      const from = Number(d?.tsMs);
+      if (!Number.isFinite(from)) continue;
+      const to = Number.isFinite(Number(d?.revivedMs)) ? Number(d.revivedMs) : battleTimeMs;
+      const id = Number(d.actorId);
+      if (!downTimes.has(id)) downTimes.set(id, []);
+      downTimes.get(id).push([from, Math.max(from, to)]);
+    }
+    const drawActor = ({ actor, pts }, selected) => {
+      const fallbackColor = LANE_COLORS[actorList.indexOf(actor) % LANE_COLORS.length];
+      const color = getJobColor(actor.job) || fallbackColor;
+      const trace = () => {
+        ctx.beginPath();
+        pts.forEach((dps, i) => {
+          const x = xAt((i / SAMPLES) * battleTimeMs);
+          const y = PAD_TOP + (1 - dps / globalMax) * plotHeight;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+      };
+      const down = downTimes.get(actor.actorId) || [];
+      // The times they were down, as strips across the chart.
+      const downStrips = () => {
+        for (const [from, to] of down) ctx.rect(xAt(from), 0, Math.max(1, xAt(to) - xAt(from)), CHART_HEIGHT);
+      };
+      ctx.lineWidth = selected ? 2 : 1.5;
+      ctx.setLineDash(selected ? [] : [5, 3]);
+      // Alive: the class colour, everywhere but the strips.
+      ctx.save();
+      if (down.length) {
+        ctx.beginPath();
+        ctx.rect(0, 0, chartWidth, CHART_HEIGHT);
+        downStrips();
+        ctx.clip("evenodd");
+      }
+      ctx.strokeStyle = selected ? color : color + "bb";
+      trace();
+      ctx.stroke();
+      ctx.restore();
+      // Down: grey, inside the strips.
+      if (down.length) {
+        ctx.save();
+        ctx.beginPath();
+        downStrips();
+        ctx.clip();
+        ctx.strokeStyle = "rgba(150, 156, 168, 0.45)";
+        trace();
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.setLineDash([]);
+    };
+
+    allSamples.forEach((s) => { if (!isSelectedActor(s.actor.actorId)) drawActor(s, false); });
+    allSamples.forEach((s) => { if (isSelectedActor(s.actor.actorId)) drawActor(s, true); });
+
+    // ── Ping line (white dotted, Catmull-Rom smoothed, independent Y scale) ──
+    if (hasPing) {
+      const pingPts = pingHistory.map((p) => ({
+        x: xAt(Number(p.tsMs)),
+        y: PAD_TOP + (1 - Number(p.pingMs) / maxPing) * plotHeight,
+      }));
+      ctx.beginPath();
+      ctx.strokeStyle = "rgba(255,255,255,0.9)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([2, 4]);
+      ctx.moveTo(pingPts[0].x, pingPts[0].y);
+      if (pingPts.length === 1) {
+        ctx.lineTo(pingPts[0].x, pingPts[0].y);
+      } else {
+        // Catmull-Rom → cubic bezier, tension 0.5
+        const tension = 0.5;
+        for (let i = 0; i < pingPts.length - 1; i++) {
+          const p0 = pingPts[Math.max(0, i - 1)];
+          const p1 = pingPts[i];
+          const p2 = pingPts[i + 1];
+          const p3 = pingPts[Math.min(pingPts.length - 1, i + 2)];
+          const cp1x = p1.x + (p2.x - p0.x) * tension / 2;
+          const cp1y = p1.y + (p2.y - p0.y) * tension / 2;
+          const cp2x = p2.x - (p3.x - p1.x) * tension / 2;
+          const cp2y = p2.y - (p3.y - p1.y) * tension / 2;
+          ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+        }
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // ── Deaths: a faint line down the chart at each, in the player's colour,
+    // with a cross at the top. Every player's (the lines are all drawn). ──
+    const deaths = (Array.isArray(unfilteredDetails?.deaths) ? unfilteredDetails.deaths : [])
+      .filter((d) => Number.isFinite(Number(d?.tsMs)) && Number(d.tsMs) >= 0);
+    const actorColor = (actorId) => {
+      const actor = actorList.find((a) => a.actorId === actorId);
+      const job = actor?.job || detectedJobByActorId.get(actorId) || detailsActors.get(actorId)?.job || "";
+      const index = actor ? actorList.indexOf(actor) : 0;
+      return getJobColor(job) || LANE_COLORS[index % LANE_COLORS.length];
+    };
+    const deathMarks = [];
+    for (const death of deaths) {
+      const x = xAt(Math.min(Number(death.tsMs), battleTimeMs));
+      const color = actorColor(Number(death.actorId));
+      const who = detailsActors.get(Number(death.actorId))?.nickname || `#${death.actorId}`;
+      // How long they were down, once they're back up.
+      const downMs = Number(death.revivedMs) - Number(death.tsMs);
+      const downFor = death.revivedMs != null && downMs >= 0
+        ? `, ${labelText("details.chart.downFor", "down for")} ${Math.max(1, Math.round(downMs / 1000))}s`
+        : "";
+      deathMarks.push({ x, label: `${who} ${labelText("details.chart.died", "died at")} ${ftlTime(Number(death.tsMs) / 1000)}${downFor}` });
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x, PAD_TOP + 9);
+      ctx.lineTo(x, PAD_TOP + plotHeight);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      // The cross: a dark disc, so it reads over any line, and an X.
+      const cy = PAD_TOP + 4;
+      ctx.fillStyle = "rgba(8, 10, 16, 0.85)";
+      ctx.beginPath();
+      ctx.arc(x, cy, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(x - 2.6, cy - 2.6);
+      ctx.lineTo(x + 2.6, cy + 2.6);
+      ctx.moveTo(x + 2.6, cy - 2.6);
+      ctx.lineTo(x - 2.6, cy + 2.6);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Pointing at a cross names who died (see the listener below).
+    dpsChartCanvas.deathMarks = deathMarks;
+    if (chartRevealPending) {
+      chartRevealPending = false;
+      revealChart();
+    }
+
+    // ── Legend: a line per player, in the colour it is drawn in (the one
+    // selected solid, the rest dashed), then the boss's HP and the ping. ──
+    const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    // Up to six players; fewer when the chart is too short for them all, so
+    // the legend never runs past the chart into the section below.
+    const renderLegend = (shownPlayers) => {
+    const legendItems = allSamples.slice(0, shownPlayers).map(({ actor }) => {
+      const fallbackColor = LANE_COLORS[actorList.indexOf(actor) % LANE_COLORS.length];
+      const color = getJobColor(actor.job) || fallbackColor;
+      const info = detailsActors.get(actor.actorId);
+      const name = info?.nickname && info.nickname !== String(actor.actorId) ? info.nickname : `#${actor.actorId}`;
+      return { dash: isSelectedActor(actor.actorId) ? "none" : "5,3", color, label: escapeHtml(name) };
+    });
+    if (allSamples.length > shownPlayers) {
+      legendItems.push({ dash: "", color: "rgba(255,255,255,0.55)", label: `+${allSamples.length - shownPlayers}` });
+    }
+    if (!healMode) {
+      legendItems.push({ dash: "3,4", color: "rgba(220,60,60,0.9)", label: escapeHtml(labelText("details.chart.bossHp", "Boss HP")) });
+    }
+    if (hasPing) {
+      legendItems.push({ dash: "2,4", color: "rgba(255,255,255,0.9)", label: escapeHtml(labelText("details.chart.ping", "Ping")) });
+    }
+    if (deaths.length) {
+      legendItems.push({ dash: "death", color: "rgba(255,255,255,0.85)", label: escapeHtml(labelText("details.chart.death", "Death")) });
+    }
+    dpsChartLegend.innerHTML = legendItems.map(({ dash, color, label }) => {
+      if (!dash) return `<span class="legendItem legendMore" style="color:${color}">${label}</span>`;
+      const svgLine = dash === "death"
+        ? `<path d="M8 3 L14 9 M14 3 L8 9" stroke="${color}" stroke-width="1.6" stroke-linecap="round"/>`
+        : dash === "none"
+        ? `<line x1="0" y1="6" x2="22" y2="6" stroke="${color}" stroke-width="2"/>`
+        : `<line x1="0" y1="6" x2="22" y2="6" stroke="${color}" stroke-width="2" stroke-dasharray="${dash}"/>`;
+      return `<span class="legendItem">
+        <svg width="22" height="12" viewBox="0 0 22 12" xmlns="http://www.w3.org/2000/svg">${svgLine}</svg>
+        <span style="color:${color}">${label}</span>
+      </span>`;
+    }).join("");
+    };
+    const legendRoom = dpsChartCanvas.clientHeight;
+    let shownPlayers = Math.min(6, allSamples.length);
+    renderLegend(shownPlayers);
+    while (shownPlayers > 1 && legendRoom > 0 && dpsChartLegend.offsetTop + dpsChartLegend.offsetHeight > legendRoom) {
+      renderLegend(--shownPlayers);
+    }
+
+    // X axis labels — aligned to plot area via matching padding
+    dpsChartXAxis.innerHTML = "";
+    dpsChartXAxis.style.paddingLeft = PAD_LEFT + "px";
+    dpsChartXAxis.style.paddingRight = PAD_RIGHT + "px";
+    // Build tick list aligned to grid intervals, always ending at durationSec
+    const ticks = [];
+    for (let sec = 0; sec < durationSec; sec += gridIntervalSec) {
+      ticks.push(Math.round(sec));
+    }
+    ticks.push(Math.round(durationSec));
+    for (const sec of ticks) {
+      const minutes = Math.floor(sec / 60);
+      const seconds = sec % 60;
+      const span = document.createElement("span");
+      span.textContent = `${minutes}:${String(seconds).padStart(2, "0")}`;
+      dpsChartXAxis.appendChild(span);
+    }
+    renderFightAxis(battleTimeMs);
+  };
+
+  const renderTimeline = (details) => {
+    if (sectionsHeld) return;
+    if (!timelineCanvas || !timelineViewport || !timelineLegend || !timelineXAxis) return;
+
+    const laneSource = detailsMode === "heal" ? details?.healSkills : details?.skills;
+    const skills = Array.isArray(laneSource) ? laneSource : [];
+    const battleTimeMs = Number(lastUnfilteredDetails?.battleTimeMs) || Number(details?.battleTimeMs) || 0;
+    if (battleTimeMs <= 0 || skills.length === 0) {
+      timelineCanvas.width = 0;
+      timelineCanvas.height = 0;
+      timelineLegend.innerHTML = "";
+      timelineXAxis.innerHTML = "";
+      return;
+    }
+
+    // Group skills and collect all hit timestamps
+    const laneMap = new Map();
+    skills.forEach((skill) => {
+      if (!skill) return;
+      const timestamps = Array.isArray(skill.hitTimestamps) ? skill.hitTimestamps : [];
+      if (timestamps.length === 0) return;
+      const name = String(skill.name ?? "");
+      const key = `${name}::${skill.isDot ? "dot" : "hit"}`;
+      const existing = laneMap.get(key);
+      if (existing) {
+        existing.timestamps.push(...timestamps);
+        existing.totalDmg += Number(skill.dmg) || 0;
+      } else {
+        laneMap.set(key, {
+          name,
+          code: skill.code,
+          job: skill.job || getActorJob(skill.actorId),
+          isDot: !!skill.isDot,
+          timestamps: [...timestamps],
+          totalDmg: Number(skill.dmg) || 0,
+          skill,
+        });
+      }
+    });
+
+    // Sort lanes to match the current skill list sort order
+    const lanes = [...laneMap.values()]
+      .sort((a, b) => compareSkillSort(a.skill, b.skill))
+      .slice(0, 15); // max 15 lanes
+
+    if (lanes.length === 0) {
+      timelineCanvas.width = 0;
+      timelineCanvas.height = 0;
+      timelineLegend.innerHTML = "";
+      timelineXAxis.innerHTML = "";
+      return;
+    }
+
+    // Sort timestamps within each lane
+    lanes.forEach((lane) => lane.timestamps.sort((a, b) => a - b));
+
+    // Dimensions: the whole timeline width, the lane between the shared label
+    // gutter and right margin; the skill's icon and name in the gutter.
+    const metrics = ftlMetrics();
+    const ICON_SIZE = Math.max(20, Math.round(metrics.text * 1.55));
+    const LANE_HEIGHT = ICON_SIZE + 8;
+    const LANE_PAD = 4;
+    const LABEL_ICON = Math.max(18, Math.round(metrics.text * 1.35));
+    const LEFT_MARGIN = metrics.gutter;
+    const RIGHT_MARGIN = metrics.right;
+    const durationSec = battleTimeMs / 1000;
+    const chartWidth = Math.max(LEFT_MARGIN + RIGHT_MARGIN + 100, timelineViewport.clientWidth);
+    const laneWidth = chartWidth - LEFT_MARGIN - RIGHT_MARGIN;
+    const chartHeight = lanes.length * LANE_HEIGHT;
+    const dpr = window.devicePixelRatio || 1;
+
+    timelineCanvas.width = Math.ceil(chartWidth * dpr);
+    timelineCanvas.height = Math.ceil(chartHeight * dpr);
+    timelineCanvas.style.width = `${chartWidth}px`;
+    timelineCanvas.style.height = `${chartHeight}px`;
+
+    const ctx = timelineCanvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, chartWidth, chartHeight);
+
+    // Draw lane backgrounds
+    lanes.forEach((lane, i) => {
+      const y = i * LANE_HEIGHT;
+      ctx.fillStyle = i % 2 === 0 ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.1)";
+      ctx.fillRect(0, y, chartWidth, LANE_HEIGHT);
+    });
+
+    // Draw vertical grid lines, on the shared axis's steps
+    const gridIntervalSec = ftlStepSec(durationSec);
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.lineWidth = 1;
+    for (let sec = gridIntervalSec; sec < durationSec; sec += gridIntervalSec) {
+      const x = Math.round(LEFT_MARGIN + (sec / durationSec) * laneWidth) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, chartHeight);
+      ctx.stroke();
+    }
+
+    // Draw skill icons on each lane
+    const pendingDraws = [];
+    lanes.forEach((lane, laneIdx) => {
+      const y = laneIdx * LANE_HEIGHT + LANE_PAD;
+      const color = LANE_COLORS[laneIdx % LANE_COLORS.length];
+      const entry = loadTimelineIcon({
+        code: lane.code,
+        job: lane.job,
+        isDot: lane.isDot,
+      });
+
+      // The lane's label in the gutter: its icon, then its name.
+      const labelY = laneIdx * LANE_HEIGHT + LANE_HEIGHT / 2;
+      if (entry && entry.ready && entry.img.complete && entry.img.naturalWidth > 0) {
+        ctx.drawImage(entry.img, 12, labelY - LABEL_ICON / 2, LABEL_ICON, LABEL_ICON);
+      } else {
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.7;
+        ctx.fillRect(12, labelY - LABEL_ICON / 2, LABEL_ICON, LABEL_ICON);
+        ctx.globalAlpha = 1.0;
+      }
+      ctx.font = `${metrics.text}px Bahnschrift, 'Segoe UI', sans-serif`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(255,255,255,0.86)";
+      const maxText = LEFT_MARGIN - 12 - LABEL_ICON - 8 - 12;
+      let label = lane.name || `Skill ${lane.code}`;
+      if (ctx.measureText(label).width > maxText) {
+        while (label.length > 1 && ctx.measureText(label + "…").width > maxText) label = label.slice(0, -1);
+        label += "…";
+      }
+      ctx.fillText(label, 12 + LABEL_ICON + 8, labelY);
+
+      lane.timestamps.forEach((ts) => {
+        const x = LEFT_MARGIN + (ts / battleTimeMs) * laneWidth;
+        const iconX = x - ICON_SIZE / 2;
+        const iconY = y;
+
+        if (entry && entry.ready && entry.img.complete && entry.img.naturalWidth > 0) {
+          ctx.drawImage(entry.img, iconX, iconY, ICON_SIZE, ICON_SIZE);
+        } else if (entry) {
+          // Draw placeholder, queue redraw
+          ctx.fillStyle = color;
+          ctx.globalAlpha = 0.6;
+          ctx.fillRect(iconX, iconY, ICON_SIZE, ICON_SIZE);
+          ctx.globalAlpha = 1.0;
+          pendingDraws.push({ entry, iconX, iconY });
+        } else {
+          // No icon - draw colored dot
+          ctx.fillStyle = color;
+          ctx.globalAlpha = 0.8;
+          ctx.beginPath();
+          ctx.arc(x, y + ICON_SIZE / 2, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1.0;
+        }
+      });
+    });
+
+    // Icons that weren't ready will trigger scheduleTimelineRedraw via onload
+
+    // Render legend
+    timelineLegend.innerHTML = "";
+    lanes.forEach((lane, i) => {
+      const item = document.createElement("div");
+      item.className = "legendItem";
+      const iconImg = document.createElement("img");
+      iconImg.alt = "";
+      iconImg.loading = "lazy";
+      iconImg.referrerPolicy = "no-referrer";
+      window.skillIcons?.applyIconToImage?.(iconImg, {
+        code: lane.code,
+        job: lane.job,
+        isDot: lane.isDot,
+      });
+      const label = document.createElement("span");
+      label.textContent = lane.name || `Skill ${lane.code}`;
+      item.appendChild(iconImg);
+      item.appendChild(label);
+      timelineLegend.appendChild(item);
+    });
+
+    // Render X axis labels
+    timelineXAxis.innerHTML = "";
+    const tickCount = Math.min(12, Math.ceil(durationSec / gridIntervalSec) + 1);
+    for (let i = 0; i <= tickCount; i++) {
+      const sec = Math.round((i / tickCount) * durationSec);
+      const minutes = Math.floor(sec / 60);
+      const seconds = sec % 60;
+      const span = document.createElement("span");
+      span.textContent = `${minutes}:${String(seconds).padStart(2, "0")}`;
+      timelineXAxis.appendChild(span);
+    }
+  };
+
+  // ── Buffs ──
+  // A History fight's come with its record; a live fight's are asked for
+  // once per refresh at most. They sit in the fight timeline, on its axis.
+  const buffTimeline = typeof window.createBuffTimeline === "function"
+    ? window.createBuffTimeline({
+      root: fightTimeline,
+      describeActor: (id) => {
+        const actor = detailsActors.get(Number(id));
+        if (!actor) return null;
+        const job = actor.job || getActorJob(id);
+        const name = actor.nickname && actor.nickname !== String(id) ? actor.nickname : `#${id}`;
+        return { name, job, color: getJobColor(job) };
+      },
+    })
+    : null;
+  let liveBuffs = null;
+  let liveBuffsPending = false;
+
+  const buffTargetId = () => {
+    if (historyRecord) return Number(historyRecord.targetId) || null;
+    const id = selectedTargetId ?? detailsContext?.currentTargetId ?? detailsTargets[0]?.targetId;
+    return Number(id) || null;
+  };
+
+  // Whose buffs "All" shows, rather than a "select a player" note that left
+  // the section looking empty: you, live; in a saved fight or an uploaded log
+  // its recorder, the one actor whose name is not masked; else whoever did
+  // the most damage to the target.
+  const defaultBuffPlayer = (target) => {
+    const ids = [...detailsActors.keys()];
+    if (!ids.length) return null;
+    if (!historyRecord) {
+      const local = Number(window._dpsApp?.localPlayerId);
+      if (local && detailsActors.has(local)) return local;
+    }
+    const named = ids.filter((id) => {
+      const nick = String(detailsActors.get(id)?.nickname || "").trim();
+      return nick && !nick.includes("*") && !nick.startsWith("#");
+    });
+    if (named.length === 1) return named[0];
+    const damage = target && typeof target.actorDamage === "object" ? target.actorDamage : {};
+    let best = null;
+    let bestDamage = -1;
+    for (const id of ids) {
+      const d = Number(damage[id]) || 0;
+      if (d > bestDamage) {
+        best = id;
+        bestDamage = d;
+      }
+    }
+    return best;
+  };
+
+  const showBuffs = () => {
+    if (!buffTimeline) return;
+    const targetId = buffTargetId();
+    const target = getTargetById(targetId);
+    const common = {
+      targetId,
+      targetName: (target ? getTargetLabel(target) : "") || fightBossName,
+      playerId: Array.isArray(selectedAttackerIds) && selectedAttackerIds.length === 1
+        ? Number(selectedAttackerIds[0]) : defaultBuffPlayer(target),
+      actorIds: [...detailsActors.keys()],
+    };
+    if (historyRecord) {
+      buffTimeline.setData({
+        ...common,
+        older: !Array.isArray(historyRecord.buffs),
+        tracks: Array.isArray(historyRecord.buffs) ? historyRecord.buffs : [],
+        durationMs: ftlDurationMs || Number(historyRecord.durationMs) || 0,
+      });
+      return;
+    }
+    const shown = targetId && liveBuffs && Number(liveBuffs.targetId) === targetId ? liveBuffs : null;
+    buffTimeline.setData({
+      ...common,
+      tracks: shown ? shown.buffs : (targetId ? null : []),
+      durationMs: ftlDurationMs || Number(shown?.durationMs) || 0,
+      loading: !!targetId && !shown,
+    });
+  };
+
+  const renderBuffs = () => {
+    if (!buffTimeline) return;
+    showBuffs();
+    if (historyRecord || activeCompactMode || liveBuffsPending || !window.dpsData?.getFightBuffs) return;
+    const targetId = buffTargetId();
+    if (!targetId) return;
+    liveBuffsPending = true;
+    const seq = openSeq;
+    window.dpsData.getFightBuffs(targetId)
+      .then((result) => {
+        if (seq !== openSeq || historyRecord) return;
+        liveBuffs = result || { targetId, durationMs: 0, buffs: [] };
+        showBuffs();
+      })
+      .catch(() => {})
+      .finally(() => { liveBuffsPending = false; });
+  };
+
+  const loadDetailsContext = () => {
+    const nextContext = typeof getDetailsContext === "function" ? getDetailsContext() : null;
+    if (!nextContext) {
+      detailsContext = null;
+      detailsActors = new Map();
+      detailsTargets = [];
+      selectedTargetId = null;
+      return null;
+    }
+    detailsContext = nextContext;
+    detailsActors = new Map();
+    detailsTargets = Array.isArray(nextContext.targets) ? nextContext.targets : [];
+    const actorList = Array.isArray(nextContext.actors) ? nextContext.actors : [];
+    actorList.forEach((actor) => {
+      const numericId = Number(actor.actorId);
+      if (!Number.isFinite(numericId) || numericId <= 0) return;
+      detailsActors.set(numericId, actor);
+    });
+    return nextContext;
+  };
+
+  const getTargetActorIds = (target) => {
+    if (!target || typeof target.actorDamage !== "object") return [];
+    return Object.keys(target.actorDamage)
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+  };
+
+  const targetMatchesSelectedAttackers = (target) => {
+    if (!target) return false;
+    if (!Array.isArray(selectedAttackerIds) || selectedAttackerIds.length === 0) return true;
+    return selectedAttackerIds.some((actorId) => getActorDamage(target.actorDamage, actorId) > 0);
+  };
+
+  const getSelectableTargets = () =>
+    detailsTargets.filter(
+      (target) => Number(target?.targetId) > 0 && targetMatchesSelectedAttackers(target)
+    );
+
+  const resolveActorLabel = (actorId) => {
+    const actor = detailsActors.get(Number(actorId));
+    if (actor?.nickname && actor.nickname !== String(actorId)) return actor.nickname;
+    return `#${actorId}`;
+  };
+
+  const getActorIdsByLabel = (label) => {
+    const normalizedLabel = String(label ?? "").trim().toLowerCase();
+    if (!normalizedLabel) return [];
+    const ids = [];
+    detailsActors.forEach((actor, actorId) => {
+      const nickname = String(actor?.nickname ?? "").trim().toLowerCase();
+      if (!nickname) return;
+      if (nickname === normalizedLabel) {
+        ids.push(actorId);
+      }
+    });
+    return ids;
+  };
+
+  const syncSelectedAttackersFromLabel = () => {
+    if (!Array.isArray(selectedAttackerIds) || selectedAttackerIds.length === 0) return;
+    if (!detailsActors.size) return;
+    const matchingActorIds = getActorIdsByLabel(selectedAttackerLabel);
+    if (!matchingActorIds.length) return;
+    selectedAttackerIds = matchingActorIds;
+  };
+
+  const resolveRowLabel = (row) => {
+    if (!row) return "-";
+    if (row.isIdentifying) {
+      return `#${row.id ?? row.name ?? ""}`.trim();
+    }
+    return String(row.name ?? "-");
+  };
+
+  const applyCjkClass = (element, text) => {
+    if (!element) return;
+    element.classList.toggle("isCjk", cjkRegex.test(String(text || "")));
+  };
+
+  const getTargetSortValue = (target) => {
+    if (!target) return 0;
+    if (sortMode === "recent") {
+      return Number(target.lastDamageTime) || 0;
+    }
+    if (sortMode === "time") {
+      return Number(target.battleTime) || 0;
+    }
+    return getTargetDamageForSelection(target);
+  };
+
+  const syncSortButtons = () => { /* no-op: sort buttons removed */ };
+
+  const applyTargetSelection = async (targetId) => {
+    if (targetId === "all") {
+      selectedTargetId = null;
+    } else {
+      selectedTargetId = Number(targetId) || null;
+    }
+    if (selectedAttackerIds && selectedAttackerIds.length === 1) {
+      selectedAttackerLabel = resolveActorLabel(selectedAttackerIds[0]);
+    }
+    updateHeaderText();
+    await refreshDetailsView();
+  };
+
+  const applyAttackerSelection = async (actorId) => {
+    if (actorId === "all") {
+      selectedAttackerIds = null;
+      selectedAttackerLabel = labelText("details.all", "All");
+    } else {
+      const numericId = Number(actorId);
+      selectedAttackerIds = Number.isFinite(numericId) ? [numericId] : null;
+      selectedAttackerLabel = selectedAttackerIds ? resolveActorLabel(numericId) : "All";
+    }
+    const selectedTarget = getTargetById(selectedTargetId);
+    if (selectedTargetId !== null && !targetMatchesSelectedAttackers(selectedTarget)) {
+      selectedTargetId = null;
+    }
+    updateHeaderText();
+    await refreshDetailsView();
+  };
+
+  const combinePerActorStats = (detailsList = []) => {
+    const totals = new Map();
+    detailsList.forEach((details) => {
+      const stats = Array.isArray(details?.perActorStats) ? details.perActorStats : [];
+      stats.forEach((entry) => {
+        const actorId = Number(entry?.actorId);
+        if (!Number.isFinite(actorId)) return;
+        const next = totals.get(actorId) || {
+          actorId,
+          job: entry?.job || "",
+          totalDmg: 0,
+          totalTimes: 0,
+          totalCrit: 0,
+          totalParry: 0,
+          totalBack: 0,
+          totalPerfect: 0,
+          totalDouble: 0,
+          totalHits: 0,
+          totalRegen: 0,
+          partyHeal: 0,
+          damageReceived: 0,
+          hitsReceived: 0,
+          multiHitCount: 0,
+          multiHitDamage: 0,
+        };
+        next.totalDmg += Number(entry?.totalDmg) || 0;
+        if (!next.job && entry?.job) next.job = entry.job;
+        next.totalTimes += Number(entry?.totalTimes) || 0;
+        next.totalCrit += Number(entry?.totalCrit) || 0;
+        next.totalParry += Number(entry?.totalParry) || 0;
+        next.totalBack += Number(entry?.totalBack) || 0;
+        next.totalPerfect += Number(entry?.totalPerfect) || 0;
+        next.totalDouble += Number(entry?.totalDouble) || 0;
+        next.totalHits += Number(entry?.totalHits) || 0;
+        next.totalRegen += Number(entry?.totalRegen) || 0;
+        next.partyHeal += Number(entry?.partyHeal) || 0;
+        next.damageReceived += Number(entry?.damageReceived) || 0;
+        next.hitsReceived += Number(entry?.hitsReceived) || 0;
+        next.multiHitCount += Number(entry?.multiHitCount) || 0;
+        next.multiHitDamage += Number(entry?.multiHitDamage) || 0;
+        totals.set(actorId, next);
+      });
+    });
+    return [...totals.values()].sort((a, b) => b.totalDmg - a.totalDmg);
+  };
+
+  const buildCombinedDetails = (detailsList = [], totalTargetDamage = 0, showSkillIcons = true) => {
+    const skills = detailsList.flatMap((details) => (Array.isArray(details?.skills) ? details.skills : []));
+    let totalDmg = 0;
+    let totalTimes = 0;
+    let totalCrit = 0;
+    let totalParry = 0;
+    let totalBack = 0;
+    let totalPerfect = 0;
+    let totalDouble = 0;
+    let totalMultiHitCount = 0;
+    let totalMultiHitDamage = 0;
+    let totalMultiHitHits = 0;
+    let totalRegen = 0;
+
+    skills.forEach((skill) => {
+      const dmg = Number(skill?.dmg) || 0;
+      totalDmg += dmg;
+      totalRegen += Number(skill?.regen) || 0;
+      totalMultiHitCount += Number(skill?.multiHitCount) || 0;
+      totalMultiHitDamage += Number(skill?.multiHitDamage) || 0;
+      totalMultiHitHits += Number(skill?.multiHitHits) || 0;
+      if (!skill?.isDot) {
+        totalTimes += Number(skill?.time) || 0;
+        totalCrit += Number(skill?.crit) || 0;
+        totalParry += Number(skill?.parry) || 0;
+        totalBack += Number(skill?.back) || 0;
+        totalPerfect += Number(skill?.perfect) || 0;
+        totalDouble += Number(skill?.double) || 0;
+      }
+    });
+
+    const pct = (num, den) => (den > 0 ? Math.round((num / den) * 1000) / 10 : 0);
+    const battleTimeMs = detailsList.reduce((sum, details) => sum + (Number(details?.battleTimeMs) || 0), 0);
+
+    return {
+      totalDmg,
+      totalHits: totalTimes,
+      maxHp: detailsList.reduce((max, d) => Math.max(max, Number(d?.maxHp) || 0), 0),
+      contributionPct: totalTargetDamage > 0 ? (totalDmg / totalTargetDamage) * 100 : 0,
+      totalCritPct: pct(totalCrit, totalTimes),
+      totalParryPct: pct(totalParry, totalTimes),
+      totalBackPct: pct(totalBack, totalTimes),
+      totalPerfectPct: pct(totalPerfect, totalTimes),
+      totalDoublePct: pct(totalDouble, totalTimes),
+      multiHitCount: totalMultiHitCount,
+      multiHitDamage: totalMultiHitDamage,
+      multiHitPct: pct(totalMultiHitCount, totalTimes),
+      totalRegen,
+      // Aggregate actor-level stats from context (party heal, damage received)
+      totalPartyHeal: (() => {
+        let sum = 0;
+        const ids = selectedAttackerIds || [...detailsActors.keys()];
+        (Array.isArray(ids) ? ids : []).forEach((id) => {
+          const actor = detailsActors.get(Number(id));
+          if (actor) sum += Number(actor.partyHeal) || 0;
+        });
+        return sum;
+      })(),
+      totalDamageReceived: (() => {
+        let sum = 0;
+        const ids = selectedAttackerIds || [...detailsActors.keys()];
+        (Array.isArray(ids) ? ids : []).forEach((id) => {
+          const actor = detailsActors.get(Number(id));
+          if (actor) sum += Number(actor.damageReceived) || 0;
+        });
+        return sum;
+      })(),
+      combatTime: formatBattleTime(battleTimeMs),
+      battleTimeMs,
+      skills,
+      // Deaths are timed from their own target's start, so they are marked
+      // for one target only, not for several laid over each other.
+      deaths: detailsList.length === 1 && Array.isArray(detailsList[0]?.deaths) ? detailsList[0].deaths : null,
+      showSkillIcons,
+      perActorStats: combinePerActorStats(detailsList),
+      showCombinedTotals: !selectedAttackerIds || selectedAttackerIds.length === 0,
+    };
+  };
+
+  // A synthetic null row used when opening Details for all players via boss name click
+  const NULL_ROW = { id: null, job: "", name: "" };
+
+  // A failed target used to drop out of the merged totals silently; now the
+  // view shows the error. Filtered and "All" loads share these slots.
+  const DETAILS_REQUEST_LIMIT = 4;
+  const DETAILS_LOAD_CANCELLED = Symbol("details load cancelled");
+  const detailsRequestQueue = [];
+  let detailsActiveRequests = 0;
+
+  const pumpDetailsRequests = () => {
+    while (detailsActiveRequests < DETAILS_REQUEST_LIMIT && detailsRequestQueue.length) {
+      const { task, resolve, reject } = detailsRequestQueue.shift();
+      detailsActiveRequests++;
+      Promise.resolve()
+        .then(task)
+        .then(resolve, reject)
+        .finally(() => {
+          detailsActiveRequests--;
+          pumpDetailsRequests();
+        });
+    }
+  };
+
+  const isDetailsLoadStale = (load) => load.failed || (typeof load.seq === "number" && load.seq !== openSeq);
+
+  const loadDetails = (load, row, options) => new Promise((resolve, reject) => {
+    detailsRequestQueue.push({
+      task: () => {
+        if (isDetailsLoadStale(load)) throw DETAILS_LOAD_CANCELLED;
+        return getDetails(row, options);
+      },
+      resolve,
+      reject,
+    });
+    pumpDetailsRequests();
+  });
+
+  const clearDetailsValues = () => {
+    for (let i = 0; i < statSlots.length; i++) statSlots[i].valueEl.textContent = "-";
+    for (let i = 0; i < skillSlots.length; i++) {
+      skillSlots[i].rowEl.style.display = "none";
+      skillSlots[i].rowFillEl.style.transform = "scaleX(0)";
+    }
+  };
+
+  let renderedSelectionKey = "";
+  let activeDetailsLoad = null;
+  const refreshDetailsView = (seq = ++openSeq) => {
+    const load = { seq, failed: false, refreshRequested: false, promise: null };
+    activeDetailsLoad = load;
+    const selectionKey = JSON.stringify([lastRow?.id ?? null, selectedTargetId, selectedAttackerIds, activeCompactMode]);
+    load.promise = (async () => {
+      try {
+        await loadDetailsView(load);
+        if (seq === openSeq) renderedSelectionKey = selectionKey;
+      } catch (error) {
+        load.failed = true;
+        if (error === DETAILS_LOAD_CANCELLED || seq !== openSeq) return;
+        window.javaBridge?.logToDebug?.(`Details load failed: ${error?.message || error}`);
+        // A failed live refresh keeps the complete totals already shown for this
+        // selection; only a new selection must not show another one's numbers.
+        if (lastDetails && renderedSelectionKey === selectionKey) return;
+        renderedSelectionKey = "";
+        lastDetails = null;
+        clearDetailsValues();
+      }
+    })().finally(() => {
+      // A selection change or reopening owns a new load. Its pending tick must
+      // never be cleared or started by the previous load's completion.
+      if (activeDetailsLoad !== load) return;
+      activeDetailsLoad = null;
+      if (load.refreshRequested && seq === openSeq) refresh();
+    });
+    return load.promise;
+  };
+
+  const loadDetailsView = async (load) => {
+    const { seq } = load;
+    const row = lastRow ?? NULL_ROW;
+    if (activeCompactMode) {
+      const details = await loadDetails(load, row, {
+        targetId: null,
+        attackerIds: null,
+        totalTargetDamage: null,
+        showSkillIcons: false,
+        maxSkills: COMPACT_MAX_SKILLS,
+      });
+      if (typeof seq === "number" && seq !== openSeq) return;
+      render(details, row);
+      return;
+    }
+
+    if (!detailsContext) {
+      const details = await loadDetails(load, row);
+      if (typeof seq === "number" && seq !== openSeq) return;
+      render(details, row);
+      return;
+    }
+
+    // When a player is selected, fetch unfiltered "All" details in parallel
+    // so the split stats (player / total) render immediately without delay.
+    // A failed total fails the view too: a stale or partial total skews the split.
+    const hasAttackerFilter = Array.isArray(selectedAttackerIds) && selectedAttackerIds.length > 0;
+    const unfilteredPromise = hasAttackerFilter
+      ? fetchUnfilteredDetails(row, load)
+      : Promise.resolve(null);
+
+    const showSkillIcons = !selectedAttackerIds || selectedAttackerIds.length === 0;
+    if (selectedTargetId === null) {
+      const targetList = getSelectableTargets();
+      if (!targetList.length) {
+        const [details, unfilteredDetails] = await Promise.all([
+          loadDetails(load, row, {
+            targetId: null,
+            attackerIds: selectedAttackerIds,
+            totalTargetDamage: null,
+            showSkillIcons,
+          }),
+          unfilteredPromise,
+        ]);
+        if (typeof seq === "number" && seq !== openSeq) return;
+        if (unfilteredDetails) lastUnfilteredDetails = unfilteredDetails;
+        render(details, row);
+        return;
+      }
+
+      const allTargetDetails = await Promise.all([
+        ...targetList.map((target) =>
+          loadDetails(load, row, {
+            targetId: target.targetId,
+            attackerIds: selectedAttackerIds,
+            totalTargetDamage: target.totalDamage,
+            showSkillIcons,
+          })
+        ),
+        unfilteredPromise,
+      ]);
+      if (typeof seq === "number" && seq !== openSeq) return;
+      const unfilteredDetails = hasAttackerFilter ? allTargetDetails.pop() : null;
+      if (unfilteredDetails) lastUnfilteredDetails = unfilteredDetails;
+      const totalTargetDamage = targetList.reduce(
+        (sum, target) => sum + (Number(target?.totalDamage) || 0),
+        0
+      );
+      const mergedDetails = buildCombinedDetails(allTargetDetails, totalTargetDamage, showSkillIcons);
+      if (typeof seq === "number" && seq !== openSeq) return;
+      render(mergedDetails, row);
+      return;
+    }
+
+    const target = getTargetById(selectedTargetId);
+    const totalTargetDamage = target ? target.totalDamage : null;
+    const [details, unfilteredDetails] = await Promise.all([
+      loadDetails(load, row, {
+        targetId: selectedTargetId,
+        attackerIds: selectedAttackerIds,
+        totalTargetDamage,
+        showSkillIcons,
+      }),
+      unfilteredPromise,
+    ]);
+    if (typeof seq === "number" && seq !== openSeq) return;
+    if (unfilteredDetails) lastUnfilteredDetails = unfilteredDetails;
+    render(details, row);
+  };
+
+  /**
+   * Fetch "All players" details using the same multi-target merge logic
+   * as refreshDetailsView but with attackerIds: null.
+   */
+  const fetchUnfilteredDetails = async (row, load) => {
+    if (!detailsContext) {
+      return await loadDetails(load, row);
+    }
+    if (selectedTargetId === null) {
+      const targetList = detailsTargets.filter((t) => Number(t?.targetId) > 0);
+      if (!targetList.length) {
+        return await loadDetails(load, row, {
+          targetId: null,
+          attackerIds: null,
+          totalTargetDamage: null,
+          showSkillIcons: true,
+        });
+      }
+      const allTargetDetails = await Promise.all(
+        targetList.map((target) =>
+          loadDetails(load, row, {
+            targetId: target.targetId,
+            attackerIds: null,
+            totalTargetDamage: target.totalDamage,
+            showSkillIcons: true,
+          })
+        )
+      );
+      const totalTargetDamage = targetList.reduce(
+        (sum, target) => sum + (Number(target?.totalDamage) || 0),
+        0
+      );
+      return buildCombinedDetails(allTargetDetails, totalTargetDamage, true);
+    }
+    const target = getTargetById(selectedTargetId);
+    return await loadDetails(load, row, {
+      targetId: selectedTargetId,
+      attackerIds: null,
+      totalTargetDamage: target ? target.totalDamage : null,
+      showSkillIcons: true,
+    });
+  };
+
+  const render = (details, row) => {
+    if (row?.id && row?.job) {
+      const rowActorId = Number(row.id);
+      if (Number.isFinite(rowActorId) && rowActorId > 0) {
+        detectedJobByActorId.set(rowActorId, String(row.job));
+      }
+    }
+    rememberJobsFromDetails(details);
+    if (!selectedAttackerIds || selectedAttackerIds.length === 0) {
+      lastUnfilteredDetails = details;
+    }
+    selectedAttackerLabel = selectedAttackerLabel || String(row.name ?? "");
+    updateHeaderText();
+    // The fight's first show: bars slide out and figures count up.
+    // On a2tools.app (the log page's viewer sets __A2_WEB_LOG__) the final
+    // state at once: the staged entrance suits a window opening, but on the
+    // page it only delayed the figures and flashed (2026-10-18).
+    const firstShow = stagedForSeq !== openSeq && !window.__A2_WEB_LOG__;
+    fillBarsFromZero = firstShow;
+    if (firstShow) pendingStarts = [];
+    const partyBarCtx = buildPartyBarStats();
+    renderPartyBars(partyBarCtx?.stats || details?.perActorStats, partyBarCtx?.battleTimeMs || details?.battleTimeMs);
+    renderStats(details, { compact: activeCompactMode });
+    if (firstShow) countUpIn(detailsPanel.querySelector(".detailsStats"));
+    lastRow = row;
+    lastDetails = details;
+    renderRest(details);
+
+    // Unfiltered details are now fetched in parallel by refreshDetailsView,
+    // so lastUnfilteredDetails is already set before render() is called.
+    const cacheRowId = String(row?.id ?? "").trim();
+    if (cacheRowId) {
+      detailsCacheByRowId.set(cacheRowId, details);
+    }
+  };
+
+  // The rest of the page after the players and the totals. The first time a
+  // fight shows, one section a frame, each fading in: built in one go, a
+  // long fight held the window for a second or more, and it would not move
+  // or answer meanwhile (2026-10-18). Refreshes of a fight already shown
+  // draw everything at once, as before.
+  let stagedForSeq = -1;
+  let stageToken = 0;
+  const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+  const popIn = (el) => {
+    if (!el) return;
+    el.classList.remove("detailsPopIn");
+    void el.offsetWidth;
+    el.classList.add("detailsPopIn");
+  };
+  const renderRest = (details) => {
+    const token = ++stageToken;
+    const steps = [
+      [() => renderSkills(details, { compact: activeCompactMode }), () => detailsPanel.querySelector(".detailsSkills")],
+      [() => { chartRevealPending = true; renderDpsChart(details); chartRevealPending = false; }, () => fightTimeline],
+      [() => renderTimeline(details), null],
+      [() => renderBuffs(), null],
+    ];
+    if (stagedForSeq === openSeq || window.__A2_WEB_LOG__) {
+      stagedForSeq = openSeq;
+      sectionsHeld = false;
+      for (const [step] of steps) step();
+      chartRevealPending = false;
+      startPending();
+      return;
+    }
+    stagedForSeq = openSeq;
+    sectionsHeld = true;
+    (async () => {
+      // The skills right after the party's bars start (they slide on the
+      // GPU and stay smooth; the counting figures hitch once). The chart and
+      // timeline once the party has finished animating.
+      const partyDone = performance.now() + 760;
+      for (const [i, [step, section]] of steps.entries()) {
+        if (i === 1 && !reducedMotion()) {
+          const left = partyDone - performance.now();
+          if (left > 0) await new Promise((resolve) => setTimeout(resolve, left));
+        }
+        await nextFrame();
+        // A newer render took over: it draws everything itself.
+        if (token !== stageToken) return startPending();
+        sectionsHeld = false;
+        step();
+        popIn(section?.());
+        sectionsHeld = true;
+      }
+      sectionsHeld = false;
+      // Let the last section's layout and paint land, then animate.
+      await nextFrame();
+      await nextFrame();
+      startPending();
+    })();
+  };
+
+  const getCachedDetails = (rowId) => {
+    const cacheRowId = String(rowId ?? "").trim();
+    if (!cacheRowId) return null;
+    return detailsCacheByRowId.get(cacheRowId) || null;
+  };
+
+  const isOpen = () => detailsPanel.classList.contains("open");
+
+  const open = async (
+    row,
+    { force = false, restartOnSwitch = true, defaultTargetAll = false, defaultTargetId = null, pin = true, compact = false } = {}
+  ) => {
+    const rowId = row?.id ?? null;
+    // if (!rowId) return;
+    detailsMode = "dmg";
+
+    const isOpen = detailsPanel.classList.contains("open");
+    const isSame = isOpen && openedRowId === rowId;
+    const isSwitch = isOpen && openedRowId && openedRowId !== rowId;
+
+    const requestedCompact = !!compact;
+    const requestedPin = !!pin;
+    const isSameCompactMode = activeCompactMode === requestedCompact;
+    const isAlreadyPinnedForRow = pinnedRowId === rowId;
+
+    if (!force && isSame && isSameCompactMode && (!requestedPin || isAlreadyPinnedForRow)) return;
+
+    if (isSwitch && restartOnSwitch) {
+      close();
+      requestAnimationFrame(() => {
+        open(row, { force: true, restartOnSwitch: false, defaultTargetAll, defaultTargetId, pin, compact });
+      });
+      return;
+    }
+
+    openedRowId = rowId;
+    if (pin) {
+      pinnedRowId = rowId;
+      onPinnedRowChange?.(pinnedRowId);
+    }
+    lastRow = row;
+
+    activeCompactMode = requestedCompact;
+    selectedAttackerLabel = resolveRowLabel(row);
+    const rowIdNum = Number(rowId);
+    selectedAttackerIds = (rowId !== null && rowId !== undefined && Number.isFinite(rowIdNum) && rowIdNum > 0) ? [rowIdNum] : null;
+    if (activeCompactMode) {
+      detailsContext = null;
+      detailsActors = new Map();
+      detailsTargets = [];
+    } else {
+      loadDetailsContext();
+    }
+    syncSelectedAttackersFromLabel();
+    if (activeCompactMode) {
+      selectedTargetId = null;
+    } else if (defaultTargetAll) {
+      selectedTargetId = null;
+    } else if (Number.isFinite(Number(defaultTargetId)) && Number(defaultTargetId) > 0) {
+      selectedTargetId = Number(defaultTargetId);
+    } else if (detailsContext && detailsContext.currentTargetId) {
+      selectedTargetId = detailsContext.currentTargetId;
+    } else {
+      selectedTargetId = detailsTargets[0]?.targetId ?? null;
+    }
+    if (selectedAttackerIds && selectedAttackerIds.length === 1) {
+      selectedAttackerLabel = resolveActorLabel(selectedAttackerIds[0]);
+    }
+    // Compute fight start time from target context
+    const firstTarget = getTargetById(selectedTargetId) || detailsTargets[0];
+    fightStartMs = firstTarget
+      ? Math.max(0, (Number(firstTarget.lastDamageTime) || 0) - (Number(firstTarget.battleTime) || 0))
+      : 0;
+    fightBossName = firstTarget ? getTargetLabel(firstTarget) : (row?.name ?? "");
+    fightDungeonId = Number(getDungeonId?.()) || 0;
+    fightMobCode = Number(firstTarget?.mobCode) || 0;
+    updateHeaderText();
+    restoreLayout();
+    detailsPanel.classList.add("open");
+    detailsPanel.style.removeProperty("width");
+    updateGridColumns();
+
+    const cachedDetails = getCachedDetails(rowId);
+    if (cachedDetails) {
+      render(cachedDetails, row);
+    } else {
+      // 이전 값 비우기
+      clearDetailsValues();
+    }
+
+    const seq = ++openSeq;
+
+    // Start the live timer before loading: a selection made during that load
+    // still needs a timer, and slow loads can coalesce ticks from the start.
+    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+    if (!historyRecord) {
+      autoRefreshTimer = setInterval(() => { refresh(); }, 2000);
+    }
+
+    try {
+      await refreshDetailsView(seq);
+
+      if (seq !== openSeq) return;
+    } catch (e) {
+      if (seq !== openSeq) return;
+      // uiDebug?.log("getDetails:error", { id: rowId, message: e?.message });
+    }
+  };
+  const close = ({ keepPinned = false } = {}) => {
+    openSeq++;
+    activeDetailsLoad = null;
+    if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+
+    // Reset the DMG/HEAL toggle (state + buttons) so it re-opens on DMG.
+    detailsMode = "dmg";
+    syncModeButtons();
+
+    openedRowId = null;
+    if (!keepPinned) {
+      pinnedRowId = null;
+      onPinnedRowChange?.(null);
+    }
+    lastRow = null;
+    lastDetails = null;
+    lastUnfilteredDetails = null;
+    activeCompactMode = false;
+    lastMeasuredNameWidth = 0;
+    detailsPanel.style.removeProperty("width");
+    for (let i = 0; i < statSlots.length; i++) {
+      statSlots[i].statEl.style.display = "";
+    }
+    detailsPanel.classList.remove("open");
+    historyRecord = null;
+    liveBuffs = null;
+    buffTimeline?.clear();
+    window._historyDetailsOverride = null;
+    fightStartMs = 0;
+    fightBossName = "";
+    fightDungeonId = 0;
+    fightMobCode = 0;
+    window._resumeFpsMonitor?.();
+  };
+  detailsClose?.addEventListener("click", close);
+
+  detailsBackBtn?.addEventListener("click", () => {
+    close({ keepPinned: false });
+    onBack?.();
+  });
+
+  const openHistoryFight = async (record) => {
+    if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+    detailsMode = "dmg";
+    historyRecord = record;
+    liveBuffs = null;
+    openSeq++;
+    const seq = openSeq;
+
+    openedRowId = null;
+    pinnedRowId = null;
+    onPinnedRowChange?.(null);
+    lastRow = null;
+    activeCompactMode = false;
+    lastMeasuredNameWidth = 0;
+
+    // Build detailsActors map from stored actors
+    detailsActors = new Map();
+    const actorList = Array.isArray(record.actors) ? record.actors : [];
+    actorList.forEach((actor) => {
+      const numericId = Number(actor.actorId);
+      if (Number.isFinite(numericId) && numericId > 0) {
+        detailsActors.set(numericId, actor);
+        if (actor.job) detectedJobByActorId.set(numericId, actor.job);
+      }
+    });
+
+    // Build actorDamage from stored skills so player filtering works on history fights
+    const historyActorDamage = {};
+    if (Array.isArray(record.details?.skills)) {
+      record.details.skills.forEach((skill) => {
+        const id = Number(skill.actorId);
+        if (id > 0) historyActorDamage[id] = (historyActorDamage[id] || 0) + (Number(skill.dmg) || 0);
+      });
+    }
+
+    // Build a synthetic detailsTargets entry
+    const bossTargetSummary = {
+      targetId: record.targetId,
+      targetName: record.bossName,
+      totalDamage: record.totalDamage,
+      battleTime: record.durationMs,
+      lastDamageTime: record.startTimeMs + record.durationMs,
+      actorDamage: historyActorDamage,
+    };
+    detailsTargets = [bossTargetSummary];
+    detailsContext = { currentTargetId: record.targetId, targets: detailsTargets, actors: actorList };
+
+    selectedTargetId = record.targetId;
+    selectedAttackerIds = null;
+    selectedAttackerLabel = labelText("details.history.allPlayers", "All Players");
+
+    fightStartMs = Number(record.startTimeMs) || 0;
+    fightBossName = record.bossName || (Number(record.targetId) > 0 ? `Mob #${record.targetId}` : "");
+    fightDungeonId = Number(record.dungeonId) || 0;
+    fightMobCode = Number(record.mobCode) || 0;
+    updateHeaderText();
+    restoreLayout();
+    detailsPanel.classList.add("open");
+    detailsPanel.style.removeProperty("width");
+    updateGridColumns();
+
+    // Clear stats/skills while loading
+    clearDetailsValues();
+    // The players at once, in the order their damage will put them, with
+    // empty bars: the figures fill them when they are ready.
+    const waiting = Object.entries(historyActorDamage)
+      .sort((a, b) => b[1] - a[1])
+      .map(([actorId]) => ({ actorId: Number(actorId), totalDmg: 0, contributionPct: 0 }));
+    renderPartyBars(waiting, -1);
+
+    if (seq !== openSeq) return;
+    const fakeRow = { id: null, job: "", name: record.bossName };
+    window._historyDetailsOverride = record.details;
+    const processedDetails = await getDetails(fakeRow, {
+      targetId: record.targetId,
+      totalTargetDamage: record.totalDamage,
+      showSkillIcons: true,
+    });
+    if (seq !== openSeq) return;
+    if (processedDetails) render(processedDetails, fakeRow);
+    else renderBuffs();
+  };
+
+  const refresh = async () => {
+    if (!detailsPanel.classList.contains("open")) return;
+    if (historyRecord) return; // history view doesn't refresh from backend
+    if (activeDetailsLoad?.seq === openSeq) {
+      // Keep a slow live result eligible to render. Any number of timer ticks
+      // asks for just one newer snapshot after the current load completes.
+      activeDetailsLoad.refreshRequested = true;
+      return activeDetailsLoad.promise;
+    }
+    const previousTargetId = selectedTargetId;
+    const previousAttackerIds = Array.isArray(selectedAttackerIds) ? [...selectedAttackerIds] : null;
+    const wasCompact = activeCompactMode;
+    const seq = openSeq;
+    if (!wasCompact) {
+      loadDetailsContext();
+    }
+    selectedTargetId = previousTargetId;
+    activeCompactMode = wasCompact;
+    selectedAttackerIds = previousAttackerIds;
+    syncSelectedAttackersFromLabel();
+    syncSortButtons();
+    updateHeaderText();
+    await refreshDetailsView(seq);
+  };
+
+  const isPinned = () => pinnedRowId !== null;
+
+  // In HEAL the amount and share columns are healing, and the timeline keeps
+  // only the buffs: heals carry no hit times yet, so there is no HPS chart or
+  // heal cast lane to draw, and the damage ones would be the wrong fight.
+  const syncSkillHeaderMode = () => {
+    const heal = detailsMode === "heal";
+    const set = (col, key, fallback, tipKey, tipFallback) => {
+      const el = detailsPanel?.querySelector?.(`.detailsSkills .skillHeader .cell.${col}`);
+      if (!el) return;
+      el.dataset.i18n = key;
+      el.dataset.i18nTip = tipKey;
+      el.textContent = labelText(key, fallback);
+      el.dataset.tip = labelText(tipKey, tipFallback);
+    };
+    set("dmg", heal ? "details.skills.heal" : "details.skills.dmg", heal ? "Heal" : "Dmg",
+      heal ? "details.skills.healTooltip" : "details.skills.dmgTooltip", heal ? "Healing" : "Damage");
+    set("dmgpct", heal ? "details.skills.healPct" : "details.skills.dmgPct", heal ? "H%" : "D%",
+      heal ? "details.skills.healPctTooltip" : "details.skills.dmgPctTooltip", heal ? "Healing %" : "Damage %");
+    fightTimeline?.classList?.toggle?.("isHealMode", heal);
+    detailsPanel?.classList?.toggle?.("isHealMode", heal);
+    const chartTitle = fightTimeline?.querySelector?.(".ftlGroupDps .ftlGroupTitle .ftlFoldText")
+      || fightTimeline?.querySelector?.(".ftlGroupDps .ftlGroupTitle");
+    if (chartTitle) {
+      chartTitle.dataset.i18n = heal ? "details.hpsChart" : "details.dpsChart";
+      chartTitle.textContent = heal
+        ? labelText("details.hpsChart", "Healing per second")
+        : labelText("details.dpsChart", "Damage per second");
+    }
+    updateGridColumns();
+  };
+  const syncModeButtons = () => {
+    detailsPanel?.querySelectorAll?.(".detailsModeBtn")?.forEach?.((btn) => {
+      btn.classList.toggle("isActive", btn?.dataset?.mode === detailsMode);
+    });
+    syncSkillHeaderMode();
+  };
+  const rerenderForMode = () => {
+    if (!lastDetails) return;
+    const ctx = buildPartyBarStats();
+    renderPartyBars(ctx?.stats || lastDetails?.perActorStats, ctx?.battleTimeMs || lastDetails?.battleTimeMs);
+    renderStats(lastDetails, { compact: activeCompactMode });
+    renderSkills(lastDetails, { compact: activeCompactMode });
+    renderDpsChart(lastDetails);
+    renderTimeline(lastDetails);
+  };
+  const setDetailsMode = (mode) => {
+    const next = mode === "heal" ? "heal" : "dmg";
+    if (next === detailsMode) return;
+    detailsMode = next;
+    syncModeButtons();
+    rerenderForMode();
+  };
+  // Reset to DMG whenever a fight is opened.
+  const resetDetailsMode = () => {
+    detailsMode = "dmg";
+    syncModeButtons();
+  };
+  detailsPanel?.querySelectorAll?.(".detailsModeBtn")?.forEach?.((btn) => {
+    btn.addEventListener("click", () => setDetailsMode(btn?.dataset?.mode));
+  });
+  syncModeButtons();
+
+  const showPeakCheckbox = detailsPanel?.querySelector?.(".detailsShowPeakCheckbox");
+  if (showPeakCheckbox) showPeakCheckbox.checked = showPeak;
+  showPeakCheckbox?.addEventListener?.("change", () => {
+    showPeak = !!showPeakCheckbox.checked;
+    try { localStorage.setItem(PEAK_KEY, showPeak ? "1" : "0"); } catch {}
+    if (!lastDetails && !detailsContext) return;
+    const ctx = buildPartyBarStats();
+    renderPartyBars(ctx?.stats || lastDetails?.perActorStats, ctx?.battleTimeMs || lastDetails?.battleTimeMs);
+  });
+
+  // The party stat setting changed: redraw the party list.
+  const refreshPartyStat = () => {
+    if (!lastDetails && !detailsContext) return;
+    const ctx = buildPartyBarStats();
+    renderPartyBars(ctx?.stats || lastDetails?.perActorStats, ctx?.battleTimeMs || lastDetails?.battleTimeMs);
+  };
+
+  // ── Fight replay hooks (fightReplay.js) ──
+  // A saved fight replayed to a moment: fightReplay.js cuts the record to it
+  // and has the party, the stats and the skills drawn from the cut here. The
+  // window's own state (lastDetails, the targets) stays the whole fight's, so
+  // the timeline, a sort or a reload still draw that; the replay draws over
+  // them again. renderFigures(null) draws the whole fight's figures.
+  let replaySkillsAt = 0;
+  window.fightReplay?.attach?.({
+    advancePartyBars,
+    root: detailsPanel,
+    timeline: fightTimeline,
+    timelineScroll: fightTimelineScroll,
+    figureEls: () => [detailsPartyListEl, detailsStatsEl, skillsListEl],
+    record: () => historyRecord,
+    isOpen: () => detailsPanel.classList.contains("open"),
+    metrics: () => ftlMetrics(),
+    durationMs: () => ftlDurationMs,
+    selection: () => ({ attackerIds: selectedAttackerIds, targetId: selectedTargetId }),
+    targets: () => detailsTargets,
+    getDetails,
+    renderFigures: (cut) => {
+      if (!lastDetails) return;
+      const kept = [lastDetails, lastUnfilteredDetails, detailsTargets];
+      if (cut) {
+        lastDetails = cut.details;
+        lastUnfilteredDetails = cut.unfiltered;
+        detailsTargets = [cut.target];
+      }
+      try {
+        const ctx = buildPartyBarStats();
+        renderPartyBars(ctx?.stats || lastDetails?.perActorStats, ctx?.battleTimeMs || lastDetails?.battleTimeMs);
+        renderStats(lastDetails, { compact: activeCompactMode });
+        // While a replay plays, the skill table's first ten rows, once a
+        // second: the whole table, even at that rate, was three quarters of
+        // the page's work (2026-10-18). A pause, a seek or the end draws all
+        // of it, exact.
+        const now = performance.now();
+        if (!cut?.playing) {
+          renderSkills(lastDetails, { compact: activeCompactMode });
+        } else if (now - replaySkillsAt >= 1000) {
+          replaySkillsAt = now;
+          renderSkills(lastDetails, { compact: activeCompactMode, limit: 10 });
+        }
+        // Damage taken has no times: it stays the whole fight's, greyed.
+        const shownStats = detailsMode === "heal" ? HEAL_STATUS : STATUS;
+        statSlots.forEach((slot, i) => slot.statEl.classList.toggle("isWholeFight",
+          !!cut && shownStats[i]?.key === "details.stats.damageReceived"));
+      } finally {
+        [lastDetails, lastUnfilteredDetails, detailsTargets] = kept;
+      }
+    },
+  });
+
+  return { open, close, isOpen, isPinned, render, updateLabels, refresh, updateGridColumns, openHistoryFight, resetDetailsMode, refreshPartyStat };
+};
