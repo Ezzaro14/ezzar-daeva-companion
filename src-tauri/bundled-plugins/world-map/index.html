@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>World Map</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="map.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <div class="viewport">
+        <!-- Panned by whole pixels only (applyView), so moving the map never
+             blurs it; zoomed inside. The spawns' canvas sits between the
+             picture and the markers, drawn in the view's own pixels. -->
+        <div class="pan">
+          <div class="stage">
+            <img class="mapImage" alt="" hidden />
+            <div class="grid"></div>
+          </div>
+        </div>
+        <canvas class="dots"></canvas>
+        <div class="pan">
+          <div class="markers"></div>
+        </div>
+        <div class="hud">
+          <button type="button" class="btn small zoomIn" title="Zoom in">+</button>
+          <button type="button" class="btn small zoomOut" title="Zoom out">−</button>
+          <button type="button" class="btn small fit" title="Show the whole map">Fit</button>
+          <button type="button" class="btn small follow" title="Keep you in the middle" aria-pressed="false">Follow me</button>
+          <button type="button" class="btn small trackMinimap" title="Find you on the game's minimap, a few times a second while this map is shown" aria-pressed="false">Minimap</button>
+          <span class="minimapState" hidden></span>
+        </div>
+        <div class="coords"></div>
+        <div class="banner" hidden></div>
+        <div class="emptyState" hidden>
+          <h3>Add a picture of this map</h3>
+          <ol>
+            <li>In game, open the world map for this region (<kbd>M</kbd>) and zoom all the way out.</li>
+            <li>Take a screenshot (<kbd>Print Screen</kbd>), or use a map picture you already have.</li>
+            <li>Paste it here with <kbd>Ctrl</kbd>+<kbd>V</kbd>, drop the file on the map, or choose it.</li>
+          </ol>
+          <div class="row">
+            <button type="button" class="btn primary pickImage">Choose a picture…</button>
+            <button type="button" class="btn gridOk">Use the grid for now</button>
+          </div>
+          <p class="note">The markers are already here, on a plain grid. A picture puts them on the real map.</p>
+        </div>
+        <div class="dropHint" hidden>Drop the picture to use it for this map</div>
+      </div>
+
+      <aside class="side">
+        <label class="row"><span>Map</span><select class="mapPick"></select></label>
+        <input type="search" class="search" placeholder="Search markers…" />
+        <div class="layers"></div>
+        <div class="packLayers"></div>
+
+        <div class="card selected" hidden></div>
+
+        <details class="card setup" open>
+          <summary>Map picture</summary>
+          <p class="note imageNote"></p>
+          <div class="row">
+            <button type="button" class="btn pickImage">Choose a picture…</button>
+            <button type="button" class="btn calibrate">Line it up</button>
+          </div>
+          <p class="note">Or paste one here (Ctrl+V), or drop the file on the map.</p>
+          <div class="align" hidden>
+            <div class="seg alignMode" role="radiogroup" aria-label="How to line it up">
+              <button type="button" data-mode="drag">Drag the markers</button>
+              <button type="button" data-mode="points">Click known places</button>
+            </div>
+            <div class="dragTools">
+              <p class="note">Drag on the map to move every marker at once, and size them with the buttons (or Shift + scroll) until the <b class="kib">blue squares</b>, the Kibelisks, sit on the map's teleport statues.</p>
+              <div class="toolGrid">
+                <button type="button" class="btn small" data-t="smaller" title="Smaller">− Smaller</button>
+                <button type="button" class="btn small" data-t="bigger" title="Bigger">+ Bigger</button>
+                <button type="button" class="btn small" data-t="shorter" title="Squash">↕ Squash</button>
+                <button type="button" class="btn small" data-t="taller" title="Stretch">↕ Stretch</button>
+                <button type="button" class="btn small" data-t="rotate" title="Turn a quarter">⟳ Turn</button>
+                <button type="button" class="btn small" data-t="mirror" title="Mirror">⇋ Mirror</button>
+              </div>
+              <div class="row">
+                <button type="button" class="btn small" data-t="reset">Start over</button>
+                <button type="button" class="btn small primary doneAlign">Done</button>
+              </div>
+            </div>
+            <div class="calibration" hidden>
+              <p class="note">Pick a place, then click exactly where it is on the picture. Three or more, spread out; the more, the closer the fit. This replaces the dragged fit.</p>
+              <select class="refPick"></select>
+              <ol class="refs"></ol>
+              <div class="row">
+                <span class="note calError"></span>
+                <span>
+                  <button type="button" class="btn small clearRefs">Start over</button>
+                  <button type="button" class="btn small primary doneRefs">Done</button>
+                </span>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <div class="card community">
+          <div class="communityHead">Gathering, Hidden Cubes, pets…</div>
+          <p class="note">Not built in. Open a community map of this region in your browser, or import the map file you saved from gaming.tools (<code class="packFile"></code>). It stays on this computer.</p>
+          <div class="row communityLinks"></div>
+          <div class="row">
+            <button type="button" class="btn importPack">Import a saved map file…</button>
+          </div>
+          <p class="note packNote"></p>
+        </div>
+
+        <details class="card">
+          <summary>Your pins and markers</summary>
+          <div class="row">
+            <button type="button" class="btn addPin">Add a pin</button>
+            <button type="button" class="btn importMarkers">Import a marker file…</button>
+          </div>
+          <p class="note">A marker file: JSON <code>[{ "map": 1010, "x": …, "y": …, "name": "…", "category": "…" }]</code> or CSV with a header <code>map,x,y,name,category</code>, in game coordinates.</p>
+          <div class="row">
+            <span class="note importNote"></span>
+            <button type="button" class="btn small danger clearImported">Delete imported markers</button>
+            <button type="button" class="btn small danger clearPins">Delete pins</button>
+            <button type="button" class="btn small danger clearSeen">Forget seen monsters</button>
+          </div>
+        </details>
+      </aside>
+    </div>
+
+    <script src="/_sdk/a2.js"></script>
+    <script src="maps.js"></script>
+    <script src="affine.js"></script>
+    <script src="pack.js"></script>
+    <script src="minimap.js"></script>
+    <!-- Your saved map files, built in by tools/world_map_local.cjs (not committed; absent, nothing). -->
+    <script src="local/packs.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

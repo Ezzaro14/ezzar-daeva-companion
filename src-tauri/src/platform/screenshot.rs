@@ -86,12 +86,47 @@ fn crc32(data: &[u8]) -> u32 {
     !crc
 }
 
-/// Capture, the default folder and the folder picker are the OS's.
-pub use super::os::screen::{capture, default_folder, pick_folder};
+/// The top-right corner of the game's picture, where its minimap is, for the
+/// World Map to find you by (`plugins::bundled::plugin_map_minimap`).
+pub struct GameCorner {
+    /// The game's picture, without its window's frame.
+    pub game_width: i32,
+    pub game_height: i32,
+    /// Top-down RGBA rows.
+    pub width: u32,
+    pub height: u32,
+    pub rgba: Vec<u8>,
+}
+
+/// How much of the corner is taken, as parts of the game's height: its UI
+/// scales with the height, and the minimap sits within 0.24 of it from the
+/// right and 0.22 from the top (two screenshots, 1080 and 1007 tall,
+/// 2026-10-21).
+const CORNER_WIDTH: f64 = 0.30;
+const CORNER_HEIGHT: f64 = 0.27;
+
+/// The corner taken of a game picture at (x, y, width, height).
+pub fn corner_of(game: (i32, i32, i32, i32)) -> ScreenRect {
+    let (x, y, w, h) = game;
+    let width = ((h as f64 * CORNER_WIDTH).round() as i32).min(w).max(1);
+    let height = ((h as f64 * CORNER_HEIGHT).round() as i32).min(h).max(1);
+    ScreenRect { left: x + w - width, top: y, width, height }
+}
+
+/// Capture, the default folder and the folder picker are the OS's, and so
+/// is reading the game's corner.
+pub use super::os::screen::{capture, default_folder, game_corner, pick_folder, run_minimap_helper};
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_corner_is_the_top_right_of_the_game_by_its_height() {
+        assert_eq!(corner_of((0, 0, 1920, 1080)), ScreenRect { left: 1596, top: 0, width: 324, height: 292 });
+        // A window: its picture's own place.
+        assert_eq!(corner_of((100, 28, 1911, 1007)), ScreenRect { left: 1709, top: 28, width: 302, height: 272 });
+    }
 
     #[test]
     fn scales_css_pixels_to_the_screen() {

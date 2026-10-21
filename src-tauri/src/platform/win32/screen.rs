@@ -125,6 +125,70 @@ unsafe fn write_png(hdc: HDC, hbm: HBITMAP, rect: ScreenRect, path: &Path) -> bo
     std::fs::write(path, png).is_ok()
 }
 
+/// The top-right corner of the game's picture, as on screen (a GDI copy, so
+/// anything over it, the overlay's widgets too, is in it).
+pub fn game_corner() -> Result<crate::platform::screenshot::GameCorner, String> {
+    use windows::Win32::UI::WindowsAndMessaging::IsIconic;
+    let hwnd = super::window_detector::game_window().ok_or("AION2 isn't open")?;
+    if unsafe { IsIconic(hwnd) }.as_bool() {
+        return Err("AION2 is minimised".into());
+    }
+    let game = client_rect(hwnd.0 as isize);
+    if game.width <= 0 || game.height <= 0 {
+        return Err("AION2 isn't open".into());
+    }
+    let rect = crate::platform::screenshot::corner_of((game.left, game.top, game.width, game.height));
+    let rgba = unsafe { copy_rgba(rect) }.ok_or("could not read the screen")?;
+    Ok(crate::platform::screenshot::GameCorner {
+        game_width: game.width,
+        game_height: game.height,
+        width: rect.width as u32,
+        height: rect.height as u32,
+        rgba,
+    })
+}
+
+/// A rect of the screen as top-down RGBA rows.
+unsafe fn copy_rgba(rect: ScreenRect) -> Option<Vec<u8>> {
+    unsafe {
+        let hdc_screen = GetDC(None);
+        let hdc_mem = CreateCompatibleDC(Some(hdc_screen));
+        let hbm = CreateCompatibleBitmap(hdc_screen, rect.width, rect.height);
+        let old = SelectObject(hdc_mem, hbm.into());
+        let copied = BitBlt(
+            hdc_mem, 0, 0, rect.width, rect.height,
+            Some(hdc_screen), rect.left, rect.top, SRCCOPY,
+        )
+        .is_ok();
+        SelectObject(hdc_mem, old);
+        let mut info = BITMAPINFO::default();
+        info.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
+        info.bmiHeader.biWidth = rect.width;
+        info.bmiHeader.biHeight = -rect.height; // negative: top-down rows
+        info.bmiHeader.biPlanes = 1;
+        info.bmiHeader.biBitCount = 32;
+        info.bmiHeader.biCompression = BI_RGB.0;
+        let mut pixels = vec![0u8; rect.width as usize * rect.height as usize * 4];
+        let rows = if copied {
+            GetDIBits(hdc_mem, hbm, 0, rect.height as u32, Some(pixels.as_mut_ptr().cast()), &mut info, DIB_RGB_COLORS)
+        } else {
+            0
+        };
+        let _ = DeleteObject(hbm.into());
+        let _ = DeleteDC(hdc_mem);
+        ReleaseDC(None, hdc_screen);
+        if rows != rect.height {
+            return None;
+        }
+        // BGRx -> RGBA, opaque.
+        for px in pixels.chunks_exact_mut(4) {
+            px.swap(0, 2);
+            px[3] = 255;
+        }
+        Some(pixels)
+    }
+}
+
 /// `Pictures\A2Tools DPS Meter`, the default place screenshots are saved.
 pub fn default_folder() -> Option<PathBuf> {
     use windows::Win32::System::Com::CoTaskMemFree;
@@ -133,7 +197,7 @@ pub fn default_folder() -> Option<PathBuf> {
         let raw = SHGetKnownFolderPath(&FOLDERID_Pictures, KF_FLAG_DEFAULT, None).ok()?;
         let path = raw.to_string().ok();
         CoTaskMemFree(Some(raw.0 as *const _));
-        Some(PathBuf::from(path?).join("A2Tools DPS Meter"))
+        Some(PathBuf::from(path?).join(crate::fork::APP_NAME))
     }
 }
 
@@ -177,4 +241,9 @@ fn pick_folder_blocking(owner_raw: isize, start_in: Option<&str>) -> Option<Stri
         CoUninitialize();
         result
     }
+}
+
+/// Only Linux reads the minimap in a helper process (see the Linux version).
+pub fn run_minimap_helper() -> i32 {
+    2
 }

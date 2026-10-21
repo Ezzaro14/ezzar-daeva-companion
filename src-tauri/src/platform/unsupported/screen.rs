@@ -22,3 +22,13 @@ pub fn default_folder() -> Option<PathBuf> {
 pub fn pick_folder(_owner: &tauri::WebviewWindow, _start_in: Option<&str>) -> Option<String> {
     None
 }
+
+/// No screen to read here.
+pub fn game_corner() -> Result<crate::platform::screenshot::GameCorner, String> {
+    Err("Reading the minimap works on Windows and on KDE Plasma".into())
+}
+
+/// Only Linux reads the minimap in a helper process (see the Linux version).
+pub fn run_minimap_helper() -> i32 {
+    2
+}

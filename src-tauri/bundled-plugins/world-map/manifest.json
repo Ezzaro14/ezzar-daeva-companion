@@ -1,0 +1,11 @@
+{
+  "id": "world-map",
+  "name": "World Map",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "author": "aion2-tool",
+  "description": "Your own screenshots of the world maps, lined up with the game's coordinates: Kibelisks, pet soul monsters, field bosses with their timers, monsters seen in your fights, your pins and imported markers (and a map file you saved from gaming.tools), and where you and your party are.",
+  "permissions": ["storage", "maps", "feed:combat", "feed:boss-timers", "events:character"],
+  "decoders": [],
+  "ui": { "panel": { "width": 900, "height": 680 } }
+}
