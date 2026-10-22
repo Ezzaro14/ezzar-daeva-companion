@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Overlay</title>
+    <link rel="stylesheet" href="/vendor/fonts/pretendard/index.css" />
+    <link rel="stylesheet" href="/src/js/overlay.css" />
+  </head>
+  <body>
+    <!-- Every plugin's widgets over the game (src-tauri/src/plugins/overlay.rs). -->
+    <div class="grid" aria-hidden="true"></div>
+    <div class="guides" aria-hidden="true"><div class="guide v"></div><div class="guide h"></div></div>
+    <div class="layer"></div>
+    <div class="editBar" role="toolbar">
+      <span class="editTitle">Edit layout</span>
+      <span class="editHint">Drag anything to move it. Things snap to the grid and the screen's middle.</span>
+      <button type="button" class="editBtn reset">Reset layout</button>
+      <button type="button" class="editBtn done primary">Done</button>
+    </div>
+    <script src="/src/js/overlay.js"></script>
+  </body>
+</html>

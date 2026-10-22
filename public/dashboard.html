@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="/src/js/dashboard.css" />
+  </head>
+  <body>
+    <aside class="side">
+      <div class="brand">
+        <div class="brandName">Ezzar's Daeva Companion</div>
+        <div class="brandStatus"><span class="dot"></span><span class="statusText">Game not running</span></div>
+      </div>
+      <nav class="nav" aria-label="Pages"></nav>
+      <div class="sideFoot">
+        <button type="button" class="navBtn" data-action="history"><i data-lucide="history"></i><span>Fight history</span></button>
+        <button type="button" class="navBtn" data-action="settings"><i data-lucide="settings"></i><span>Meter settings</span></button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="top">
+        <div class="pageTitle"></div>
+        <div class="overlayCtl" role="group" aria-label="Everything on screen">
+          <button type="button" class="ctl ctlMeter" title="Show or hide the DPS meter"><i data-lucide="bar-chart-3"></i><span>Meter</span></button>
+          <button type="button" class="ctl ctlEdit" title="Show every overlay unlocked, to drag into place"><i data-lucide="move"></i><span>Edit layout</span></button>
+          <button type="button" class="ctl ctlLock" title="Lock everything on screen: clicks go through to the game"><i data-lucide="lock"></i><span>Lock</span></button>
+          <button type="button" class="ctl ctlHide" title="Hide or show everything on screen"><i data-lucide="eye"></i><span>Hide all</span></button>
+        </div>
+      </header>
+      <section class="page home" data-page="home"></section>
+      <section class="page overlayPage" data-page="overlay" hidden></section>
+      <div class="frames"></div>
+      <div class="dashToast" role="status" hidden></div>
+    </main>
+
+    <script src="/vendor/lucide.min.js"></script>
+    <script src="/src/js/dashboard.js"></script>
+  </body>
+</html>
