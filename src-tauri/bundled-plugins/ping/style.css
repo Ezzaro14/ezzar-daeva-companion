@@ -37,6 +37,8 @@ body { padding: 12px 14px 14px; }
   font-size: 12px;
   color: rgba(233, 240, 248, 0.6);
 }
+/* The open list is drawn in the page's light scheme: its options dark, or their light text was on white. */
+select option { color: rgba(255, 255, 255, 0.9); background: #161b26; }
 select, input[type="number"] {
   font: inherit;
   color: inherit;

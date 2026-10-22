@@ -40,6 +40,8 @@ h3 {
 .chips button[aria-selected="true"] { color: #0a0e16; background: #8fc2ff; border-color: #8fc2ff; }
 
 select, input[type="checkbox"], input[type="number"], input[type="text"], input[type="range"] { color-scheme: dark; }
+/* The open list is drawn in the page's light scheme, not the dropdown's: its options in the dark one, or their white text was on white. */
+select option { color: rgba(255, 255, 255, 0.9); background: #161b26; }
 select, input[type="number"], input[type="text"] {
   font: inherit;
   font-size: 12px;

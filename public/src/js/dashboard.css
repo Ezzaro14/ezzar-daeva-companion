@@ -15,6 +15,9 @@
    the plugins' pages, and the browser then paints their frames opaque white
    (as pluginHost.css notes). */
 button, input, select { color-scheme: dark; }
+/* So a dropdown's open list, drawn in the page's light scheme, has its
+   options dark: their light text was on white. */
+select option { color: rgba(255, 255, 255, 0.9); background: #161b26; }
 html, body {
   margin: 0;
   height: 100%;
