@@ -10,6 +10,9 @@
   box.hidden = false;
   let data = null;
   let locked = true;
+  // A click's fold, until the plugin's data agrees or a few seconds pass:
+  // what it sent before it heard the click doesn't fold the list back.
+  let clicked = null;
 
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const BELL = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
@@ -109,9 +112,11 @@
     if (btn.dataset.act === "toggle" && data && !data.tracked) {
       a2.widget.post({ open: true, track: true }).catch(() => {});
     } else if (btn.dataset.act === "toggle") {
-      data && (data.expanded = !data.expanded);
+      if (!data) return;
+      data.expanded = !data.expanded;
+      clicked = { expanded: data.expanded, until: Date.now() + 5000 };
       render();
-      a2.widget.post({ toggle: true }).catch(() => {});
+      a2.widget.post({ toggle: true, expanded: data.expanded }).catch(() => {});
     } else if (btn.dataset.act === "bell") {
       btn.classList.toggle("on");
       a2.widget.post({ bossAlert: btn.dataset.id }).catch(() => {});
@@ -124,6 +129,10 @@
 
   a2.on("widget", (d) => {
     if (!d || d.kind !== "bosslist") return;
+    if (clicked) {
+      if (d.expanded === clicked.expanded || Date.now() > clicked.until) clicked = null;
+      else d.expanded = clicked.expanded;
+    }
     data = d;
     render();
   });

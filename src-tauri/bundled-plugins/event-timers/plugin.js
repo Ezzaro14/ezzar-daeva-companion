@@ -587,6 +587,7 @@ function renderStatic() {
   renderTabs();
   renderAlerts();
   if (typeof renderPinLock === "function") renderPinLock();
+  if (typeof renderBossListSettings === "function") renderBossListSettings();
 }
 
 // zoom, not a font size: the styles are in pixels, and everything should grow

@@ -15,6 +15,10 @@ Countdowns to AION 2's recurring events and scheduled bosses, in your server's t
 
 Each row shows how long until it starts and the start time (in this computer's time zone, or another you pick under **Settings**, or the server's own clock); a running event shows how long it has left (where the game's data says how long it runs). × hides an event; the hidden ones are listed below the others, and clicking one shows it again. Folded (the window's compact button), only the next three show.
 
+## Timers list
+
+What you track (the **Track** tab) shows in one list over the game, folded to the next timer until you click its title open; it takes that click even while the overlay is locked. A timer's bell on the list turns its popup on or off. **Settings → Timers list** shows or hides it, sets what it shows folded (the next timer, or everything up or starting within 30 minutes) and how many it lists open (5 to 20). **Settings → Popups** are the alerts' own settings, below.
+
 ## Alerts
 
 The **Alerts** tab starts with **Quick picks**, which turn a whole set on or off with one tap: **Shugo & Invasion**, **Rare world bosses** (those that take 3 hours or more to come back), **All world bosses** (each world boss without an alert of its own) and **Artifact Siege**. Under them, **Your alerts** lists only the alerts that are on, each on one line with when it goes off; click a line to change that alert in place (how long before, as it starts, or 1 to 60 minutes; the time while AION2 is closed; for a world boss, when it's being fought; and its own sound, repeats and icon), and click its 🔔 to turn it off. **Default** at the top of the list sets the times new alerts start with. **Add alerts** below has a search box, the events, the scheduled bosses and the world bosses by map (each with how often it comes back), folded until opened, with **All** for a whole group.

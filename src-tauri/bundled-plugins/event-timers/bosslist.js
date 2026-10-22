@@ -6,7 +6,11 @@
 // Uses plugin.js's helpers (fieldBosses, fieldTimer, scheduled, nextOf, …).
 
 const BOSS_LIST = "bosses";
-const BOSS_LIST_ROWS = 20;
+// How many it lists when open (Settings → Timers list), 20 unless changed.
+const BOSS_LIST_ROWS = [5, 10, 15, 20];
+const listRows = () => (BOSS_LIST_ROWS.includes(Number(prefs.bossListRows)) ? Number(prefs.bossListRows) : 20);
+// Folded, with "what is near" picked: what is up, or starts within this.
+const NEAR_MS = 30 * 60_000;
 const BOSS_LIST_SIZE = { width: 340, height: 470 };
 
 let bossListOpen = false; // the widget is open on the overlay
@@ -74,7 +78,9 @@ async function sendBossList() {
   const { rows, unknown } = bossListRows(now);
   // Folded is one line, whatever comes up: the list opens only when the
   // player opens it (it grew and shrank by itself as bosses came and went).
-  for (const r of rows) r.near = false;
+  // Unless the player asks for what is near too (Settings → Timers list).
+  const near = prefs.bossListFolded === "near";
+  for (const r of rows) r.near = near && (r.group !== "upcoming" || r.sort - now <= NEAR_MS);
   const up = rows.filter((r) => r.group === "up").length;
   const next = rows.find((r) => r.group === "upcoming");
   const fmt = clock();
@@ -85,8 +91,8 @@ async function sendBossList() {
     tracked: Object.keys(prefs.tracked || {}).length,
     up,
     next: next ? { name: next.name, when: next.when, soon: !!next.soon } : null,
-    rows: rows.slice(0, BOSS_LIST_ROWS).map((r) => ({ ...r, at: r.at ? fmt.format(new Date(r.at)) : "" })),
-    more: Math.max(0, rows.length - BOSS_LIST_ROWS),
+    rows: rows.slice(0, listRows()).map((r) => ({ ...r, at: r.at ? fmt.format(new Date(r.at)) : "" })),
+    more: Math.max(0, rows.length - listRows()),
     unknown,
     noServer: !serverId(),
     lead: defaultLead(),
@@ -101,7 +107,9 @@ a2.on("widget-message", (msg) => {
   if (msg?.name !== BOSS_LIST) return;
   const d = msg.data || {};
   if (d.toggle) {
-    prefs.bossListExpanded = !prefs.bossListExpanded;
+    // The fold the click left it in, not "the other one": a message heard
+    // twice folded it straight back. A widget from before says only toggle.
+    prefs.bossListExpanded = typeof d.expanded === "boolean" ? d.expanded : !prefs.bossListExpanded;
     savePrefs();
   } else if (typeof d.bossAlert === "string") {
     toggleBossAlert(d.bossAlert);
@@ -117,23 +125,49 @@ a2.on("widget-message", (msg) => {
   sendBossList();
 });
 
-// The Bosses tab's switch for it.
-(() => {
-  const view = document.querySelector(".view.bosses");
+// Settings in two parts: the Timers list's own, first, then the popups'
+// (the alerts' settings under their own headings). Drawn by renderStatic.
+function renderBossListSettings() {
+  const view = document.querySelector(".view.settings");
   if (!view) return;
-  const label = document.createElement("label");
-  label.className = "bossListToggle";
-  label.innerHTML = '<input type="checkbox" class="bossListOn" /> <span><b>Show the Timers list over the game</b><small>What you track (the Track tab), in one list. Click its title in game to open or close it.</small></span>';
-  view.prepend(label);
-  const box = label.querySelector("input");
-  box.addEventListener("change", () => {
-    prefs.bossList = box.checked;
-    savePrefs();
-    sendBossList();
-  });
-  const sync = () => (box.checked = prefs.bossList !== false);
-  setTimeout(sync, 0);
-  setInterval(sync, 5000);
-})();
+  let box = view.querySelector(".listSettings");
+  if (!box) {
+    box = document.createElement("div");
+    box.className = "listSettings";
+    box.innerHTML = `
+      <h2 class="group part">Timers list</h2>
+      <p class="note">What you track (the Track tab), in one list over the game. Click its title in game to open or fold it.</p>
+      <label class="setting"><span>Show it over the game</span> <input type="checkbox" class="listOn switch" role="switch" /></label>
+      <label class="setting listMore"><span>Folded, it shows</span> <select class="listFolded">
+        <option value="next">The next timer</option><option value="near">What's up or within 30 min</option></select></label>
+      <label class="setting listMore"><span>Open, it lists</span> <select class="listRows">
+        ${BOSS_LIST_ROWS.map((n) => `<option value="${n}">Up to ${n}</option>`).join("")}</select></label>
+      <h2 class="group part">Popups</h2>
+      <p class="note">Before what you track starts. A timer's bell, on the list or the Bosses tab, turns its popup on or off.</p>`;
+    view.prepend(box);
+    const changed = () => {
+      savePrefs();
+      renderBossListSettings();
+      sendBossList();
+    };
+    box.querySelector(".listOn").addEventListener("change", (e) => {
+      prefs.bossList = e.target.checked;
+      changed();
+    });
+    box.querySelector(".listFolded").addEventListener("change", (e) => {
+      prefs.bossListFolded = e.target.value;
+      changed();
+    });
+    box.querySelector(".listRows").addEventListener("change", (e) => {
+      prefs.bossListRows = Number(e.target.value);
+      changed();
+    });
+  }
+  const on = prefs.bossList !== false;
+  box.querySelector(".listOn").checked = on;
+  box.querySelector(".listFolded").value = prefs.bossListFolded === "near" ? "near" : "next";
+  box.querySelector(".listRows").value = String(listRows());
+  for (const row of box.querySelectorAll(".listMore")) row.hidden = !on;
+}
 
 setInterval(sendBossList, 1000);
