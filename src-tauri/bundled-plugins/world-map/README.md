@@ -11,7 +11,9 @@ Your own screenshot of each world map, lined up with the game's coordinates, wit
 
 ## Adding a map image
 
-The game's map images can't be shipped, so each map uses your own screenshot: open the world map in game for the region, zoomed out to show all of it, take a screenshot, and choose it under **Map image**. Then **Line it up**: pick three or more places (Kibelisks, or *where I am now*), clicking each where it is on the screenshot. The map is fitted to them, whatever the screenshot's size or crop.
+Verteron and Altgard come with a picture, already lined up (`local/maps/`, made by `tools/world_map_pictures.cjs` from map tile packs saved from gaming.tools, with each picture's fit in `pictures.js`; personal, like `local/packs.js`). Line it up again as below to fine-tune it; **Start over** goes back to the fit it came with.
+
+The game's map images can't be shipped publicly, so every other map uses your own screenshot: open the world map in game for the region, zoomed out to show all of it, take a screenshot, and choose it under **Map image**. One you choose replaces the picture a map came with. Then **Line it up**: pick three or more places (Kibelisks, or *where I am now*), clicking each where it is on the screenshot. The map is fitted to them, whatever the screenshot's size or crop.
 
 Without an image the markers show on a grid, north up.
 

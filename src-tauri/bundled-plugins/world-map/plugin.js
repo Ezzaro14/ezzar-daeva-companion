@@ -77,10 +77,12 @@ async function openMap(id) {
   selected = null;
   calibrating = null;
   placing = null;
-  // A picture never lined up: a first guess, to drag into place.
+  // A picture never lined up: the fit it came with, else a first guess, to
+  // drag into place.
   if (image && !data.calib?.T && !data.calib?.rough) {
-    data.calib = { refs: [], T: null, ...(data.calib || {}), rough: autoRough() };
-    calibrating = "drag";
+    const shipped = shippedRough();
+    data.calib = { refs: [], T: null, ...(data.calib || {}), rough: shipped || autoRough() };
+    calibrating = shipped ? null : "drag";
   }
   renderSide();
   meShown = null;
@@ -135,7 +137,7 @@ function allPoints() {
   ].filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
 }
 
-let grid = null; // { minX, maxY, w, h } without an image
+let grid = null; // { minX, minY, w, h } without an image
 function computeGrid() {
   const pts = allPoints();
   const xs = pts.map((p) => p.x);
@@ -144,14 +146,16 @@ function computeGrid() {
   const maxX = (xs.length ? Math.max(...xs) : 100000) + 20000;
   const minY = (ys.length ? Math.min(...ys) : -100000) - 20000;
   const maxY = (ys.length ? Math.max(...ys) : 100000) + 20000;
-  grid = { minX, maxY, w: (maxX - minX) / GRID_SCALE, h: (maxY - minY) / GRID_SCALE };
+  grid = { minX, minY, w: (maxX - minX) / GRID_SCALE, h: (maxY - minY) / GRID_SCALE };
 }
 
-// The dragged fit as a transform: north up (game Y up the picture), turned a
-// quarter at a time, mirrored if asked, sized (and stretched) and moved.
+// The dragged fit as a transform: north up (game Y down the picture, as on
+// the game's own map; northUp() reads it so), turned a quarter at a time,
+// mirrored if asked, sized (and stretched) and moved. It had game Y up the
+// picture, so every map started out mirrored top to bottom.
 function roughT(r) {
   let u = [1, 0];
-  let v = [0, -1];
+  let v = [0, 1];
   for (let i = 0; i < (r.rot || 0) % 4; i++) [u, v] = [[-v[0], -v[1]], u];
   if (r.flip) u = [-u[0], -u[1]];
   const sx = r.scale;
@@ -179,6 +183,16 @@ function autoRough(r = {}) {
   return { ...base, scale, tx: (image.w - (maxX - minX) * scale) / 2 - minX * scale, ty: (image.h - (maxY - minY) * scale) / 2 - minY * scale };
 }
 
+// The fit a picture the World Map comes with has (local/maps/pictures.js,
+// from tools/world_map_pictures.cjs), when that is the picture shown (by its
+// size): its places are where they are from the start.
+function shippedRough() {
+  const p = typeof LOCAL_PICTURES === "object" ? LOCAL_PICTURES[mapId] : null;
+  return p && image && image.w === p.w && image.h === p.h ? { ...p.rough } : null;
+}
+// A picture's first fit, and the one "Start over" goes back to.
+const firstFit = () => shippedRough() || autoRough();
+
 // The fit in use: from clicked places when there are three, else the dragged one.
 const transform = () => data?.calib?.T || (data?.calib?.rough ? roughT(data.calib.rough) : null);
 const calibrated = () => !!(image && transform());
@@ -186,12 +200,12 @@ const calibrated = () => !!(image && transform());
 function toStage(x, y) {
   if (calibrated()) return apply(transform(), [x, y]);
   if (image) return null;
-  return [(x - grid.minX) / GRID_SCALE, (grid.maxY - y) / GRID_SCALE];
+  return [(x - grid.minX) / GRID_SCALE, (y - grid.minY) / GRID_SCALE];
 }
 function toWorld(px, py) {
   if (calibrated()) return invert(transform(), [px, py]);
   if (image) return null;
-  return [px * GRID_SCALE + grid.minX, grid.maxY - py * GRID_SCALE];
+  return [px * GRID_SCALE + grid.minX, py * GRID_SCALE + grid.minY];
 }
 const stageSize = () => (image ? { w: image.w, h: image.h } : { w: grid.w, h: grid.h });
 
@@ -942,7 +956,7 @@ $(".mapPick").addEventListener("change", () => openMap($(".mapPick").value));
 // A new picture: the markers spread over it at once, to drag into place.
 async function usePicture(url) {
   await loadImage(url);
-  data.calib = { refs: [], T: null, rough: autoRough() };
+  data.calib = { refs: [], T: null, rough: firstFit() };
   calibrating = "drag";
   saveData(true);
   renderSide();
@@ -1025,7 +1039,7 @@ function viewMiddle() {
 
 for (const b of document.querySelectorAll(".dragTools [data-t]")) {
   b.addEventListener("click", () => {
-    if (!data.calib.rough) data.calib.rough = autoRough();
+    if (!data.calib.rough) data.calib.rough = firstFit();
     const r = data.calib.rough;
     const [mx, my] = viewMiddle();
     switch (b.dataset.t) {
@@ -1035,7 +1049,7 @@ for (const b of document.querySelectorAll(".dragTools [data-t]")) {
       case "shorter": return sizeMarkers(1 / 1.04, mx, my, "y");
       case "rotate": data.calib.rough = autoRough({ ...r, rot: ((r.rot || 0) + 1) % 4 }); break;
       case "mirror": data.calib.rough = autoRough({ ...r, flip: !r.flip }); break;
-      case "reset": data.calib.rough = autoRough(); break;
+      case "reset": data.calib.rough = firstFit(); break;
     }
     saveData(true);
     draw();
@@ -1044,14 +1058,14 @@ for (const b of document.querySelectorAll(".dragTools [data-t]")) {
 for (const b of document.querySelectorAll(".alignMode button")) {
   b.addEventListener("click", () => {
     calibrating = b.dataset.mode;
-    if (calibrating === "drag" && !data.calib.rough) data.calib.rough = autoRough();
+    if (calibrating === "drag" && !data.calib.rough) data.calib.rough = firstFit();
     renderSide();
     draw();
   });
 }
 $(".calibrate").addEventListener("click", () => {
   calibrating = calibrating ? null : data.calib.refs.length ? "points" : "drag";
-  if (calibrating === "drag" && !data.calib.rough) data.calib.rough = autoRough();
+  if (calibrating === "drag" && !data.calib.rough) data.calib.rough = firstFit();
   if (!calibrating) placing = null;
   renderSide();
   draw();

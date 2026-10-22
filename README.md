@@ -48,7 +48,7 @@ Each module can be turned off on the dashboard's **Overlay** page.
 
 ### The World Map
 
-The game's map art can't be shipped, so each map uses a picture you add: open the world map in game zoomed out to the whole region and take a screenshot (or use a map picture you have), then paste it (Ctrl+V), drop it on the map, or choose it. The markers are spread over it at once; **drag them** (and size, turn or mirror them) until the Kibelisks sit on the teleport statues, or **click three known places** (Kibelisks, or where you stand in game) for an exact fit. The picture stays on your computer.
+Verteron and Altgard come with their map pictures, lined up from the start (this private build's own, stitched from gaming.tools' tile packs). The game's map art can't be shipped publicly, so every other map uses a picture you add: open the world map in game zoomed out to the whole region and take a screenshot (or use a map picture you have), then paste it (Ctrl+V), drop it on the map, or choose it. The markers are spread over it at once; **drag them** (and size, turn or mirror them) until the Kibelisks sit on the teleport statues, or **click three known places** (Kibelisks, or where you stand in game) for an exact fit. The picture stays on your computer.
 
 The markers come from the openly licensed community data the A2Tools plugins ship (GPL-3.0: Kibelisks, pet soul monster areas, field bosses), what the game tells the app as you play (where you, your party and monsters are when they cast), your own pins, and marker files you import (JSON or CSV in game coordinates). The big fan maps (interactivemap.app, which aion2atlas.app's markers come from) don't allow their marker database to be copied or scraped, so hidden cubes, gathering nodes and the like aren't included.
 
@@ -118,6 +118,7 @@ cd src-tauri && cargo test            # parser, combat feed and plugin host test
 - `src-tauri/src/plugins/armory.rs`: characters from the official site and the comparison pool (`feed:armory`).
 - `public/dashboard.html`, `public/src/js/dashboard.js`: the dashboard, hosting each module's page.
 - `tools/build_world_map.py`: the World Map's places, from the A2Tools plugins' data.
+- `tools/world_map_pictures.cjs`: the World Map's own map pictures, from gaming.tools tile packs (`.gtpk`) saved from your browser.
 - `src-tauri/bundled-plugins/`: the plugins themselves (HTML/JS, see `src-tauri/src/plugins/a2.js` for their API).
 - `src-tauri/src/fork.rs`: this fork's name and identity in one place.
 

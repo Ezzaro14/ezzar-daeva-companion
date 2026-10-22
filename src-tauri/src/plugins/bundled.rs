@@ -431,19 +431,30 @@ fn maps_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-/// The image kept for a map, as a data URL a sandboxed page can show.
+/// The image kept for a map, as a data URL a sandboxed page can show: the
+/// one picked, else the World Map's own (`world-map/local/maps`, made by
+/// tools/world_map_pictures.cjs). A data URL, not the plugin's file: the
+/// minimap reads the picture's pixels, which a sandboxed page can't from a URL.
 fn map_image_of(app: &tauri::AppHandle, map: i32) -> Result<Option<String>, String> {
-    let dir = maps_dir(app)?;
-    for (ext, mime) in [("png", "image/png"), ("jpg", "image/jpeg"), ("webp", "image/webp")] {
-        let path = dir.join(format!("{map}.{ext}"));
-        if let Ok(bytes) = std::fs::read(&path) {
-            return Ok(Some(format!("data:{mime};base64,{}", super::base64(&bytes))));
-        }
+    if let Some(picked) = picture_in(&maps_dir(app)?, map) {
+        return Ok(Some(picked));
     }
-    Ok(None)
+    let own = dirs(app).into_iter().find(|d| d.ends_with("world-map"));
+    Ok(own.and_then(|d| picture_in(&d.join("local").join("maps"), map)))
 }
 
-/// A map's image (your own screenshot of the game's world map), if one was picked.
+/// `<map>.png`, `.jpg` or `.webp` in `dir`, as a data URL.
+fn picture_in(dir: &std::path::Path, map: i32) -> Option<String> {
+    for (ext, mime) in [("png", "image/png"), ("jpg", "image/jpeg"), ("webp", "image/webp")] {
+        if let Ok(bytes) = std::fs::read(dir.join(format!("{map}.{ext}"))) {
+            return Some(format!("data:{mime};base64,{}", super::base64(&bytes)));
+        }
+    }
+    None
+}
+
+/// A map's image (your own screenshot of the game's world map, or the one
+/// the World Map comes with), if it has one.
 #[tauri::command]
 pub fn plugin_map_image(app: tauri::AppHandle, window: tauri::WebviewWindow, map: i32, plugin: Option<String>) -> Result<Option<String>, String> {
     let id = super::plugin_of(&window, plugin)?;
@@ -654,6 +665,21 @@ mod tests {
         assert_eq!(super::image_kind(b"\x89PNG\r\n\x1a\nrest"), Some("png"));
         assert_eq!(super::image_kind(b"RIFF\0\0\0\0WEBPVP8 "), Some("webp"));
         assert_eq!(super::image_kind(b"<svg"), None);
+    }
+
+    #[test]
+    fn a_maps_picture_is_found_by_its_number_whatever_its_kind() {
+        let dir = std::env::temp_dir().join(format!("a2-map-pictures-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("a temp folder");
+        std::fs::write(dir.join("1010.webp"), b"RIFF\0\0\0\0WEBP").expect("a picture");
+        assert_eq!(super::picture_in(&dir, 1010).as_deref(), Some("data:image/webp;base64,UklGRgAAAABXRUJQ"));
+        assert_eq!(super::picture_in(&dir, 1110), None);
+        // The pictures the World Map comes with (tools/world_map_pictures.cjs).
+        let shipped = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("bundled-plugins/world-map/local/maps");
+        for map in [1010, 1110] {
+            assert!(super::picture_in(&shipped, map).is_some_and(|url| url.starts_with("data:image/webp;base64,")), "map {map}");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     use super::*;
