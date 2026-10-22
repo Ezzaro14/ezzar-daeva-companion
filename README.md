@@ -17,35 +17,6 @@ Everything is in one **dashboard** window (it opens with the app; the meter's he
 
 ## What it does
 
-| Questlog feature | Here | Where |
-|---|---|---|
-| DPS meter: party ranking, share, crit; per-skill details; targets (all, bosses, current) | ✅ | The meter (upstream) |
-| Meter scope: just you, your party, everyone | ✅ | Settings → Show on the meter |
-| Meter in the app's look, hidden out of combat | ✅ | Settings → Appearance (Daeva Companion theme, the default); Settings → Hide out of combat |
-| Combat Assist: skill cooldowns and buffs on bars anywhere, glow when ready, square/round/bars, row/stacked, hide out of combat | ✅ (cooldowns learned from use, or set by hand) | **Combat Assist** plugin |
-| Fight history: saved boss fights, damage, healing, taken, buffs, DPS over time | ✅ | History (upstream) |
-| Copy a fight summary for game chat | ✅ | **Fight Records** → Recent fights; **Dungeon Runs** |
-| Combat logs website: shareable reports, rankings, leaderboards | ✅ via a2tools.app (uploads are labeled as this fork) | Upload in History (upstream) |
-| PvP overlay: opponents, damage dealt/taken, HP, class, defeated; saved sessions with kills, deaths, biggest burst, skills, DPS over time | ✅ | **PvP Overlay** plugin |
-| Training mode: timed runs (30 s – 5 min or unlimited) on a dummy, your damage only, names, notes, groups, side-by-side comparison | ✅ | **Fight Records** → Training, Compare |
-| Personal bests per boss and character, with a notice | ✅ | **Fight Records** → Personal bests |
-| Loss-of-control notice (stun, sleep, fear, knockdown…) with time left | ✅ | **Combat Alerts** plugin |
-| Party debuff alerts (same debuff on several members, e.g. Heal Block) | ✅ | **Combat Alerts** plugin |
-| Dungeon runs: clear time, deaths, each member's numbers, every boss fight | ✅ | **Dungeon Runs** plugin |
-| Event alerts (Shugo Festival, Rift, resets, sieges…), sound, desktop notifications while the game is closed | ✅ | **Event Timers** plugin |
-| Field boss timers, shared among players | ✅ via a2tools.app | **Event Timers** plugin, and its World Bosses list on the overlay |
-| Ping overlay | ✅ | **Ping** plugin |
-| Pet tracking: souls per pet, phases, drop sources | ✅ | **Pet Soul Tracker** plugin |
-| Interactive map | ✅ | **World Map**: your own screenshots, lined up with game coordinates; Kibelisks, pet soul monster areas, field bosses with timers, monsters you've seen, you and your party, pins, imported markers |
-| Progression guide (gear, Daevanion, skills) | ✅ | **Progression Guide**: your character from the official site, compared with the strongest of your class, and a gear score roadmap |
-| Daily and weekly routine | ✅ | **Daily Planner**: Daily Duties, Shugo Festival's three keys, Nightmare, the week's dungeon entries, Odyle Energy, your own tasks; reminders before a reset |
-| Popups for events and world bosses | ✅ | **Notices** with **Event Timers** |
-| Pet tracker route to the nearest pet | ❌ not yet | The map shows where each pet's monsters are; no route yet |
-| World loot log (items picked up, by session and map) | ❌ not yet | Needs the item pickup records decoded from a capture |
-| Auto-update | ❌ off | This fork has no release channel yet; A2Tools' updater is turned off so it can't replace the fork |
-
-Each module can be turned off on the dashboard's **Overlay** page.
-
 ### The World Map
 
 Verteron and Altgard come with their map pictures, lined up from the start (this private build's own, stitched from gaming.tools' tile packs). The game's map art can't be shipped publicly, so every other map uses a picture you add: open the world map in game zoomed out to the whole region and take a screenshot (or use a map picture you have), then paste it (Ctrl+V), drop it on the map, or choose it. The markers are spread over it at once; **drag them** (and size, turn or mirror them) until the Kibelisks sit on the teleport statues, or **click three known places** (Kibelisks, or where you stand in game) for an exact fit. The picture stays on your computer.
