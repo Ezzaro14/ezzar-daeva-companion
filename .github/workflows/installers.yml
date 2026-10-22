@@ -1,8 +1,8 @@
 name: Installers
 
-# Ezzar's Daeva Companion's installers: the Windows .msi and the Linux .deb (built on Ubuntu 22.04, so it runs on older systems
-# too). By hand: gh workflow run installers.yml, or push a v* tag. The .rpm
-# for Fedora and Bazzite is built locally: packaging/linux/build-rpm.sh.
+# Ezzar's Daeva Companion's installers: the Windows .msi, the Linux .deb (built on Ubuntu 22.04, so it runs on older systems
+# too) and the .rpm for Fedora and Bazzite (packaging/linux/build-rpm.sh, in
+# a Fedora container). By hand: gh workflow run installers.yml, or push a v* tag.
 on:
   workflow_dispatch:
   push:
@@ -81,4 +81,32 @@ jobs:
         with:
           name: linux-deb
           path: src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+  linux-rpm:
+    name: Linux .rpm
+    runs-on: ubuntu-24.04
+    # Fedora's own rpmbuild, as build-rpm.sh expects (a Fedora toolbox): its
+    # package carries the capture permission (%caps), which rpm-ostree keeps.
+    container: fedora:44
+    steps:
+      # docs/linux.md's build dependencies for Fedora, libxdo (Tauri's menus),
+      # and rpm-build and cpio for build-rpm.sh.
+      - name: Build dependencies
+        run: |
+          dnf install -y webkit2gtk4.1-devel openssl-devel curl wget file libappindicator-gtk3-devel \
+            librsvg2-devel libpcap libpcap-devel libcap libxdo-devel git rpm-build cpio nodejs npm \
+            gcc gcc-c++ make
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: installers-rpm
+      - name: Build
+        run: bash packaging/linux/build-rpm.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-rpm
+          path: out/*.rpm
           if-no-files-found: error
