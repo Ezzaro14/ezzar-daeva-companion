@@ -17,24 +17,21 @@ Everything is in one **dashboard** window (it opens with the app; the meter's he
 
 ## What it does
 
-**DPS meter:** party ranking, share, crit, per-skill details, targets (all, bosses, current)
-**Combat Assist:** skill cooldowns and buffs on bars anywhere, glow when ready, square/round/bars, row/stacked, hide out of combat
-**Fight history:** saved boss fights, damage, healing, taken, buffs, DPS over time
-**Combat logs website:** shareable reports, rankings, leaderboards via a2tools.app (uploads are labeled as this fork)
-**PvP Overlay**, opponents, damage dealt/taken, HP, class, defeated; saved sessions with kills, deaths, biggest burst, skills, DPS over time
-**Fight Records** Training mode: timed runs (30 s – 5 min or unlimited) on a dummy, your damage only, names, notes, groups, side-by-side comparison
-**Fight Records** Personal bests
-**Combat Alerts** loss-of-control notice (stun, sleep, fear, knockdown…) with time left
-**Combat Alerts** Party debuff alerts (same debuff on several members, e.g. Heal Block)
-**Dungeon Runs** clear time, deaths, each member's numbers, every boss fight
-**Event Timers** Event alerts (Shugo Festival, Rift, resets, sieges…), sound, desktop notifications while the game is closed 
-**Event Timers** and its World Bosses list on the overlay
-**Ping** overlay plugin
-**Pet Soul Tracker**, souls per pet, phases, drop sources
-**World Map**: your own screenshots, lined up with game coordinates; Kibelisks, pet soul monster areas, field bosses with timers, monsters you've seen, you and your party, pins, imported markers 
-**Progression Guide**: your character from the official site, compared with the strongest of your class, and a gear score roadmap 
-**Daily Planner**: Daily Duties, Shugo Festival's three keys, Nightmare, the week's dungeon entries, Odyle Energy, your own tasks; reminders before a reset 
-**Notices** with **Event Timers** 
+- **DPS meter:** party ranking, share, crit, per-skill details, targets (all, bosses, current)
+- **Combat Assist:** skill cooldowns and buffs on bars anywhere, glow when ready, square/round/bars, row/stacked, hide out of combat
+- **Fight history:** saved boss fights, damage, healing, taken, buffs, DPS over time
+- **Combat logs website:** shareable reports, rankings, leaderboards via a2tools.app (uploads are labeled as this fork)
+- **PvP Overlay**, opponents, damage dealt/taken, HP, class, defeated; saved sessions with kills, deaths, biggest burst, skills, DPS over time
+- **Fight Records** Training mode: timed runs (30 s – 5 min or unlimited) on a dummy, your damage only, names, notes, groups, side-by-side comparison
+- **Fight Records** Personal bests
+- **Combat Alerts** loss-of-control notice (stun, sleep, fear, knockdown…) with time left. Party debuff alerts (same debuff on several members, e.g. Heal Block)
+- **Dungeon Runs** clear time, deaths, each member's numbers, every boss fight
+- **Event Timers** Event alerts (Shugo Festival, Rift, resets, sieges, and bosses), sound, desktop notifications while the game is closed 
+- **Ping** overlay plugin
+- **Pet Soul Tracker**, souls per pet, phases, drop sources
+- **World Map**: your own screenshots, lined up with game coordinates; Kibelisks, pet soul monster areas, field bosses with timers, monsters you've seen, you and your party, pins, imported markers 
+- **Progression Guide**: your character from the official site, compared with the strongest of your class, and a gear score roadmap 
+- **Daily Planner**: Daily Duties, Shugo Festival's three keys, Nightmare, the week's dungeon entries, Odyle Energy, your own tasks; reminders before a reset 
 
 Each module can be turned off on the dashboard's **Overlay** page.
 
