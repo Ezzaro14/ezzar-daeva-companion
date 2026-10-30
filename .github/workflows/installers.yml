@@ -1,8 +1,10 @@
 name: Installers
 
 # Ezzar's Daeva Companion's installers: the Windows .msi, the Linux .deb (built on Ubuntu 22.04, so it runs on older systems
-# too) and the .rpm for Fedora and Bazzite (packaging/linux/build-rpm.sh, in
-# a Fedora container). By hand: gh workflow run installers.yml, or push a v* tag.
+# too), the .rpm for Fedora and Bazzite (packaging/linux/build-rpm.sh, in
+# a Fedora container) and the Arch package for CachyOS, Arch, Manjaro and
+# EndeavourOS (packaging/arch/daeva-companion, in an Arch container).
+# By hand: gh workflow run installers.yml, or push a v* tag.
 on:
   workflow_dispatch:
   push:
@@ -109,4 +111,41 @@ jobs:
         with:
           name: linux-rpm
           path: out/*.rpm
+          if-no-files-found: error
+
+  linux-arch:
+    name: Arch package (CachyOS)
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      # git first, so checkout keeps the history (and tags) pkgver() reads;
+      # then the PKGBUILD's depends and makedepends.
+      - name: Build dependencies
+        run: |
+          pacman -Syu --noconfirm --needed git rust nodejs npm pkgconf xdotool \
+            libappindicator-gtk3 librsvg openssl \
+            webkit2gtk-4.1 gtk3 libpcap libcap hicolor-icon-theme gst-plugins-base gst-plugins-good
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: installers-arch
+      # makepkg refuses to run as root.
+      - name: makepkg
+        run: |
+          useradd -m builder
+          chown -R builder "$GITHUB_WORKSPACE"
+          su builder -c "cd '$GITHUB_WORKSPACE/packaging/arch/daeva-companion' && makepkg --noconfirm --nodeps"
+      # It installs, gets its capture permission, and finds every library.
+      - name: Install
+        run: |
+          pacman -U --noconfirm packaging/arch/daeva-companion/*.pkg.tar.zst
+          getcap /usr/bin/daeva-companion | tee /dev/stderr | grep -q cap_net_raw
+          ! ldd /usr/bin/daeva-companion | grep "not found"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-arch
+          path: packaging/arch/daeva-companion/*.pkg.tar.zst
           if-no-files-found: error

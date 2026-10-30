@@ -68,6 +68,9 @@ settings.properties
 /packaging/arch/src/
 /packaging/arch/pkg/
 /packaging/arch/*.pkg.tar.zst
+/packaging/arch/daeva-companion/src/
+/packaging/arch/daeva-companion/pkg/
+/packaging/arch/daeva-companion/*.pkg.tar.zst
 
 # Never commit a signing key.
 *.pem

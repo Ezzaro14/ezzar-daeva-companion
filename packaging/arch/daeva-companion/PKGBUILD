@@ -1,0 +1,73 @@
+# Package of Ezzar's Daeva Companion for Arch and derivatives (CachyOS,
+# Manjaro, EndeavourOS): upstream's PKGBUILD (packaging/arch/PKGBUILD) under
+# this fork's names. Built by .github/workflows/installers.yml in an Arch
+# container, or by anyone from a checkout:
+#
+#   cd packaging/arch/daeva-companion && makepkg -si
+#
+# Tauri lays out the files (its .deb, unpacked into the package), so the
+# resources and the desktop entry sit exactly where the .deb and .rpm put
+# them. The install script grants packet-capture permission, so the app never
+# runs as root (see daeva-companion.install).
+
+pkgname=daeva-companion
+pkgver=2.0.73
+pkgrel=1
+pkgdesc="Ezzar's Daeva Companion: AION 2 DPS meter and combat overlays (Linux/Proton)"
+arch=('x86_64')
+url="https://github.com/taengu/A2Tools-DPS-Meter"
+license=('GPL-3.0-only')
+# gst-plugins-base and -good: WebKitGTK plays sound (a plugin's alerts) through
+# GStreamer, which webkit2gtk-4.1 only lists as optional.
+depends=('webkit2gtk-4.1' 'gtk3' 'libpcap' 'libcap' 'hicolor-icon-theme' 'gst-plugins-base' 'gst-plugins-good')
+makedepends=('rust' 'nodejs' 'npm' 'git' 'pkgconf' 'xdotool' 'libappindicator-gtk3' 'librsvg' 'openssl')
+install=daeva-companion.install
+options=('!lto' '!debug')
+
+# The repository root, three levels up from packaging/arch/daeva-companion.
+_root() {
+  cd "$startdir/../../.." && pwd
+}
+
+# A release (the commit tagged v<version>) is plain <version>; any other
+# commit is <version>.r<commits>.g<hash>, which pacman ranks after that
+# release, so a test build is never "downgraded" by the updater.
+pkgver() {
+  cd "$(_root)"
+  local version
+  version=$(grep -m1 '^version' src-tauri/Cargo.toml | cut -d'"' -f2)
+  if git tag --points-at HEAD | grep -qx "v$version"; then
+    printf '%s' "$version"
+  else
+    printf '%s.r%s.g%s' "$version" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  fi
+}
+
+build() {
+  cd "$(_root)"
+  # tauri.linux.conf.json names the hotkeys helper under src-tauri/target, so
+  # build there whatever CARGO_TARGET_DIR says.
+  export CARGO_TARGET_DIR="$PWD/src-tauri/target"
+  # Files a clean checkout lacks (gitignored mirrors of src/data).
+  mkdir -p public/i18n public/data public/src/data
+  cp -r src/data/i18n/* public/i18n/
+  cp src/data/skill_icons.json src/data/dot_skill_ids.json public/data/
+  cp src/data/skill_icons.json src/data/dot_skill_ids.json public/src/data/
+  npm ci --no-audit --no-fund
+  # The hotkeys helper first: tauri.linux.conf.json packs it next to the app.
+  cargo build --release --manifest-path src-tauri/Cargo.toml --bin daeva-companion-hotkeys
+  rm -rf src-tauri/target/release/bundle/deb
+  npx tauri build --bundles deb
+}
+
+package() {
+  local root deb
+  root="$(_root)"
+  deb=$(ls "$root"/src-tauri/target/release/bundle/deb/*.deb | head -1)
+  # Only the files: the .deb's dependencies and postinst are Debian's; this
+  # package has its own (depends above, daeva-companion.install).
+  bsdtar -xOf "$deb" 'data.tar*' | bsdtar -xf - -C "$pkgdir"
+  test -x "$pkgdir/usr/bin/daeva-companion"
+  test -x "$pkgdir/usr/bin/daeva-companion-hotkeys"
+  install -Dm644 "$root/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
