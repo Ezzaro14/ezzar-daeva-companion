@@ -32,6 +32,9 @@
 //   await a2.storage.get("state")              the plugin's own saved data
 //   await a2.storage.set("state", value)
 //   a2.notify("Text")                          a short message in the plugin's window
+//   a2.notify("Text", { id, keep })            fork: the same, named `id` so a later notify with that id
+//                                              replaces it; `keep` holds it on screen until replaced;
+//                                              a2.notify("", { id }) takes it away
 //   await a2.copy("Text")                      text to the clipboard (permission "feed:combat")
 //   await a2.systemNotify("Title", "Text")     a desktop notification (permission "notify:system")
 //   await a2.armory.character()                you as the official site shows you; or
@@ -163,7 +166,11 @@
       get: (key) => call("storage.get", [key]).then((v) => (v == null ? null : JSON.parse(v))),
       set: (key, value) => call("storage.set", [key, JSON.stringify(value)]),
     }),
-    notify: (text) => call("notify", [String(text)]),
+    notify: (text, options) =>
+      call("notify", [
+        String(text ?? ""),
+        options && typeof options === "object" ? { id: options.id == null ? null : String(options.id), keep: !!options.keep } : null,
+      ]),
     // Fork: text to the clipboard (permission "feed:combat").
     copy: (text) => call("clipboard.write", [String(text)]),
     // Fork: a desktop notification (permission "notify:system").

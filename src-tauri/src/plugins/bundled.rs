@@ -403,16 +403,34 @@ pub fn default_place(id: &str, name: &str) -> Option<(f64, f64)> {
 pub const NOTICES: &str = "notices";
 
 /// A plugin's short message (a2.notify), from the dashboard: to the Notices
-/// plugin, which shows it over the game.
+/// plugin, which shows it over the game. A message with an `id` replaces the
+/// plugin's earlier one of that id, `keep` holds it until then, and an empty
+/// text with an id takes it away. Ids are kept apart per plugin, so one plugin
+/// can't touch another's notices.
 #[tauri::command]
-pub fn plugin_toast(app: tauri::AppHandle, window: tauri::WebviewWindow, text: String, plugin: Option<String>) -> Result<(), String> {
-    let id = super::plugin_of(&window, plugin)?;
-    super::require(&app, &id, "notify")?;
-    let name = super::host(&app)?.with(&id, |l| l.manifest.name.clone()).unwrap_or_default();
+pub fn plugin_toast(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    text: String,
+    id: Option<String>,
+    keep: Option<bool>,
+    plugin: Option<String>,
+) -> Result<(), String> {
+    let from = super::plugin_of(&window, plugin)?;
+    super::require(&app, &from, "notify")?;
+    let name = super::host(&app)?.with(&from, |l| l.manifest.name.clone()).unwrap_or_default();
+    let key = id.filter(|k| !k.is_empty()).map(|k| format!("{from}:{}", k.chars().take(64).collect::<String>()));
     let event = serde_json::json!({
         "plugin": NOTICES,
         "event": "notice",
-        "data": { "from": id, "name": name, "text": text.chars().take(300).collect::<String>(), "at": crate::clock::now_ms() },
+        "data": {
+            "from": from,
+            "name": name,
+            "text": text.chars().take(300).collect::<String>(),
+            "at": crate::clock::now_ms(),
+            "id": key,
+            "keep": keep.unwrap_or(false),
+        },
     });
     super::emit_plugin(&app, NOTICES, event).map_err(|e| e.to_string())
 }

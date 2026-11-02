@@ -1,5 +1,7 @@
 // The notices popup: up to three at a time, newest on top, each gone after
-// `hold` ms. Only the popups (or, while placing, the outline) take the mouse.
+// `hold` ms; one with an id is updated in place by the next of that id, and
+// one kept (`keep`) stays until then. Only the popups (or, while placing, the
+// outline) take the mouse.
 const stack = document.querySelector(".stack");
 const placeholder = document.querySelector(".placeholder");
 let config = { hold: 8000, scale: 1, placing: false };
@@ -16,24 +18,53 @@ function toneOf(n) {
   return "is-info";
 }
 
-function add(n) {
-  const el = document.createElement("div");
-  el.className = `notice w-panel w-edge ${toneOf(n)}`;
-  el.append(Object.assign(document.createElement("div"), { className: "title w-kicker", textContent: n.title || "" }));
-  el.append(Object.assign(document.createElement("div"), { className: "text", textContent: n.text || "" }));
+// Fade a notice out and drop it.
+function fade(el) {
+  clearTimeout(el._timer);
+  el.classList.add("out");
+  setTimeout(() => {
+    el.remove();
+    reportArea();
+  }, 300);
+}
+
+// Its countdown, from the start: none for a kept one.
+function arm(el, keep) {
+  clearTimeout(el._timer);
+  el.classList.toggle("kept", keep);
+  const old = el.querySelector(".bar");
   const bar = document.createElement("div");
   bar.className = "bar";
-  bar.style.animationDuration = `${config.hold}ms`;
-  el.append(bar);
-  stack.prepend(el);
-  while (stack.children.length > MAX) stack.lastElementChild.remove();
-  setTimeout(() => {
-    el.classList.add("out");
-    setTimeout(() => {
-      el.remove();
-      reportArea();
-    }, 300);
-  }, config.hold);
+  if (keep) {
+    bar.style.animation = "none";
+  } else {
+    bar.style.animationDuration = `${config.hold}ms`;
+    el._timer = setTimeout(() => fade(el), config.hold);
+  }
+  if (old) old.replaceWith(bar);
+  else el.append(bar);
+}
+
+const byId = (id) => [...stack.children].find((c) => c.dataset.id === id && !c.classList.contains("out"));
+
+function add(n) {
+  let el = n.id ? byId(n.id) : null;
+  if (!el) {
+    el = document.createElement("div");
+    el.append(Object.assign(document.createElement("div"), { className: "title w-kicker" }));
+    el.append(Object.assign(document.createElement("div"), { className: "text" }));
+    if (n.id) el.dataset.id = n.id;
+    stack.prepend(el);
+  }
+  el.className = `notice w-panel w-edge ${toneOf(n)}`;
+  el.querySelector(".title").textContent = n.title || "";
+  el.querySelector(".text").textContent = n.text || "";
+  arm(el, !!n.keep);
+  // Over three: the oldest that isn't kept goes first.
+  while (stack.children.length > MAX) {
+    const timed = [...stack.children].reverse().find((c) => !c.classList.contains("kept"));
+    (timed || stack.lastElementChild).remove();
+  }
   reportArea();
 }
 
@@ -46,6 +77,10 @@ a2.on("widget", (d) => {
     reportArea();
   }
   if (d.notice) add(d.notice);
+  if (d.dismiss) {
+    const el = byId(d.dismiss);
+    if (el) fade(el);
+  }
 });
 a2.on("locked", (on) => {
   locked = !!on;

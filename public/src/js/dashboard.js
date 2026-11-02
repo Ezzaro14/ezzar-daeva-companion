@@ -103,10 +103,12 @@
         call("plugin_widget_place", { name: String(name), x: Math.round(Number(at?.x)), y: Math.round(Number(at?.y)) })
       ),
       // A short message: on screen, as a notice (the Notices plugin), and here.
-      notify: ([text]) => {
+      // With an id, a later message of that id replaces it, and "" takes it away.
+      notify: ([text, o]) => {
         need("notify");
-        toast(mod.name, String(text));
-        return call("plugin_toast", { text: String(text) });
+        const id = o?.id ? String(o.id).slice(0, 64) : null;
+        if (String(text)) toast(mod.name, String(text));
+        return call("plugin_toast", { text: String(text), id, keep: !!o?.keep });
       },
       "armory.character": ([who]) => (
         need("feed:armory"),

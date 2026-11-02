@@ -35,3 +35,5 @@ body { display: flex; flex-direction: column; align-items: center; padding-top: 
   cursor: grab;
 }
 .phText { margin-top: 2px; font-size: calc(14px * var(--scale)); font-weight: 600; color: var(--w-muted); }
+/* A kept notice (until its module takes it away): a still, dimmer bar. */
+.notice.kept .bar { opacity: 0.35; }

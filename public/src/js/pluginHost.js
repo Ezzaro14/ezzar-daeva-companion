@@ -140,7 +140,8 @@
     },
     notify: ([text]) => {
       if (!allowed("notify")) throw new Error('the plugin lacks the "notify" permission');
-      showToast(String(text));
+      // "" with an id takes a kept notice away (dashboard.js): nothing to show here.
+      if (String(text)) showToast(String(text));
       return true;
     },
     // A link clicked in the plugin's page (the SDK passes on https ones): its
