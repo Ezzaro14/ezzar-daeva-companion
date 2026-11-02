@@ -25,6 +25,8 @@ The **Alerts** tab starts with **Quick picks**, which turn a whole set on or off
 
 An alert plays a sound and shows a message in the window, or shows its icon (Settings → On screen), once per showing. The sounds are Hidden Cube Alert's (Chime, Bell, Sparkle, Ping, Soft) and four more (Gong, Horn, Harp, Alarm), made in the plugin, with no sound files. A timer with an alert set shows a 🔔. On the **Bosses** tab, each boss has its own bell, which turns its alert on or off, and a gear, lit while the alert is on, which opens that alert under **Your alerts**; a world boss covered only by **All world bosses** shows a half-lit bell. Click **Scheduled bosses** or **World bosses** to fold that list away; the window remembers which are folded. With **Also alert as it starts** on (under Settings), an alert set for some minutes before goes off again as the event starts, or as the world boss is due.
 
+**Hidden cubes:** when a hidden cube comes into range, an alert says **Hidden cube nearby!**, with the alert sound. It reads the cube's spawn from the game's traffic, about a second before the cube shows on screen. In the dashboard the notice stays on screen until the cube is opened: when you open it, it goes; when someone else starts opening it, it says **Someone is opening the hidden cube…**, then **Someone else opened the hidden cube**, and goes a few seconds later. Walking out of range keeps the notice (the cube may still be there); one not seen again for 5 minutes is let go. Turn it off with **Alert when a hidden cube is near** under Settings.
+
 ## Anchor mode
 
 With alerts shown as icons, **Anchor mode** (Settings → On screen, the Placement card) puts all the icons in one grid beside an anchor (⚓), instead of each in its own window where it was dragged. While the Settings tab is open, the anchor and every place in the grid show on screen: unlock the icons and drag the anchor to place the grid. Leave Settings and only the icons stay.
@@ -57,5 +59,8 @@ World bosses that respawn a while after they're killed (most of the world map's 
 - `storage`: your settings, alerts and hidden events, on this computer.
 - `notify`: the alert's message in the window.
 - `window`: to bring the window up when an alert goes off, if you ask for it.
+- `decoder:object-spawn`: the id and kind of each world object the game spawns near you (frame `34 36`), to tell when one is a hidden cube.
+- `decoder:object-opening`, `decoder:object-opened`, `decoder:object-gone`: an object's id when someone starts opening it, opens it, or it goes (frames `38 36`, `3A 36`, `35 36`).
+- `decoder:object-opening-mine`, `decoder:object-opened-mine`, `decoder:object-using-mine`: the same, passed on only when it is you (the meter checks the player against your character, so the plugin never sees anyone's id; `37 36` is only sent to the player opening).
 
 Plugin API 2: needs meter 2.0.62 or later.

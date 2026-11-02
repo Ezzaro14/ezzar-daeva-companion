@@ -218,6 +218,62 @@ mod tests {
         Decoder::compile(&serde_json::from_str(json).unwrap()).unwrap()
     }
 
+    /// Event Timers' hidden cube alert reads the object spawn with the
+    /// decoder its manifest ships. The body is a cube's spawn from a capture
+    /// of 2026-10-31 (packet #280 of cube1.txt, past `3D 34 36`): entity
+    /// 57473 as a three-byte varint, kind 4, template 1301199.
+    #[test]
+    fn the_event_timers_manifest_reads_a_hidden_cube_spawn() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/bundled-plugins/event-timers/manifest.json");
+        let manifest: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let spec = manifest["decoders"].as_array().unwrap().iter().find(|d| d["name"] == "object-spawn").unwrap();
+        let d = Decoder::compile(&serde_json::from_value(spec.clone()).unwrap()).unwrap();
+        assert_eq!(d.opcode, [0x34, 0x36]);
+        let hex = "81C1030400CFDA130037D1CD46A798FFC700601045000000000038384301010181\
+                   4B9292A1010000000000000000000000F4A4F0AC070000";
+        let body: Vec<u8> =
+            (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap()).collect();
+        let v = d.decode(&body).unwrap();
+        assert_eq!(v["entity"], 57473);
+        assert_eq!(v["kind"], 4);
+        assert_eq!(v["template"], 1301199);
+    }
+
+    /// The rest of the cube's life, with the same manifest's decoders on the
+    /// records of cube1.txt: your cube (57473) opened by you (entity 637, the
+    /// `FD 04` the meter's log named as you), another cube (30066) by someone
+    /// else (10758), and its going.
+    #[test]
+    fn the_event_timers_manifest_reads_a_hidden_cube_being_opened() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/bundled-plugins/event-timers/manifest.json");
+        let manifest: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let decoder = |name: &str| {
+            let spec = manifest["decoders"].as_array().unwrap().iter().find(|d| d["name"] == name).unwrap();
+            Decoder::compile(&serde_json::from_value(spec.clone()).unwrap()).unwrap()
+        };
+        let bytes = |hex: &str| -> Vec<u8> {
+            let hex: String = hex.split_whitespace().collect();
+            (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap()).collect()
+        };
+        // Bodies past the length and opcode, as `on_frame` hands them over.
+        let mine = decoder("object-opening-mine");
+        assert_eq!(mine.opcode, [0x38, 0x36]);
+        assert_eq!(mine.self_field.as_deref(), Some("actor"));
+        let v = mine.decode(&bytes("81 C1 03 FD 04 01")).unwrap();
+        assert_eq!((v["entity"].as_i64(), v["actor"].as_i64()), (Some(57473), Some(637)));
+        let v = decoder("object-opening").decode(&bytes("F2 EA 01 86 54 01")).unwrap();
+        assert_eq!(v["entity"], 30066);
+        assert!(v.get("actor").is_none(), "the plain decoder reads no player id");
+        let v = decoder("object-using-mine").decode(&bytes("00 00 00 81 C1 03 00 00 00 00 00 00 00 00")).unwrap();
+        assert_eq!(v["entity"], 57473);
+        let v = decoder("object-opened-mine").decode(&bytes("81 C1 03 FD 04 01 00 00 00 23 C5 9A 25")).unwrap();
+        assert_eq!((v["entity"].as_i64(), v["actor"].as_i64()), (Some(57473), Some(637)));
+        let v = decoder("object-opened-mine").decode(&bytes("F2 EA 01 86 54 01 00 00 00 23 C5 9A 25")).unwrap();
+        assert_eq!(v["actor"], 10758, "someone else: the meter's self check drops this one");
+        assert_eq!(decoder("object-opened").decode(&bytes("F2 EA 01 86 54 01 00 00 00 23 C5 9A 25")).unwrap()["entity"], 30066);
+        assert_eq!(decoder("object-gone").decode(&bytes("F2 EA 01 04 03 00")).unwrap()["entity"], 30066);
+    }
+
     /// A player with more than 127 pets: the game sends the list's count as a
     /// varint, two bytes from 128 on (`87 01` = 135, from a player's log,
     /// 2026-10-13). Read as a u8 the whole list came out one byte off.

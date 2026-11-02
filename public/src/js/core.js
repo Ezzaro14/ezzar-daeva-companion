@@ -4445,6 +4445,8 @@ class DpsApp {
     const toggleBtn = document.querySelector(".toggleKeybindBtn");
     const lockKeyBtn = document.querySelector(".lockKeybindBtn");
     const pluginsKeyBtn = document.querySelector(".pluginsKeybindBtn");
+    const markVisibleBtn = document.querySelector(".markVisibleKeybindBtn");
+    const markPickupBtn = document.querySelector(".markPickupKeybindBtn");
     const notSet = () => this.i18n?.t?.("settings.keybind.notSet", "Not set") ?? "Not set";
 
     this.refreshKeybindLabels = () => {
@@ -4465,6 +4467,14 @@ class DpsApp {
         pluginsKeyBtn.querySelector(".keybindText").textContent = label || notSet();
         pluginsKeyBtn.classList.toggle("isUnset", !label);
       }
+      for (const [btn, label] of [
+        [markVisibleBtn, window.javaBridge?.getCurrentMarkVisibleHotKey?.() || ""],
+        [markPickupBtn, window.javaBridge?.getCurrentMarkPickupHotKey?.() || ""],
+      ]) {
+        if (!btn) continue;
+        btn.querySelector(".keybindText").textContent = label || notSet();
+        btn.classList.toggle("isUnset", !label);
+      }
     };
     this.refreshKeybindLabels();
 
@@ -4475,7 +4485,10 @@ class DpsApp {
     let lastHotkeyStatus = {};
     this.applyHotkeyStatus = (status) => {
       lastHotkeyStatus = status && typeof status === "object" ? status : {};
-      const rows = [[reloadBtn, "reload"], [toggleBtn, "toggle"], [lockKeyBtn, "lock"], [pluginsKeyBtn, "plugins"]]
+      const rows = [
+        [reloadBtn, "reload"], [toggleBtn, "toggle"], [lockKeyBtn, "lock"], [pluginsKeyBtn, "plugins"],
+        [markVisibleBtn, "markVisible"], [markPickupBtn, "markPickup"],
+      ]
         .filter(([btn]) => btn && btn.closest?.(".settingsRowKeybind")?.style?.display !== "none")
         .filter(([btn]) => !btn.classList?.contains?.("isUnset"));
       const labelOf = (btn) => (btn.querySelector?.(".keybindText")?.textContent || "").trim().toLowerCase();
@@ -4570,6 +4583,8 @@ class DpsApp {
     toggleBtn?.addEventListener("click", () => handleKeybindClick(toggleBtn, "toggle"));
     lockKeyBtn?.addEventListener("click", () => handleKeybindClick(lockKeyBtn, "lock"));
     pluginsKeyBtn?.addEventListener("click", () => handleKeybindClick(pluginsKeyBtn, "plugins"));
+    markVisibleBtn?.addEventListener("click", () => handleKeybindClick(markVisibleBtn, "markVisible"));
+    markPickupBtn?.addEventListener("click", () => handleKeybindClick(markPickupBtn, "markPickup"));
     document.querySelector(".keybindDesktopBtn")?.addEventListener("click", () => {
       Promise.resolve(window.javaBridge?.openDesktopShortcuts?.()).catch(() => {});
     });
@@ -4642,6 +4657,10 @@ class DpsApp {
         if (lockKeyBtn) lockKeyBtn.querySelector(".keybindText").textContent = label;
       } else if (type === "plugins") {
         window.javaBridge?.setPluginWindowsHotkey?.(mods, vk);
+      } else if (type === "markVisible") {
+        window.javaBridge?.setMarkVisibleHotkey?.(mods, vk);
+      } else if (type === "markPickup") {
+        window.javaBridge?.setMarkPickupHotkey?.(mods, vk);
       }
       this.refreshKeybindLabels();
     }, true);

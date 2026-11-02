@@ -1,7 +1,7 @@
 {
   "id": "event-timers",
   "name": "Event Timers",
-  "version": "0.6.3",
+  "version": "0.8.0",
   "apiVersion": 2,
   "author": "A2 Tools",
   "description": "Countdowns to events and bosses in your server's time, with alerts before the ones you pick, and any timer pinned as an icon you place anywhere.",
@@ -12,9 +12,65 @@
     "feed:boss-timers",
     "widgets",
     "notify:system",
-    "notify"
+    "notify",
+    "decoder:object-spawn",
+    "decoder:object-opening",
+    "decoder:object-opening-mine",
+    "decoder:object-using-mine",
+    "decoder:object-opened",
+    "decoder:object-opened-mine",
+    "decoder:object-gone"
   ],
-  "decoders": [],
+  "decoders": [
+    {
+      "name": "object-spawn",
+      "opcode": "34 36",
+      "immediate": true,
+      "fields": [
+        { "name": "entity", "type": "varint" },
+        { "name": "kind", "type": "u16" },
+        { "name": "template", "type": "u32" }
+      ]
+    },
+    {
+      "name": "object-opening-mine",
+      "opcode": "38 36",
+      "immediate": true,
+      "self": "actor",
+      "fields": [ { "name": "entity", "type": "varint" }, { "name": "actor", "type": "varint" } ]
+    },
+    {
+      "name": "object-opening",
+      "opcode": "38 36",
+      "immediate": true,
+      "fields": [ { "name": "entity", "type": "varint" } ]
+    },
+    {
+      "name": "object-using-mine",
+      "opcode": "37 36",
+      "immediate": true,
+      "fields": [ { "type": "skip:3" }, { "name": "entity", "type": "varint" } ]
+    },
+    {
+      "name": "object-opened-mine",
+      "opcode": "3A 36",
+      "immediate": true,
+      "self": "actor",
+      "fields": [ { "name": "entity", "type": "varint" }, { "name": "actor", "type": "varint" } ]
+    },
+    {
+      "name": "object-opened",
+      "opcode": "3A 36",
+      "immediate": true,
+      "fields": [ { "name": "entity", "type": "varint" } ]
+    },
+    {
+      "name": "object-gone",
+      "opcode": "35 36",
+      "immediate": true,
+      "fields": [ { "name": "entity", "type": "varint" } ]
+    }
+  ],
   "ui": {
     "panel": {
       "width": 420,

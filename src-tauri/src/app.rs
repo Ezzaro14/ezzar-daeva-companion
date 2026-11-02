@@ -881,8 +881,14 @@ struct Hotkeys {
 }
 
 /// The keybind settings: changing one registers the keys again.
-const HOTKEY_KEYS: [&str; 4] =
-    ["dpsMeter.hotkey", "dpsMeter.toggleWindowHotkey", "dpsMeter.lockHotkey", "dpsMeter.pluginWindowsHotkey"];
+const HOTKEY_KEYS: [&str; 6] = [
+    "dpsMeter.hotkey",
+    "dpsMeter.toggleWindowHotkey",
+    "dpsMeter.lockHotkey",
+    "dpsMeter.pluginWindowsHotkey",
+    "dpsMeter.markVisibleHotkey",
+    "dpsMeter.markPickupHotkey",
+];
 
 /// Open the desktop's own shortcut settings, where the keys are set on
 /// Linux (KDE keeps its own; see platform::hotkeys).
@@ -933,13 +939,38 @@ fn restart_global_hotkeys(app: &tauri::AppHandle) {
 }
 
 /// The keybind settings and their defaults, as Settings shows them: the
-/// plugin windows key has none (`""`), so it is off until one is set.
-pub const HOTKEY_DEFAULTS: [(&str, &str); 4] = [
+/// plugin windows key and the two capture marks have none (`""`), so they are
+/// off until one is set.
+pub const HOTKEY_DEFAULTS: [(&str, &str); 6] = [
     ("dpsMeter.hotkey", "Ctrl+Alt+R"),
     ("dpsMeter.toggleWindowHotkey", "Ctrl+Alt+Up"),
     ("dpsMeter.lockHotkey", "Ctrl+Alt+L"),
     ("dpsMeter.pluginWindowsHotkey", ""),
+    ("dpsMeter.markVisibleHotkey", ""),
+    ("dpsMeter.markPickupHotkey", ""),
 ];
+
+/// How many marks the mark keys have made since the meter started, so each
+/// line in the capture and its notification carry the same number.
+static MARKS_MADE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// A mark key fired: write the mark into the open packet capture, and say so
+/// in a desktop notification, since the key is pressed in game with nothing
+/// of the meter in view. With packet logging off there is no capture to
+/// mark: the notification says that instead, and debug.log keeps the time.
+fn mark_capture(app: &tauri::AppHandle, label: &'static str, what: &str) {
+    use tauri_plugin_notification::NotificationExt;
+    let nth = MARKS_MADE.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+    let written = logging::logger::log_mark(label, nth);
+    let body = if written {
+        tracing::info!("Hotkey: capture marked {label} {nth}");
+        format!("Mark {nth}: {what}")
+    } else {
+        tracing::warn!("Hotkey: {label} {nth} pressed with packet logging off; nothing marked");
+        "Packet logging is off: turn it on in Settings → Diagnostics first.".to_string()
+    };
+    let _ = app.notification().builder().title(crate::fork::APP_NAME).body(body).show();
+}
 
 /// A keybind setting's key: what is saved, else (unset or unreadable) its
 /// default. A key of 0 is off.
@@ -1005,8 +1036,17 @@ fn start_hotkeys(app: &tauri::AppHandle, settings: &Settings) {
         let _ = h.run_on_main_thread(move || crate::plugins::bring_back_windows(&app));
     }));
 
+    let h = app.clone();
+    let mark_visible = binding("markVisible", "dpsMeter.markVisibleHotkey", Box::new(move || {
+        mark_capture(&h, "cube-visible", "hidden cube visible");
+    }));
+    let h = app.clone();
+    let mark_pickup = binding("markPickup", "dpsMeter.markPickupHotkey", Box::new(move || {
+        mark_capture(&h, "cube-pickup", "hidden cube picked up");
+    }));
+
     hotkeys.manager.start(
-        vec![reload, toggle, lock, plugins],
+        vec![reload, toggle, lock, plugins, mark_visible, mark_pickup],
         move |key, state, assigned| {
             set_hotkey_status(&status_handle, |s| {
                 s.insert(key.to_string(), state.to_string());

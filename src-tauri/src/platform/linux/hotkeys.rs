@@ -43,6 +43,8 @@ const RELOAD: &str = "reset";
 const TOGGLE: &str = "toggle";
 const LOCK: &str = "lock";
 const PLUGINS: &str = "plugins";
+const MARK_VISIBLE: &str = "mark-visible";
+const MARK_PICKUP: &str = "mark-pickup";
 
 /// A binding's shortcut id and the description the desktop shows.
 fn shortcut_of(name: &str) -> Option<(&'static str, &'static str)> {
@@ -51,6 +53,8 @@ fn shortcut_of(name: &str) -> Option<(&'static str, &'static str)> {
         "toggle" => (TOGGLE, "Show or hide the meter"),
         "lock" => (LOCK, "Turn the click-through lock on or off"),
         "plugins" => (PLUGINS, "Bring back the open plugin windows"),
+        "markVisible" => (MARK_VISIBLE, "Mark the packet capture: hidden cube visible"),
+        "markPickup" => (MARK_PICKUP, "Mark the packet capture: hidden cube picked up"),
         _ => return None,
     })
 }
@@ -209,7 +213,7 @@ pub fn run_helper() -> i32 {
         let (Some(id), Some(description)) = (fields.next(), fields.next()) else { continue };
         let trigger = fields.next().filter(|t| !t.is_empty()).map(str::to_string);
         // Known ids only: they are what the portal and Hyprland are told.
-        let Some(id) = [RELOAD, TOGGLE, LOCK, PLUGINS].into_iter().find(|known| *known == id) else { continue };
+        let Some(id) = [RELOAD, TOGGLE, LOCK, PLUGINS, MARK_VISIBLE, MARK_PICKUP].into_iter().find(|known| *known == id) else { continue };
         let description: &'static str = Box::leak(description.to_string().into_boxed_str());
         wanted.push((id, description, trigger));
     }
@@ -310,6 +314,8 @@ fn status_key(id: &str) -> Option<&'static str> {
         TOGGLE => Some("toggle"),
         LOCK => Some("lock"),
         PLUGINS => Some("plugins"),
+        MARK_VISIBLE => Some("markVisible"),
+        MARK_PICKUP => Some("markPickup"),
         _ => None,
     }
 }

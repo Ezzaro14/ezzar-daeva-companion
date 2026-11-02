@@ -759,6 +759,19 @@
     setPluginWindowsHotkey(mods, vk) {
       this.setSetting("dpsMeter.pluginWindowsHotkey", this._buildHotkeyLabel(mods, vk));
     },
+    // The packet-capture marks (app.rs, mark_capture): no default either.
+    getCurrentMarkVisibleHotKey() {
+      return this.getSetting("dpsMeter.markVisibleHotkey") || "";
+    },
+    setMarkVisibleHotkey(mods, vk) {
+      this.setSetting("dpsMeter.markVisibleHotkey", this._buildHotkeyLabel(mods, vk));
+    },
+    getCurrentMarkPickupHotKey() {
+      return this.getSetting("dpsMeter.markPickupHotkey") || "";
+    },
+    setMarkPickupHotkey(mods, vk) {
+      this.setSetting("dpsMeter.markPickupHotkey", this._buildHotkeyLabel(mods, vk));
+    },
     // Every keybind back to its default (app.rs, HOTKEY_DEFAULTS).
     // Linux: the desktop's own shortcut settings (KDE, GNOME, or the portal's).
     openDesktopShortcuts() {
@@ -769,6 +782,8 @@
       this.setSetting("dpsMeter.toggleWindowHotkey", "Ctrl+Alt+Up");
       this.setSetting("dpsMeter.lockHotkey", "Ctrl+Alt+L");
       this.setSetting("dpsMeter.pluginWindowsHotkey", "");
+      this.setSetting("dpsMeter.markVisibleHotkey", "");
+      this.setSetting("dpsMeter.markPickupHotkey", "");
     },
     // Each key's registration: { <key>: "ok" | "taken" | "unset", and on
     // Linux "<key>.assigned": the key the desktop gave it }.

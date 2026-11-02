@@ -12,6 +12,7 @@
 //! a2t-probe tables   <capture> --items items.json  item-id tables, slot-decoded
 //! a2t-probe dump     <capture> --opcode 45,36      annotated hexdump
 //! a2t-probe diff     <before> <after>              what changed between captures
+//! a2t-probe marks    <capture> --baseline <before> packets and new values around each keybind mark
 //! ```
 //!
 //! **`diff` is the one that finds structure.** Take a capture, change one thing
@@ -387,20 +388,7 @@ fn main() -> ExitCode {
 
             // Every u32 that appears in one capture and not the other. Change one
             // thing in game between captures and the field falls out of this.
-            let u32s = |ps: &[Packet]| -> HashSet<u32> {
-                let mut set = HashSet::new();
-                for p in ps {
-                    for w in p.bytes.windows(4) {
-                        let v = u32::from_le_bytes([w[0], w[1], w[2], w[3]]);
-                        // Below this is mostly lengths, counters and noise.
-                        if v > 1_000_000 {
-                            set.insert(v);
-                        }
-                    }
-                }
-                set
-            };
-            let (sa, sb) = (u32s(&a), u32s(&b));
+            let (sa, sb) = (u32_values(&a), u32_values(&b));
             let only_b: Vec<u32> = {
                 let mut v: Vec<u32> = sb.difference(&sa).copied().collect();
                 v.sort_unstable();
@@ -436,12 +424,189 @@ fn main() -> ExitCode {
             );
         }
 
+        "marks" => {
+            let marks = load_marks(&args[1]);
+            if marks.is_empty() {
+                println!("no marks in this capture (the mark keybinds write them while packet logging is on)");
+                return ExitCode::FAILURE;
+            }
+            let packets = load(&args[1]);
+            let baseline = value_of("--baseline").map(|path| load(&path));
+            let keep_floats = args.iter().any(|a| a == "--floats");
+            let window_ms = num("--secs").unwrap_or(3) as i64 * 1000;
+            let limit = num("--limit").unwrap_or(60);
+            for mark in &marks {
+                let (from, to) = (mark.at_ms - window_ms, mark.at_ms + window_ms);
+                let first_after = packets.iter().find(|p| p.at_ms >= mark.at_ms).map(|p| p.index);
+                println!(
+                    "\n=== {} {} at {} — first packet after it: {} ===",
+                    mark.label,
+                    mark.nth,
+                    mark.when,
+                    first_after.map(|i| format!("#{i}")).unwrap_or_else(|| "none".into())
+                );
+                let near: Vec<&Packet> = packets.iter().filter(|p| p.at_ms >= from && p.at_ms <= to).collect();
+                println!("  {} packets within {} s", near.len(), window_ms / 1000);
+                for p in near.iter().take(limit) {
+                    let op = p.opcode().unwrap_or([0, 0]);
+                    println!(
+                        "  #{:<7} {:>+6} ms  {:02X} {:02X}  {:>5} bytes",
+                        p.index,
+                        p.at_ms - mark.at_ms,
+                        op[0],
+                        op[1],
+                        p.bytes.len()
+                    );
+                }
+                if near.len() > limit {
+                    println!("  ... {} more (--limit N)", near.len() - limit);
+                }
+                // An object coming into view or being picked up is likely an
+                // opcode the minutes before never sent.
+                let earlier: Vec<&Packet> = packets.iter().filter(|p| p.at_ms < from).collect();
+                let mut before: HashSet<[u8; 2]> = earlier.iter().filter_map(|p| p.opcode()).collect();
+                if let Some(base) = &baseline {
+                    before.extend(base.iter().filter_map(|p| p.opcode()));
+                }
+                let mut fresh: Vec<[u8; 2]> =
+                    near.iter().filter_map(|p| p.opcode()).filter(|op| !before.contains(op)).collect();
+                fresh.sort_unstable();
+                fresh.dedup();
+                if !fresh.is_empty() {
+                    let against = if baseline.is_some() { "the baseline or earlier in the capture" } else { "earlier in the capture" };
+                    println!("  opcodes not seen in {against}:");
+                    for op in fresh {
+                        println!("    {:02X} {:02X}", op[0], op[1]);
+                    }
+                }
+
+                // With a baseline (a capture taken with no cube about), the
+                // values in this window it never held: the cube's ids. Only
+                // the baseline counts as known, not the capture before the
+                // window, because the server may have sent the cube well
+                // before it came into view; that time is shown instead.
+                if let Some(base) = &baseline {
+                    let known = u32_values(base);
+                    let mut seen: HashSet<u32> = HashSet::new();
+                    let mut new_values: Vec<(u32, usize, usize)> = Vec::new();
+                    for p in &near {
+                        for (offset, w) in p.bytes.windows(4).enumerate() {
+                            let v = u32::from_le_bytes([w[0], w[1], w[2], w[3]]);
+                            if v > 1_000_000 && !known.contains(&v) && (keep_floats || !float_like(v)) && seen.insert(v) {
+                                new_values.push((v, p.index, offset));
+                            }
+                        }
+                    }
+                    // Rank them by how much of their traffic is at the marks:
+                    // the cube's id turns up in a few packets, most of them
+                    // when it came into view and when it was picked up, while
+                    // anything ordinary (and four bytes straddling two fields
+                    // of it) turns up all along. One pass, for these only.
+                    let wanted: HashSet<u32> = new_values.iter().map(|(v, _, _)| *v).collect();
+                    let at_a_mark =
+                        |p: &Packet| marks.iter().any(|m| (p.at_ms - m.at_ms).abs() <= window_ms);
+                    // Per value: packets carrying it, how many at a mark, the first before this window.
+                    let mut carried: HashMap<u32, (usize, usize, Option<&Packet>)> = HashMap::new();
+                    for p in &packets {
+                        let mut here: HashSet<u32> = HashSet::new();
+                        for w in p.bytes.windows(4) {
+                            let v = u32::from_le_bytes([w[0], w[1], w[2], w[3]]);
+                            if wanted.contains(&v) && here.insert(v) {
+                                let e = carried.entry(v).or_insert((0, 0, None));
+                                e.0 += 1;
+                                if at_a_mark(p) {
+                                    e.1 += 1;
+                                }
+                                if e.2.is_none() && p.at_ms < from {
+                                    e.2 = Some(p);
+                                }
+                            }
+                        }
+                    }
+                    // A value in one packet only is as often a straddle as an
+                    // id, so recurring ones come first.
+                    let recurs = |v: &u32| carried.get(v).is_some_and(|c| c.0 >= 2);
+                    let share = |v: &u32| carried.get(v).map_or(0, |c| c.1 * 1000 / c.0.max(1));
+                    new_values.sort_by_key(|(v, index, offset)| {
+                        (!recurs(v), std::cmp::Reverse(share(v)), std::cmp::Reverse(carried.get(v).map_or(0, |c| c.1)), *index, *offset)
+                    });
+                    println!("  values not in the baseline ({}), the most concentrated at the marks first:", new_values.len());
+                    for (v, index, offset) in new_values.iter().take(limit) {
+                        let (count, marked, first) = carried.get(v).copied().unwrap_or((0, 0, None));
+                        let since = first
+                            .map(|p| format!(", first sent {:.1} s before the mark (#{})", (mark.at_ms - p.at_ms) as f64 / 1000.0, p.index))
+                            .unwrap_or_default();
+                        println!("    {v:<12} 0x{v:08X}  #{index} at {offset:<4} {marked} of {count} packets at a mark{since}");
+                    }
+                    if new_values.len() > limit {
+                        println!("    ... {} more (--limit N)", new_values.len() - limit);
+                    }
+                }
+            }
+            if baseline.is_none() {
+                println!("\nAdd --baseline <capture with no cube about> to list the values only this window has.");
+            }
+            println!("\nLook closer: a2t-probe dump <capture> --packet N --at OFFSET");
+        }
+
         other => {
             eprintln!("unknown command {other:?}\n\n{USAGE}");
             return ExitCode::from(2);
         }
     }
     ExitCode::SUCCESS
+}
+
+/// Every u32 (little-endian, at any offset) above a million in these packets:
+/// below that is mostly lengths, counters and noise.
+fn u32_values<'a>(packets: impl IntoIterator<Item = &'a Packet>) -> HashSet<u32> {
+    let mut set = HashSet::new();
+    for p in packets {
+        for w in p.bytes.windows(4) {
+            let v = u32::from_le_bytes([w[0], w[1], w[2], w[3]]);
+            if v > 1_000_000 {
+                set.insert(v);
+            }
+        }
+    }
+    set
+}
+
+/// Whether these four bytes read as an ordinary float: a coordinate, a
+/// heading, a speed. Moving about sends new ones every packet, and they would
+/// bury the ids in a window's new values. Ids up to about 980 million read as
+/// vanishingly small floats, so they stay.
+fn float_like(v: u32) -> bool {
+    let f = f32::from_bits(v).abs();
+    (1e-3..1e7).contains(&f)
+}
+
+/// A `# MARK <time> <label> <n>` line the mark keybinds wrote into a capture
+/// (`logging::logger::log_mark`).
+struct Mark {
+    when: String,
+    at_ms: i64,
+    label: String,
+    nth: String,
+}
+
+fn load_marks(path: &str) -> Vec<Mark> {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Vec::new();
+    };
+    text.lines()
+        .filter_map(|line| {
+            let mut parts = line.strip_prefix("# MARK ")?.split_whitespace();
+            let when = parts.next()?;
+            let at = chrono::DateTime::parse_from_rfc3339(when).ok()?;
+            Some(Mark {
+                when: when.to_string(),
+                at_ms: at.timestamp_millis(),
+                label: parts.next().unwrap_or("mark").to_string(),
+                nth: parts.next().unwrap_or("").to_string(),
+            })
+        })
+        .collect()
 }
 
 fn load_item_ids(path: &str) -> Option<HashSet<u32>> {
@@ -477,6 +642,14 @@ a2t-probe — explore the structure of an AION 2 packet capture
   a2t-probe diff <before> <after>
       Values present in one capture and not the other. Change ONE thing in game
       between the two and the field you are hunting falls out of this list.
+
+  a2t-probe marks <capture> [--baseline <capture>] [--secs S] [--limit N] [--floats]
+      Each mark the mark keybinds wrote (cube visible, cube picked up): the
+      packets within S seconds of it (default 3) and the opcodes there that
+      the capture had not sent before. With --baseline (a capture taken with
+      no cube about), also every u32 in that window the baseline never held,
+      and how long before the mark it was first sent. Values that read as
+      ordinary floats (positions) are left out unless --floats.
 
 Captures are packets_*.txt from the meter (Settings -> Diagnostics -> Enable
 packet logging). Offsets are into the decoded packet, so they feed straight back

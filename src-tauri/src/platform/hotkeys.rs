@@ -4,7 +4,7 @@
 pub use super::os::hotkeys::{run_helper, HotkeyManager, DEFAULT_ON};
 
 /// One global hotkey: its settings name (`reload`, `toggle`, `lock`,
-/// `plugins`), the key (Win32 modifier flags and virtual-key code; a key of 0
+/// `plugins`, `markVisible`, `markPickup`), the key (Win32 modifier flags and virtual-key code; a key of 0
 /// leaves it out) and what it does.
 pub struct Binding {
     pub name: &'static str,

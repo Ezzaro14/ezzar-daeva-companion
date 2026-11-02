@@ -56,6 +56,8 @@ const els = {
   popLabel: $(".popLabel"),
   alsoAtStart: $(".alsoAtStart"),
   alsoAtStartLabel: $(".alsoAtStartLabel"),
+  cubeAlert: $(".cubeAlert"),
+  cubeAlertLabel: $(".cubeAlertLabel"),
   popNote: $(".popNote"),
   alertList: $(".alertList"),
   regionLabel: $(".regionLabel"),
@@ -377,7 +379,7 @@ let gameRunning = null;
 // folded: the Bosses tab's sections folded away ({ scheduled, field }).
 let prefs = { region: "auto", hidden: [], alerts: {}, leads: {}, closedLeads: {}, sound: "chime", repeat: 1, pop: false,
   tab: "events", display: "system", lastServer: 0, scale: 1, defaultLead: DEFAULT_LEAD, defaultClosedLead: DEFAULT_CLOSED_LEAD,
-  alertColor: "orange", alsoAtStart: false, folded: {} };
+  alertColor: "orange", alsoAtStart: false, cubeAlert: true, folded: {} };
 // The world boss timers: { server, bosses, at, error }, from the feed and the
 // player's own map, the newest report of each boss kept.
 let feed = null;
@@ -562,6 +564,7 @@ function renderStatic() {
   els.repeatLabel.textContent = words.repeat;
   els.popLabel.textContent = a.pop;
   els.alsoAtStartLabel.textContent = a.alsoAtStart;
+  els.cubeAlertLabel.textContent = cubeText("setting");
   els.popNote.textContent = words.popNote;
   els.popNote.hidden = !prefs.pop;
   els.mute.textContent = words.mute;
@@ -584,6 +587,7 @@ function renderStatic() {
   els.repeat.value = String(prefs.repeat);
   els.pop.checked = !!prefs.pop;
   els.alsoAtStart.checked = !!prefs.alsoAtStart;
+  els.cubeAlert.checked = prefs.cubeAlert !== false;
   renderTabs();
   renderAlerts();
   if (typeof renderPinLock === "function") renderPinLock();
@@ -1600,6 +1604,10 @@ els.alsoAtStart.addEventListener("change", () => {
   prefs.alsoAtStart = els.alsoAtStart.checked;
   savePrefs();
 });
+els.cubeAlert.addEventListener("change", () => {
+  prefs.cubeAlert = els.cubeAlert.checked;
+  savePrefs();
+});
 els.pop.addEventListener("change", () => {
   prefs.pop = els.pop.checked;
   els.popNote.hidden = !prefs.pop;
@@ -1699,6 +1707,99 @@ a2.on("bossMap", (m) => {
   feed = { ...(feed?.server === server ? feed : {}), server, bosses: mergeOwn(base), at: Date.now(), error: false };
   render();
 });
+
+// Hidden cubes (Ezzar's Daeva Companion), read off marked captures of three
+// cubes in two zones (2026-10-31). The server spawns one as a world object
+// (`34 36`, "object-spawn") of template 1301199, about a second after it is
+// in range and before it shows on screen, so the alert says it is near. Then,
+// for the cube's entity: `38 36` someone starts opening it ("object-opening"),
+// `37 36` only when it is you ("object-using-mine"), `3A 36` it is opened
+// ("object-opened"), `35 36` it is gone ("object-gone": opened, or out of
+// range). The "-mine" decoders pass only when the player in the record is
+// your character (the meter checks; this page never sees anyone's id), and
+// come before the plain one from the same record (the manifest's order).
+//
+// In the dashboard the alert is a notice kept on screen until the cube is
+// opened: by you, it goes; by someone else, it says so and goes after the
+// usual few seconds. A cube that leaves range unopened keeps its notice, as
+// it may still be there; one not seen for CUBE_LOST_MS is let go. Events from
+// before the window opened (replayed to it) are old news and say nothing.
+const CUBE_TEMPLATE = 1301199;
+const CUBE_FRESH_MS = 15_000;
+const CUBE_LOST_MS = 5 * 60_000;
+// `37 36` comes about 50 ms after `38 36`: the wait before "someone is opening",
+// in case it's you and the meter doesn't know your character's id yet.
+const CUBE_MINE_WAIT_MS = 400;
+const CUBE_UI = {
+  en: {
+    alert: "Hidden cube nearby!",
+    opening: "Someone is opening the hidden cube…",
+    taken: "Someone else opened the hidden cube",
+    setting: "Alert when a hidden cube is near",
+  },
+};
+const cubeText = (k) => CUBE_UI[language]?.[k] ?? CUBE_UI.en[k];
+// Entity id → { mine: you are opening it, seen: last in range (ms), away: out of range }.
+const cubes = new Map();
+const cubeNotice = (entity) => `cube-${entity}`;
+const fresh = (meta) => !(meta?.at && Date.now() - meta.at > CUBE_FRESH_MS);
+// The cube's notice, kept (`keep`) until replaced, or taken away with "".
+function cubeSay(entity, text, keep) {
+  if (hostedInDashboard) a2.notify(text, { id: cubeNotice(entity), keep }).catch(() => {});
+}
+function cubeDone(entity, text) {
+  cubes.delete(entity);
+  cubeSay(entity, text, false);
+}
+
+a2.on("decoded:object-spawn", (data, meta) => {
+  if (Number(data?.template) !== CUBE_TEMPLATE || prefs.cubeAlert === false || !fresh(meta)) return;
+  const known = cubes.get(data.entity);
+  if (known) {
+    // Back in range: its notice is still up.
+    known.seen = Date.now();
+    known.away = false;
+    return;
+  }
+  cubes.set(data.entity, { mine: false, seen: Date.now(), away: false });
+  if (hostedInDashboard) {
+    cubeSay(data.entity, cubeText("alert"), true);
+    soundAlert("cube");
+  } else {
+    alertBanner(cubeText("alert"), { key: "cube" });
+  }
+});
+const markMine = (data, meta) => {
+  const cube = cubes.get(data?.entity);
+  if (cube && fresh(meta)) cube.mine = true;
+};
+a2.on("decoded:object-opening-mine", markMine);
+a2.on("decoded:object-using-mine", markMine);
+a2.on("decoded:object-opened-mine", markMine);
+a2.on("decoded:object-opening", (data, meta) => {
+  if (!cubes.has(data?.entity) || !fresh(meta)) return;
+  setTimeout(() => {
+    const cube = cubes.get(data.entity);
+    if (cube && !cube.mine) cubeSay(data.entity, cubeText("opening"), true);
+  }, CUBE_MINE_WAIT_MS);
+});
+a2.on("decoded:object-opened", (data, meta) => {
+  const cube = cubes.get(data?.entity);
+  if (!cube || !fresh(meta)) return;
+  if (cube.mine) cubeDone(data.entity, "");
+  else cubeDone(data.entity, cubeText("taken"));
+});
+a2.on("decoded:object-gone", (data) => {
+  const cube = cubes.get(data?.entity);
+  if (!cube) return;
+  cube.seen = Date.now();
+  cube.away = true;
+});
+// A cube out of range for CUBE_LOST_MS: someone may have opened it out of view.
+setInterval(() => {
+  const now = Date.now();
+  for (const [entity, cube] of cubes) if (cube.away && now - cube.seen > CUBE_LOST_MS) cubeDone(entity, "");
+}, 30_000);
 
 // Hosted in Ezzar's Daeva Companion's dashboard: alerts go to its Notices.
 let hostedInDashboard = false;

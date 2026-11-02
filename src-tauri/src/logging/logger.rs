@@ -335,6 +335,31 @@ pub fn log_packet(cap: &CapturedPayload) {
     }
 }
 
+/// Write a marker into the open capture, for the mark keybinds: "the cube
+/// came into view here", "I picked it up here". It is a `#` line, which every
+/// reader of the file (`share::read_capture`, `FileReplay`) skips as a
+/// comment, and `a2t-probe marks` lists:
+///
+/// ```text
+/// # MARK 2026-10-31T21:04:05.123+01:00 cube-visible 1
+/// ```
+///
+/// The time is the clock's now, in the packet lines' format, so a mark sorts
+/// among the packets around it. False when packet logging is off and there is
+/// no capture to mark.
+pub fn log_mark(label: &str, nth: usize) -> bool {
+    if !PACKET_LOG_ENABLED.load(Ordering::Relaxed) {
+        return false;
+    }
+    let mut guard = PACKET_LOGGER.lock();
+    let Some(ref mut logger) = *guard else { return false };
+    let line = format!("# MARK {} {label} {nth}\n", chrono::Local::now().format("%+"));
+    let ok = logger.writer.write_all(line.as_bytes()).is_ok();
+    let _ = logger.writer.flush();
+    logger.bytes_written += line.len() as u64;
+    ok
+}
+
 /// Cut a long message to 240 bytes like the Kotlin version, on a character
 /// boundary: names and chat in Korean are three bytes a character.
 fn shorten(msg: String) -> String {
