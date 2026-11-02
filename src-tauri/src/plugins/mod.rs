@@ -901,9 +901,16 @@ fn refresh_windows(app: &tauri::AppHandle, host: &PluginHost) {
 
 /// The catalog's newer versions of installed plugins, each with the entry
 /// to install.
+///
+/// Not of the bundled ones: the catalog is A2Tools', and this fork's copies
+/// of its plugins carry the fork's changes (alerts as Notices, the hidden
+/// cube alert). Installing the catalog's version put it in the plugins
+/// folder, where it wins over the bundled copy and drops those changes: a
+/// player's Event Timers became A2Tools' 0.6.26 that way (2026-10-31).
 #[cfg(feature = "online")]
 fn newer_entries(catalog: catalog::Catalog, host: &PluginHost) -> Vec<(PluginAvailable, catalog::Entry)> {
-    let installed: Vec<PluginInfo> = host.list().into_iter().filter(|p| p.reviewed && p.error.is_none()).collect();
+    let installed: Vec<PluginInfo> =
+        host.list().into_iter().filter(|p| p.reviewed && !p.bundled && p.error.is_none()).collect();
     installed
         .into_iter()
         .filter_map(|p| {
