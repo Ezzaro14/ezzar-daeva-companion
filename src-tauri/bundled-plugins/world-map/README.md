@@ -9,6 +9,10 @@ Your own screenshot of each world map, lined up with the game's coordinates, wit
 - **Your pins**, and **imported** marker files (JSON or CSV, in game coordinates).
 - **A map file you saved from gaming.tools** (`<map>.d.json`, saved from your browser's network tab): Hidden Cubes, gathering, Empyrean Traces, every monster spawn and the map's places, in layers you turn on yourself (`pack.js`). It is kept in this plugin's storage on your computer; none of it ships with the app.
 
+**Minimap** finds you on the game's minimap a few times a second, on the map you are on. If it can't find you for a while (a dungeon the meter was started in, or a place the map's picture doesn't show), it stops looking and says so, and starts again when you change map, use a skill, move the map near where you are, or turn it off and on.
+
+**Filters** (top left, with the zoom buttons) hides the sidebar so the map fills the window, and brings it back; the choice is remembered. **All on** and **All off** above the layers turn every layer at once, the saved map file's too.
+
 ## Adding a map image
 
 Verteron and Altgard come with a picture, already lined up (`local/maps/`, made by `tools/world_map_pictures.cjs` from map tile packs saved from gaming.tools, with each picture's fit in `pictures.js`; personal, like `local/packs.js`). Line it up again as below to fine-tune it; **Start over** goes back to the fit it came with.

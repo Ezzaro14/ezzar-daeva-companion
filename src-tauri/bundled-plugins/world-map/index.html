@@ -28,6 +28,7 @@
           <button type="button" class="btn small fit" title="Show the whole map">Fit</button>
           <button type="button" class="btn small follow" title="Keep you in the middle" aria-pressed="false">Follow me</button>
           <button type="button" class="btn small trackMinimap" title="Find you on the game's minimap, a few times a second while this map is shown" aria-pressed="false">Minimap</button>
+          <button type="button" class="btn small sideToggle" title="Show or hide the filters and settings beside the map" aria-pressed="true">Filters</button>
           <span class="minimapState" hidden></span>
         </div>
         <div class="coords"></div>
@@ -51,6 +52,13 @@
       <aside class="side">
         <label class="row"><span>Map</span><select class="mapPick"></select></label>
         <input type="search" class="search" placeholder="Search markers…" />
+        <div class="row layersAll">
+          <span class="note">Show on the map</span>
+          <span>
+            <button type="button" class="btn small allOn" title="Turn every layer on">All on</button>
+            <button type="button" class="btn small allOff" title="Turn every layer off">All off</button>
+          </span>
+        </div>
         <div class="layers"></div>
         <div class="packLayers"></div>
 

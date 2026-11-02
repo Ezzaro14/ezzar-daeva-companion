@@ -67,6 +67,7 @@ async function openMap(id) {
   mapId = Number(id);
   prefs.map = mapId;
   store("prefs", prefs);
+  minimapWake();
   data = { ...DEFAULT_DATA(), ...((await a2.storage.get(`map-${mapId}`).catch(() => null)) || {}) };
   dropBlankImports();
   fixRefs();
@@ -481,12 +482,28 @@ let minimapTune = 0;
 let minimapRunning = false;
 let lastBuffMs = 0;
 const MINIMAP_EVERY = 150;
+// A search for you given up: where you are is not on this map's picture (an
+// instance the meter was opened in, so no map load said so; a cave). Why, as
+// shown, until something new says where to look (`minimapWake`).
+let minimapPaused = "";
+let lostLooks = 0; // looks in a row that found you nowhere
+const LOST_LOOKS = 60; // given up after this many; a quarter as many in a dungeon
+let inDungeon = false; // the meter says you are in one, and not on the map shown
 const minimapCanvas = document.createElement("canvas");
 
 function setMinimapState(text) {
   const el = $(".minimapState");
   el.textContent = text;
   el.hidden = !text;
+}
+
+// Something new to look by: another map, the game placing you, the map moved.
+function minimapWake() {
+  if (!minimapPaused) return;
+  minimapPaused = "";
+  lostLooks = 0;
+  lostTry = 0;
+  setMinimapState("");
 }
 
 // The picture is north up (a fit without a turn or mirror), as the minimap is.
@@ -552,12 +569,16 @@ async function minimapStep() {
   if (document.hidden) return MINIMAP_EVERY;
   // The map you are on, when the game has said (the meter reads its traffic).
   if (liveMap && baseMap(liveMap) !== mapId) {
-    setMinimapState("Shows you on the map you are on");
+    setMinimapState(inDungeon ? "In a dungeon: follows you again on this map" : "Shows you on the map you are on");
     return 1000;
   }
   if (!northUp()) {
     setMinimapState("Needs this map's picture lined up, north up");
     return 2000;
+  }
+  if (minimapPaused) {
+    setMinimapState(minimapPaused);
+    return 1000;
   }
   const t0 = performance.now();
   let shot;
@@ -607,6 +628,14 @@ async function minimapStep() {
   if (!sure || (candidate && Math.hypot(best.x - candidate.x, best.y - candidate.y) > 1500)) {
     minimapMisses++;
     candidate = null;
+    if (!fresh && ++lostLooks >= (inDungeon ? LOST_LOOKS / 4 : LOST_LOOKS)) {
+      // A skill places you only once the map you are on is known.
+      minimapPaused = inDungeon
+        ? "In a dungeon: stopped looking for you on this map until you leave it"
+        : `Not found on this map: stopped looking. ${liveMap ? "Use a skill, or move" : "Move"} the map near where you are`;
+      setMinimapState(minimapPaused);
+      return 1000;
+    }
     setMinimapState(fresh ? "Lost you on the minimap" : `Looking for you (${lostTry} places so far): use a skill, or move the map near where you are`);
     return MINIMAP_EVERY;
   }
@@ -617,6 +646,7 @@ async function minimapStep() {
   }
   candidate = null;
   lostTry = 0;
+  lostLooks = 0;
   minimapMisses = 0;
   let units = best.k * shot.gameHeight;
   // Now and then, its scale fine-tuned: a few percent off costs a third of
@@ -651,6 +681,8 @@ async function minimapLoop() {
   }
   minimapRunning = false;
   minimapFix = null;
+  minimapPaused = "";
+  lostLooks = 0;
   setMinimapState("");
 }
 
@@ -878,6 +910,8 @@ window.addEventListener("mouseup", (e) => {
   if (!drag) return;
   const clicked = !drag.moved;
   if (drag.markers && drag.moved) saveData();
+  // Moved near where you are: the minimap is looked for there again.
+  else if (drag.moved) minimapWake();
   drag = null;
   vp.classList.remove("panning");
   if (!clicked || !e.target.closest(".viewport") || e.target.closest(".hud")) return;
@@ -1515,6 +1549,10 @@ a2.on("combat", (snap) => {
   const was = baseMap(liveMap);
   liveMap = snap.mapId || 0;
   live = snap.positions || [];
+  // With no map load seen (the meter opened inside), only the dungeon says
+  // you are not on the overworld map shown.
+  inDungeon = !!snap.dungeon && baseMap(liveMap) !== mapId;
+  if (was !== baseMap(liveMap)) minimapWake();
   if (mapId === null && liveMap) return void openMap(baseMap(liveMap));
   if (!data) return;
   let changed = false;
@@ -1528,6 +1566,7 @@ a2.on("combat", (snap) => {
       // Far from where the minimap had you: that was another place like it.
       if (minimapFix && Math.hypot(me.x - minimapFix.x, me.y - minimapFix.y) > 2500) minimapFix = null;
       moveMe(me);
+      minimapWake();
     }
   } else if (liveMap && baseMap(liveMap) !== mapId) {
     meShown = null;
@@ -1561,11 +1600,38 @@ setInterval(() => {
 }, 5000);
 window.addEventListener("resize", () => draw());
 
+// The sidebar (filters, picture, pins): hidden, the map has the whole window.
+function applySide() {
+  const hidden = !!prefs.sideHidden;
+  $(".layout").classList.toggle("sideHidden", hidden);
+  $(".sideToggle").setAttribute("aria-pressed", String(!hidden));
+  draw();
+}
+$(".sideToggle").addEventListener("click", () => {
+  prefs.sideHidden = !prefs.sideHidden;
+  store("prefs", prefs);
+  applySide();
+});
+
+// Every layer on or off at once: the built-in ones and the saved map file's
+// (each of its kinds following its layer again).
+function setAllLayers(on) {
+  for (const [key] of LAYERS) prefs.layers[key] = on;
+  prefs.pack = Object.fromEntries(PACK_LAYERS.map((l) => [l.key, on]));
+  prefs.packKind = {};
+  store("prefs", prefs);
+  renderSide();
+  draw();
+}
+$(".allOn").addEventListener("click", () => setAllLayers(true));
+$(".allOff").addEventListener("click", () => setAllLayers(false));
+
 (async () => {
   const stored = await a2.storage.get("prefs").catch(() => null);
   if (stored) prefs = { ...prefs, ...stored, layers: { ...prefs.layers, ...(stored.layers || {}) } };
   a2.ready();
   await openMap(prefs.map ?? 1010);
+  applySide();
   follow = !!prefs.follow;
   $(".follow").setAttribute("aria-pressed", String(follow));
   $(".trackMinimap").setAttribute("aria-pressed", String(!!prefs.minimap));
