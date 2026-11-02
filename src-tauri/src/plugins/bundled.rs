@@ -660,7 +660,7 @@ impl Ticker {
             name_of: &|id| storage.get_nickname(id),
             hp_of: &|id| storage.last_hp(id),
             dead: &|id| storage.is_entity_dead(id) || storage.last_hp(id) == Some(0),
-            deaths_of_me: &|from| me.map_or(0, |me| storage.deaths_since(me, from)),
+            deaths_of_me: &|from, to| me.map_or(0, |me| storage.deaths_of(me, from, to)),
         });
         let changed = self.last.as_ref().is_none_or(|last| Snapshot { now_ms: last.now_ms, ..snapshot.clone() } != *last);
         if changed || self.sent.is_none_or(|at| at.elapsed() >= RESEND) {

@@ -23,7 +23,11 @@
 //! - **PvP.** Hits between you and another player (or their summon) outside
 //!   your party: the game sends a heal on an ally as the same record as a
 //!   blow, and a party is who you heal. A session starts with the first such
-//!   hit and ends after `PVP_SESSION_IDLE_MS` without one.
+//!   hit and ends after `PVP_SESSION_IDLE_MS` without one. The party is the
+//!   roster's, and whoever the game sends party HP for (`1b 92`): the roster
+//!   is not sent again inside an instance, so a meter started there had none,
+//!   and every heal on the party opened a session (Urugugu Canyon, 2026-10-31).
+//!   One found to be in the party after their hits counted is taken back out.
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
@@ -46,6 +50,8 @@ const MAX_COOLDOWN_MS: i64 = 600_000;
 const COMBAT_LINGER_MS: i64 = 6_000;
 /// A PvP session ends this long after its last hit.
 const PVP_SESSION_IDLE_MS: i64 = 60_000;
+/// Your death this long after a session's last hit is still its.
+const PVP_DEATH_GRACE_MS: i64 = 5_000;
 /// The window of the biggest burst.
 const BURST_WINDOW_MS: i64 = 5_000;
 /// Skills kept, most recently cast first.
@@ -250,8 +256,9 @@ struct Pvp {
     since_ms: i64,
     last_ms: i64,
     opponents: HashMap<i32, Opponent>,
-    /// Your hits on opponents in the last `BURST_WINDOW_MS`, and their sum.
-    recent: VecDeque<(i64, i64)>,
+    /// Your hits on opponents in the last `BURST_WINDOW_MS` (time, damage,
+    /// opponent), and their sum.
+    recent: VecDeque<(i64, i64, i32)>,
     recent_sum: i64,
     burst: i64,
     kills: u32,
@@ -297,6 +304,9 @@ struct Inner {
     pvp: Pvp,
     /// Your party's entities, as the last snapshot found them.
     party: HashSet<i32>,
+    /// The entities the game sent party HP for (`1b 92`) on this map: your
+    /// party, before (or without) the roster.
+    allies: HashSet<i32>,
     /// The dungeon you are in (0: none) and since when.
     dungeon: (i32, i64),
     /// Each entity's last position on the map, and when; the map they are on.
@@ -359,7 +369,7 @@ impl CombatFeed {
         } else {
             None
         };
-        if let Some(other) = other.filter(|o| *o != me && !inner.party.contains(o)) {
+        if let Some(other) = other.filter(|o| *o != me && !inner.party.contains(o) && !inner.allies.contains(o)) {
             if hit.damage > 0 {
                 note_pvp(&mut inner.pvp, hit, me, other);
             }
@@ -396,18 +406,28 @@ impl CombatFeed {
         self.inner.lock().party = ids;
     }
 
+    /// The game sent `entity`'s HP as a party member's (`1b 92`): it is no
+    /// opponent, whatever the roster says.
+    pub fn note_party_hp(&self, entity: i32) {
+        let mut inner = self.inner.lock();
+        if inner.allies.len() >= MAX_OPPONENTS && !inner.allies.contains(&entity) {
+            inner.allies.clear();
+        }
+        inner.allies.insert(entity);
+    }
+
     /// Forget everything (a reset).
     pub fn clear(&self) {
         *self.inner.lock() = Inner::default();
     }
 
-    /// What the overlays see now. `dead` tells whether an entity is down;
-    /// `deaths_of_me` counts your deaths since a time.
     /// When the last hit of any fight was (capture time, ms; 0 for none).
     pub fn last_combat_ms(&self) -> i64 {
         self.inner.lock().last_combat_ms
     }
 
+    /// What the overlays see now. `dead` tells whether an entity is down;
+    /// `deaths_of_me` counts your deaths between two times.
     pub fn snapshot(&self, now_ms: i64, ctx: &SnapshotContext<'_>) -> Snapshot {
         let mut inner = self.inner.lock();
         let me = ctx.me.or(inner.me);
@@ -419,6 +439,11 @@ impl CombatFeed {
         if inner.positions_map != ctx.map_id {
             inner.positions_map = ctx.map_id;
             inner.positions.clear();
+            inner.allies.clear();
+        }
+        let Inner { pvp, party, allies, .. } = &mut *inner;
+        for id in party.iter().chain(allies.iter()) {
+            retract(pvp, *id);
         }
         let party_ids: HashSet<i32> = ctx.party.iter().map(|p| p.id).collect();
         let mut positions: Vec<PositionView> = inner
@@ -553,11 +578,13 @@ impl CombatFeed {
         opponents.sort_by_key(|o| std::cmp::Reverse(o.last_ms));
         let pvp_view = PvpView {
             session: pvp.session,
-            active: pvp.session > 0 && now_ms - pvp.last_ms < PVP_SESSION_IDLE_MS,
+            active: !pvp.opponents.is_empty() && now_ms - pvp.last_ms < PVP_SESSION_IDLE_MS,
             since_ms: pvp.since_ms,
             last_ms: pvp.last_ms,
             kills: pvp.kills,
-            deaths: if pvp.session > 0 { (ctx.deaths_of_me)(pvp.since_ms) } else { 0 },
+            // Up to just after the session's last hit (the blow that killed
+            // you): a death to a monster since is not this session's.
+            deaths: if !pvp.opponents.is_empty() { (ctx.deaths_of_me)(pvp.since_ms, pvp.last_ms + PVP_DEATH_GRACE_MS) } else { 0 },
             burst: pvp.burst,
             dealt: pvp.opponents.values().map(|o| o.dealt).sum(),
             taken: pvp.opponents.values().map(|o| o.taken).sum(),
@@ -636,8 +663,23 @@ fn note_cast(casts: &mut HashMap<i32, Cast>, skill: i32, ms: i64) {
     }
 }
 
+/// `id` turned out to be in your party: their hits were heals, not blows.
+/// A session that had no one else was none, and is forgotten (the overlay
+/// keeps no session without damage); one that did loses their part, but its
+/// burst stays the best seen.
+fn retract(pvp: &mut Pvp, id: i32) {
+    let Some(o) = pvp.opponents.remove(&id) else { return };
+    if pvp.opponents.is_empty() {
+        *pvp = Pvp { session: pvp.session, ..Pvp::default() };
+        return;
+    }
+    pvp.kills -= o.killed as u32;
+    pvp.recent_sum -= pvp.recent.iter().filter(|r| r.2 == id).map(|r| r.1).sum::<i64>();
+    pvp.recent.retain(|r| r.2 != id);
+}
+
 fn note_pvp(pvp: &mut Pvp, hit: Hit, me: i32, other: i32) {
-    if pvp.session == 0 || hit.ms - pvp.last_ms >= PVP_SESSION_IDLE_MS {
+    if pvp.opponents.is_empty() || hit.ms - pvp.last_ms >= PVP_SESSION_IDLE_MS {
         *pvp = Pvp { session: pvp.session + 1, since_ms: hit.ms, ..Pvp::default() };
     }
     pvp.last_ms = pvp.last_ms.max(hit.ms);
@@ -653,10 +695,10 @@ fn note_pvp(pvp: &mut Pvp, hit: Hit, me: i32, other: i32) {
         o.dealt += hit.damage;
         o.hits_dealt += 1;
         *o.skills_dealt.entry(skill).or_default() += hit.damage;
-        pvp.recent.push_back((hit.ms, hit.damage));
+        pvp.recent.push_back((hit.ms, hit.damage, other));
         pvp.recent_sum += hit.damage;
-        while pvp.recent.front().is_some_and(|(at, _)| hit.ms - at > BURST_WINDOW_MS) {
-            let (_, d) = pvp.recent.pop_front().unwrap_or_default();
+        while pvp.recent.front().is_some_and(|(at, _, _)| hit.ms - at > BURST_WINDOW_MS) {
+            let (_, d, _) = pvp.recent.pop_front().unwrap_or_default();
             pvp.recent_sum -= d;
         }
         pvp.burst = pvp.burst.max(pvp.recent_sum);
@@ -686,7 +728,7 @@ pub struct SnapshotContext<'a> {
     pub name_of: &'a dyn Fn(i32) -> Option<String>,
     pub hp_of: &'a dyn Fn(i32) -> Option<i32>,
     pub dead: &'a dyn Fn(i32) -> bool,
-    pub deaths_of_me: &'a dyn Fn(i64) -> u32,
+    pub deaths_of_me: &'a dyn Fn(i64, i64) -> u32,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -875,6 +917,17 @@ mod tests {
     }
 
     fn snap(feed: &CombatFeed, now: i64, abnormals: &[abnormal::Instance], party: &[PartyView]) -> Snapshot {
+        snap_with(feed, now, abnormals, party, &|id| id == ENEMY && now > 50_000, &|_, _| 0)
+    }
+
+    fn snap_with(
+        feed: &CombatFeed,
+        now: i64,
+        abnormals: &[abnormal::Instance],
+        party: &[PartyView],
+        dead: &dyn Fn(i32) -> bool,
+        deaths_of_me: &dyn Fn(i64, i64) -> u32,
+    ) -> Snapshot {
         let data = FeedData::default();
         feed.snapshot(now, &SnapshotContext {
             me: Some(ME),
@@ -886,8 +939,8 @@ mod tests {
             mob_code_of: &|_| None,
             name_of: &|_| None,
             hp_of: &|_| None,
-            dead: &|id| id == ENEMY && now > 50_000,
-            deaths_of_me: &|_| 0,
+            dead,
+            deaths_of_me,
         })
     }
 
@@ -954,6 +1007,57 @@ mod tests {
         feed.note_hit(hit(90_000, ENEMY, ME, 13020000, 10));
         let s = snap(&feed, 90_000, &[], &ally);
         assert_eq!((s.pvp.session, s.pvp.kills, s.pvp.taken), (2, 0, 10));
+    }
+
+    /// A meter opened inside an instance has no roster, and your heals on the
+    /// party opened a session (Urugugu Canyon, 2026-10-31). Party HP (`1b 92`)
+    /// or the roster, come after, take them back out.
+    #[test]
+    fn heals_on_a_party_not_known_yet_are_taken_back_when_it_is() {
+        const OTHER_ALLY: i32 = 301;
+        let feed = CombatFeed::default();
+        feed.note_hit(hit(1_000, ME, ALLY, 17120000, 900));
+        feed.note_hit(hit(1_200, ME, OTHER_ALLY, 17120000, 800));
+        assert_eq!(snap(&feed, 1_500, &[], &[]).pvp.opponents.len(), 2);
+        // One's HP comes as the party's; the roster names the other.
+        feed.note_party_hp(ALLY);
+        let roster = [PartyView { id: OTHER_ALLY, name: "Other".into(), class_id: None }];
+        let s = snap(&feed, 2_000, &[], &roster);
+        assert!(s.pvp.opponents.is_empty() && !s.pvp.active, "the session was none");
+        assert_eq!((s.pvp.dealt, s.pvp.burst, s.pvp.kills, s.pvp.deaths), (0, 0, 0, 0));
+        // Heals on them since are not counted; a blow on an enemy is a session.
+        feed.note_hit(hit(3_000, ME, ALLY, 17120000, 900));
+        feed.note_hit(hit(3_500, ME, ENEMY, 17010000, 400));
+        let s = snap(&feed, 4_000, &[], &roster);
+        assert_eq!(s.pvp.opponents.iter().map(|o| o.id).collect::<Vec<_>>(), [ENEMY]);
+        assert!(s.pvp.active);
+        assert_eq!((s.pvp.since_ms, s.pvp.dealt), (3_500, 400));
+    }
+
+    #[test]
+    fn a_party_member_found_mid_session_leaves_it_and_their_death_is_no_kill() {
+        let feed = CombatFeed::default();
+        feed.note_hit(hit(10_000, ME, ENEMY, 11020000, 1_000));
+        feed.note_hit(hit(10_500, ME, ALLY, 17120000, 5_000));
+        let s = snap_with(&feed, 11_000, &[], &[], &|id| id == ALLY, &|_, _| 0);
+        assert_eq!(s.pvp.kills, 1, "counted before they were known");
+        feed.note_party_hp(ALLY);
+        let s = snap_with(&feed, 11_500, &[], &[], &|id| id == ALLY, &|_, _| 0);
+        assert_eq!(s.pvp.opponents.iter().map(|o| o.id).collect::<Vec<_>>(), [ENEMY]);
+        assert_eq!((s.pvp.kills, s.pvp.dealt), (0, 1_000));
+    }
+
+    /// The session's deaths are yours while it went on, not a monster's kill
+    /// on you after it (the session is shown until the next).
+    #[test]
+    fn pvp_deaths_are_those_in_the_session() {
+        let feed = CombatFeed::default();
+        feed.note_hit(hit(10_000, ENEMY, ME, 13020000, 5_000));
+        feed.note_hit(hit(20_000, ENEMY, ME, 13020000, 5_000));
+        let died = [20_100, 400_000];
+        let deaths = |from: i64, to: i64| died.iter().filter(|&&t| t >= from && t <= to).count() as u32;
+        let s = snap_with(&feed, 500_000, &[], &[], &|_| false, &deaths);
+        assert_eq!(s.pvp.deaths, 1);
     }
 
     #[test]
@@ -1035,7 +1139,7 @@ mod tests {
                 name_of: &|_| None,
                 hp_of: &|_| None,
                 dead: &|_| false,
-                deaths_of_me: &|_| 0,
+                deaths_of_me: &|_, _| 0,
             })
             .positions
         };
@@ -1103,7 +1207,7 @@ mod tests {
                 name_of: &|_| None,
                 hp_of: &|_| None,
                 dead: &|_| false,
-                deaths_of_me: &|_| 0,
+                deaths_of_me: &|_, _| 0,
             })
             .dungeon
             .map(|d| (d.id, d.entered_ms))

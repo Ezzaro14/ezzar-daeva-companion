@@ -49,7 +49,7 @@ fn snapshot(storage: &DataStorage, now: i64) -> Snapshot {
         name_of: &|id| storage.get_nickname(id),
         hp_of: &|id| storage.last_hp(id),
         dead: &|id| storage.is_entity_dead(id),
-        deaths_of_me: &|_| 0,
+        deaths_of_me: &|_, _| 0,
     })
 }
 

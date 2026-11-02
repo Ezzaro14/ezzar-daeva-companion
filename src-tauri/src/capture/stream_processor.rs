@@ -628,6 +628,9 @@ impl StreamProcessor {
         // A party member's HP reaching 0 is how their death shows (Details'
         // DPS chart marks it).
         self.data_storage.note_hp(actor_id, hp_info.value);
+        // Sent for the party only (never a monster, nor you): who is no PvP
+        // opponent, before the roster says so.
+        self.data_storage.combat_feed().note_party_hp(actor_id);
 
         true
     }

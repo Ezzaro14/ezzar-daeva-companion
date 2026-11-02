@@ -2838,9 +2838,9 @@ impl DataStorage {
         out
     }
 
-    /// How often `id` died since `from_ms`.
-    pub fn deaths_since(&self, id: i32, from_ms: i64) -> u32 {
-        self.inner.read().death_log.iter().filter(|d| d.0 == id && d.1 >= from_ms).count() as u32
+    /// How often `id` died from `from_ms` to `to_ms`.
+    pub fn deaths_of(&self, id: i32, from_ms: i64, to_ms: i64) -> u32 {
+        self.inner.read().death_log.iter().filter(|d| d.0 == id && d.1 >= from_ms && d.1 <= to_ms).count() as u32
     }
 }
 
@@ -3142,7 +3142,7 @@ mod tests {
                 name_of: &|_| None,
                 hp_of: &|_| None,
                 dead: &|_| false,
-                deaths_of_me: &|_| 0,
+                deaths_of_me: &|_, _| 0,
             })
             .positions
         };

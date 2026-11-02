@@ -7,6 +7,6 @@ The players you trade blows with, in a widget you place anywhere over the game:
 
 A session ends a minute after the last blow and is saved, with each opponent's skills (yours on them, theirs on you) and the damage per second over time, for the whole session or one opponent. A sound plays when you defeat someone.
 
-A player is an opponent when you trade blows and they are not in your party. The game sends a heal on another player as the same record as a blow, so a heal on a player outside your party lists them too.
+A player is an opponent when you trade blows and they are not in your party. The game sends a heal on another player as the same record as a blow, so a heal on a player outside your party lists them too. Your party is known from the game's party HP updates as well as the party list, so a meter started inside a dungeon does not take your heals on the party for a fight; anyone counted before they were known to be in it is taken back out, and a session that had no one else is dropped. A session's **deaths** are yours while it went on, not later ones.
 
 Comes with the meter; needs the `feed:combat` permission (plugins/bundled.rs).
