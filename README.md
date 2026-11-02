@@ -17,7 +17,7 @@ Everything is in one **dashboard** window (it opens with the app; the meter's he
 
 ## What it does
 
-- **DPS meter:** party ranking, share, crit, per-skill details, targets (all, bosses, current)
+- **DPS meter:** party ranking with class-coloured bars, gear score, deaths, DPS, share and total damage per player, the party's DPS on top, crit, per-skill details, targets (all, bosses, current); just its buttons while empty, or out of combat (Settings → Shrink out of combat)
 - **Combat Assist:** skill cooldowns and buffs on bars anywhere, glow when ready, square/round/bars, row/stacked, hide out of combat
 - **Fight history:** saved boss fights, damage, healing, taken, buffs, DPS over time
 - **Combat logs website:** shareable reports, rankings, leaderboards via a2tools.app (uploads are labeled as this fork)

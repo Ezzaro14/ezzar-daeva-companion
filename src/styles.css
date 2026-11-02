@@ -186,6 +186,87 @@
 :root[data-theme="companion"] .settingsPanel .settingsNavItem:focus-visible { outline-color: #7cc4ff; }
 :root[data-theme="companion"] .settingsPanel .settingsToggleControl input[type="checkbox"]:checked + .settingsToggleTrack { background: #4f8fd6; border-color: #7cc4ff; }
 
+/* Daeva Companion meter: the party's DPS large in the title bar, the target
+   under it; each bar in its player's class colour (yours too: the gold rail
+   still marks your row), with gear score, deaths, DPS, share and total
+   damage on the row. */
+:root[data-theme="companion"] .header { align-items: flex-start; padding: 7px 10px 5px; }
+:root[data-theme="companion"] .header .bossIcon,
+:root[data-theme="companion"] .header .headerBtns { margin-top: 5px; }
+:root[data-theme="companion"] .header .bossNames { flex-direction: column; align-items: flex-start; gap: 1px; }
+:root[data-theme="companion"] .meterSummary {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  line-height: 1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+:root[data-theme="companion"] .meterSummary .summaryValue {
+  font-family: var(--hud-tech);
+  font-variation-settings: "wght" 700, "wdth" 87.5;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  color: #5fb4ff;
+}
+:root[data-theme="companion"] .meterSummary .summaryUnit {
+  font-family: var(--hud-tech);
+  font-variation-settings: "wght" 600, "wdth" 87.5;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: rgba(185, 220, 255, 0.72);
+}
+:root[data-theme="companion"] .meterSummary .summaryValue:empty + .summaryUnit { display: none; }
+:root[data-theme="companion"] .header .bossNames .bossName {
+  font-family: var(--hud-ident);
+  font-variation-settings: "wght" 600;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: rgba(226, 232, 242, 0.82);
+}
+:root[data-theme="companion"] .list { gap: var(--meter-bar-gap, 3px); }
+:root[data-theme="companion"] .list .item {
+  --row-class: var(--class-fill, var(--row-fill));
+  height: var(--hud-row-h, 28px);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--row-class) 30%, transparent);
+}
+:root[data-theme="companion"] .list .item .fill,
+:root[data-theme="companion"] .list .item.isUser .fill,
+:root[data-theme="companion"] .list .item.warning .fill,
+:root[data-theme="companion"] .list .item.error .fill {
+  --bar: var(--class-fill, var(--row-fill));
+  --bar-base: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--bar) 42%, rgb(var(--hud-bg))) 0%,
+    color-mix(in srgb, var(--bar) 78%, rgb(var(--hud-bg))) 100%
+  );
+  border-radius: 6px 0 0 6px;
+}
+:root[data-theme="companion"] .list .item.isUser { box-shadow: inset 0 0 0 1px rgba(242, 200, 109, 0.55); }
+:root[data-theme="companion"] .list .item .rank { display: none; }
+:root[data-theme="companion"] .list .item .content { gap: 6px; }
+:root[data-theme="companion"] .list .item .name { font-variation-settings: "wght" 650; font-size: 14px; }
+:root[data-theme="companion"] .list .item .combatPower {
+  margin-left: -1px;
+  font-size: 10.5px;
+  color: rgba(226, 232, 242, 0.66);
+}
+:root[data-theme="companion"] .list .item .dps {
+  gap: 8px;
+  background: linear-gradient(90deg, rgba(var(--hud-bg), 0) 0%, rgba(var(--hud-bg), 0.45) 30%, rgba(var(--hud-bg), 0.6) 100%);
+}
+:root[data-theme="companion"] .list .item .dps > p:first-child {
+  min-width: 44px;
+  text-align: right;
+  font-variation-settings: "wght" 700, "wdth" 87.5;
+  font-size: 15px;
+}
+:root[data-theme="companion"] .list .item .dps .dpsContribution { min-width: 38px; font-size: 11.5px; }
+:root[data-theme="companion"] .list .item .dps .dpsTotal { min-width: 34px; font-size: 11.5px; text-transform: uppercase; }
+
 :root[data-theme="frost"] {
   --row-fill: #5fa3b5;
   --isUser-fill: #8fd3ff;
@@ -1135,6 +1216,60 @@ html:not(.hoverStale) .list .item:hover { background: rgba(255, 255, 255, 0.075)
 .list .item .name.isCjk + .combatPower {
   top: 0.5px;
 }
+
+/* Deaths in this fight: a red skull and the count (meter.js), hidden at none. */
+.list .item .deaths {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: -2px;
+  font-family: var(--hud-tech);
+  font-variant-numeric: tabular-nums;
+  font-variation-settings: "wght" 700, "wdth" 87.5;
+  font-size: 11px;
+  line-height: 1;
+  color: #ff6464;
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.95), 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+.list .item .deaths svg { filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.9)); }
+/* Total damage, the readout's last figure, quieter than the DPS. */
+.list .item .dps .dpsTotal {
+  font-variation-settings: "wght" 500, "wdth" 87.5;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.66);
+  min-width: 32px;
+  text-align: right;
+}
+/* The header's summed DPS: shown by the themes that want it (Daeva Companion). */
+.meterSummary { display: none; }
+
+/* Nothing to show (no fight yet, or reset; meter.js), or out of combat a
+   while (Settings → Hide out of combat; tauriBridge.js "meter-resting"): only
+   the title bar's buttons, on a small pill of their own, top right; the window
+   shrinks to them (tauriBridge.js sizes it to the meter). */
+.meter:is(.isIdle, .isResting) {
+  height: auto !important;
+  min-height: 0 !important;
+  background: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.meter:is(.isIdle, .isResting)::before { display: none !important; }
+.meter:is(.isIdle, .isResting) :is(.list, .bossHpBar, .meterFooter, .resizeHandle, .detailsMonitorBadge) { display: none !important; }
+.meter:is(.isIdle, .isResting) .header { gap: 0; padding: 4px 4px 4px 10px; align-items: center; }
+.meter:is(.isIdle, .isResting) .header .bossNames { visibility: hidden; }
+.meter:is(.isIdle, .isResting) .header .bossIcon,
+.meter:is(.isIdle, .isResting) .header .headerBtns {
+  margin: 0;
+  height: 27px;
+  box-sizing: border-box;
+  background: rgba(11, 15, 23, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.meter:is(.isIdle, .isResting) .header .bossIcon { width: auto; padding: 0 5px 0 10px; border-right: 0; border-radius: 14px 0 0 14px; }
+.meter:is(.isIdle, .isResting) .header .headerBtns { padding: 0 10px 0 5px; border-left: 0; border-radius: 0 14px 14px 0; gap: 9px; }
 :is(.meter, .barPreviewPanel).slim .list .item .combatPower {
   font-size: 9px;
   /* Same correction at the slim type scale (11.5px name / 9px figure). */

@@ -1717,6 +1717,24 @@ impl DataStorage {
         self.inner.read().death_log.iter().filter(|d| d.1 >= from && d.1 <= to).copied().collect()
     }
 
+    /// `deaths_between`, of players only: you, or one known or named as a
+    /// player that neither spawned as a summon nor is linked to an owner. A
+    /// summon's death is not its owner's (a Sorcerer's, `42 36` flag 3, in a
+    /// Guardian Captain Raur fight, 2026-10-31), so it is left out, not
+    /// moved to the owner as its damage is.
+    pub fn player_deaths_between(&self, from: i64, to: i64) -> Vec<(i32, i64, Option<i64>)> {
+        let inner = self.inner.read();
+        let player = |id: i32| {
+            inner.local_player_id == Some(id as i64)
+                || ((inner.known_player_ids.contains(&id) || inner.nickname_storage.contains_key(&id))
+                    && !inner.summon_storage.contains_key(&id)
+                    && !inner.confirmed_summon_ids.contains(&id)
+                    && !inner.summon_spawn_ids.contains(&id)
+                    && !inner.mob_storage.contains_key(&id))
+        };
+        inner.death_log.iter().filter(|d| d.1 >= from && d.1 <= to && player(d.0)).copied().collect()
+    }
+
     /// `id` left the world. Only a linked summon is marked: see
     /// `Inner::despawned_summon_ids`.
     pub fn note_despawn(&self, id: i32) {

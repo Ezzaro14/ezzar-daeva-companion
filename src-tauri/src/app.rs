@@ -3555,7 +3555,8 @@ pub fn run() {
                 let mut last_ping: Option<u64> = None;
                 // The meter hidden because AION2 is closed (Settings).
                 let mut hidden_closed = false;
-                // Hidden because no fight for a while (dpsMeter.hideOutOfCombat).
+                // Shrunk to its buttons because no fight for a while
+                // (dpsMeter.hideOutOfCombat).
                 let mut hidden_ooc = false;
                 // The other windows hidden with the meter (auto-hide), and how
                 // many ticks nothing of ours or the game has been in front.
@@ -3612,11 +3613,12 @@ pub fn run() {
                             }
                         }
 
-                        // --- Hide out of combat (every tick) ---
+                        // --- Out of combat (every tick) ---
                         // The chosen seconds after the last hit the meter
-                        // goes, and the next hit brings it back. Not while it
-                        // has the focus (the last fight being read); the
-                        // meter's keybind can bring it back meanwhile.
+                        // shrinks to its title bar's buttons (core.js
+                        // "meter-resting"; the window follows its size), and
+                        // the next hit brings it back. Not while it has the
+                        // focus (the last fight being read).
                         let ooc_secs: i64 = state.settings.get("dpsMeter.hideOutOfCombat")
                             .and_then(|v| v.parse().ok())
                             .unwrap_or(0);
@@ -3629,20 +3631,13 @@ pub fn run() {
                             && (hidden_ooc || !meter_focused)
                             && crate::clock::now_ms() - state.data_storage.combat_feed().last_combat_ms() > ooc_secs * 1000;
                         if want_ooc != hidden_ooc {
-                            if let Some(window) = handle.get_webview_window("main") {
-                                if want_ooc {
-                                    platform::window::minimize_off_top(&window);
-                                } else {
-                                    show_meter_again(&handle, &window);
-                                }
-                            }
+                            let _ = handle.emit_to("main", "meter-resting", want_ooc);
                             hidden_ooc = want_ooc;
                         }
 
                         // --- Auto-hide when AION2 loses focus (every tick) ---
                         let auto_hide = tick_count > 20
                             && !hidden_closed
-                            && !hidden_ooc
                             && state.settings.get("dpsMeter.autoHideMeter")
                                 .unwrap_or_default() == "true"
                             && meter_wanted(&handle);

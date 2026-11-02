@@ -42,7 +42,7 @@
 
   <body>
     <div class="container">
-      <div class="meter">
+      <div class="meter isIdle">
         <div class="header">
           <div class="bossIcon" role="button" tabindex="0" aria-label="Copy screenshot">
             <img src="/src/assets/logo.png" alt="" />
@@ -51,6 +51,8 @@
             </div>
           </div>
           <div class="bossNames">
+            <!-- The shown players' DPS added up (meter.js); the Daeva Companion theme shows it. -->
+            <span class="meterSummary"><span class="summaryValue"></span><span class="summaryUnit">DPS</span></span>
             <span class="bossName"></span>
           </div>
 
@@ -670,7 +672,7 @@
                   </label>
                   <div class="settingsRow settingsRowSelect">
                     <div class="settingsInfo">
-                      <div class="settingsLabel" data-i18n="settings.hideOutOfCombat.label" title="The meter goes out of sight a while after the last hit, and comes back with the next fight." data-i18n-title="settings.tips.hideOutOfCombat">Hide out of combat</div>
+                      <div class="settingsLabel" data-i18n="settings.hideOutOfCombat.label" title="A while after the last hit the meter shrinks to its buttons, and grows back with the next fight." data-i18n-title="settings.tips.hideOutOfCombat">Shrink out of combat</div>
                     </div>
                     <div class="settingsDropdownWrapper hideOutOfCombatDropdownWrapper">
                       <button class="settingsDropdownBtn hideOutOfCombatDropdownBtn" type="button">

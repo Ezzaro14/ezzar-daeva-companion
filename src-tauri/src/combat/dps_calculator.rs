@@ -574,6 +574,18 @@ impl DpsCalculator {
             dps_data.map.remove(&uid);
         }
 
+        // Each player's deaths in this fight, or just after its last hit (a
+        // wipe), under the id its row uses, as the fight's details count them
+        // (`get_target_details`). A summon's is not its owner's.
+        if fight_end > 0 {
+            for (id, _, _) in self.data_storage.player_deaths_between(fight_start, fight_end + DEATH_GRACE_MS) {
+                let uid = *canonical.get(&resolve_nickname(id, &nickname_data, &summon_data)).unwrap_or(&id);
+                if let Some(row) = dps_data.map.get_mut(&uid) {
+                    row.deaths += 1;
+                }
+            }
+        }
+
         if let Some(shown) = self.world_boss_rows(&mut dps_data, &combat_data, &local_ids, &party_members, total_damage, target_current_hp, bt) {
             total_damage = shown;
         }
@@ -1781,14 +1793,12 @@ impl DpsCalculator {
             .collect();
 
         // The players who died while the fight went on, or just after its last
-        // hit (a wipe), each under the id its rows use. A monster's death is
-        // left out: only a known player or a named actor is a player.
-        let known_players = self.data_storage.get_known_player_ids();
+        // hit (a wipe), each under the id its rows use. A monster's or a
+        // summon's death is left out (`player_deaths_between`).
         let deaths = self
             .data_storage
-            .deaths_between(target_data.first_damage_time, target_data.last_damage_time + DEATH_GRACE_MS)
+            .player_deaths_between(target_data.first_damage_time, target_data.last_damage_time + DEATH_GRACE_MS)
             .into_iter()
-            .filter(|(id, _, _)| known_players.contains(id) || nickname_data.contains_key(id))
             .map(|(id, t, revived)| {
                 let uid = *orphan_to_owner.get(&id).unwrap_or(&id);
                 let uid = *canonical.get(&resolve_nickname(uid, &nickname_data, &summon_data)).unwrap_or(&uid);
@@ -1993,6 +2003,46 @@ mod tests {
         ]);
         // A summary carries none, so its count reads as unknown, not 0.
         assert!(meter(&storage).get_hover_details(50_000, None).deaths.is_none());
+    }
+
+    /// The meter's rows count the same deaths: Naicha once (revived), Faffy
+    /// once, and neither the monster's, Faffy's summon's nor the later fight's.
+    #[test]
+    fn the_meter_counts_each_players_deaths_in_the_fight() {
+        let storage = Arc::new(DataStorage::new());
+        storage.append_nickname(2259, "Naicha");
+        storage.append_nickname(2260, "Faffy");
+        storage.append_summon(2260, 70_000);
+        assert_eq!(storage.get_summon_data().get(&70_000), Some(&2260));
+        storage.append_damage(hit(2259, 50_000, 1_000));
+        storage.append_damage(hit(2260, 50_000, 9_000));
+        let at = |ms| crate::clock::set_override(Some(ms));
+        at(2_000);
+        storage.note_hp(2259, 5_000);
+        storage.note_hp(2260, 5_000);
+        at(4_000);
+        storage.note_hp(2259, 0);
+        at(6_000);
+        storage.note_hp(2259, 2_500);
+        at(5_000);
+        storage.mark_entity_dead(50_001);
+        storage.note_hp(70_000, 3_000);
+        at(7_000);
+        storage.note_hp(70_000, 0);
+        storage.mark_entity_dead(70_000);
+        at(8_500);
+        storage.note_hp(2260, 0);
+        at(30_000);
+        storage.note_hp(2259, 0);
+        crate::clock::set_override(None);
+        let details = meter(&storage).get_target_details(50_000, None).deaths.unwrap();
+        assert_eq!(details.iter().filter(|d| d.actor_id == 2260).count(), 1, "Faffy's in Details too");
+        let mut calc = meter(&storage);
+        calc.set_target_selection_mode("allTargets");
+        let dps = calc.get_dps();
+        let deaths = |id: i32| dps.map.get(&id).map(|r| r.deaths);
+        assert_eq!(deaths(2259), Some(1), "Naicha");
+        assert_eq!(deaths(2260), Some(1), "Faffy");
     }
 
     #[test]

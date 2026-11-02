@@ -388,6 +388,13 @@ class DpsApp {
       getPartyStat: () => this.partyStat,
       getScope: () => this.meterScope,
       getJobColor: (job) => this.getJobColor(job),
+      // Total damage beside DPS and %, while the meter shows DPS (in the other
+      // modes the figure already is a total, or healing).
+      formatTotal: (value) => this.formatAbbreviatedNumber(value),
+      showTotal: () => !this.displayMode || this.displayMode === "dps",
+      elSummary: document.querySelector(".meterSummary"),
+      getSummaryKind: () => (this.displayMode === "hps" || this.displayMode === "totalHeal" ? "hps" : "dps"),
+      elMeter: document.querySelector(".meter"),
       onHoverUserRow: (row, event) => {
         if (row?.isOthers || this.shouldSuppressRowInteractions()) return;
         this.openHoverDetailsRow(row, event);
@@ -1606,6 +1613,8 @@ class DpsApp {
       // players actually in your party; 0 means "unknown", not "zero CP".
       const combatPower = Math.trunc(Number(isObj ? value.combatPower : 0)) || 0;
       const gearScore = Math.trunc(Number(isObj ? value.gearScore : 0)) || 0;
+      // Deaths in the fight shown (dps_calculator.rs get_dps).
+      const deaths = Math.trunc(Number(isObj ? value.deaths : 0)) || 0;
 
       rows.push({
         id: String(id),
@@ -1618,6 +1627,7 @@ class DpsApp {
         damageContribution,
         combatPower,
         gearScore,
+        deaths,
         isUser: !isOthers && ((!!name && name === this.USER_NAME) || (hasLocalId && numericId === localId)),
         isOthers,
         isIdentifying,

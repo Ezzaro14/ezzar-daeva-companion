@@ -343,6 +343,12 @@
     window._dpsApp?._onOverlayLockChanged?.(!!event?.payload);
   });
 
+  // Out of combat a while (Settings → Hide out of combat; app.rs): the meter
+  // shrinks to its title bar's buttons until the next fight (styles.css).
+  if (viewMode !== "settings") listen("meter-resting", (event) => {
+    document.querySelector(".meter")?.classList.toggle("isResting", !!event?.payload);
+  });
+
   listen("npcap-missing", () => {
     const msg = "Npcap is required for packet capture but is not installed.\n\nWould you like to download it now?";
     if (confirm(msg)) {

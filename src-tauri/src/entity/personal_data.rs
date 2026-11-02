@@ -45,6 +45,10 @@ pub struct PersonalData {
     pub hps: f64,
     #[serde(default)]
     pub heal_amount: f64,
+    /// Times this player died in the fight the meter shows (or just after its
+    /// last hit: a wipe), from the HP records (`DataStorage::deaths_between`).
+    #[serde(default)]
+    pub deaths: u32,
 }
 
 impl PersonalData {
@@ -64,6 +68,7 @@ impl PersonalData {
             in_party: false,
             hps: 0.0,
             heal_amount: 0.0,
+            deaths: 0,
         }
     }
 
@@ -83,6 +88,7 @@ impl PersonalData {
             in_party: false,
             hps: 0.0,
             heal_amount: 0.0,
+            deaths: 0,
         }
     }
 

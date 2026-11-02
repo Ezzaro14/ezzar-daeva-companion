@@ -62,6 +62,15 @@ const createMeterUI = ({
   getPartyStat,
   getScope,
   getJobColor,
+  // Fork: total damage as the row's third figure ("3.5M"), when the metric
+  // isn't already damage or healing (formatTotal, showTotal); the party's
+  // summed DPS or HPS for the header (elSummary, getSummaryKind); and the
+  // meter element, marked isIdle while it has no rows (styles.css: buttons only).
+  formatTotal,
+  showTotal,
+  elSummary,
+  getSummaryKind,
+  elMeter,
 }) => {
   const MAX_CACHE = 32;
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
@@ -77,7 +86,10 @@ const createMeterUI = ({
   // Forget what each row last drew, so the next refresh redraws it (the
   // party stat setting changed).
   const invalidateRows = () => {
-    for (const view of rowViewById.values()) view.lastCombatPowerText = undefined;
+    for (const view of rowViewById.values()) {
+      view.lastCombatPowerText = undefined;
+      view.lastTotalText = undefined;
+    }
   };
 
   const createRowView = (id) => {
@@ -147,14 +159,30 @@ const createMeterUI = ({
     combatPowerEl.className = "combatPower";
     combatPowerEl.style.display = "none";
 
+    // Deaths in this fight: a skull and the count, hidden at none. Inline SVG
+    // for the reason the supporter badge is.
+    const deathsEl = document.createElement("span");
+    deathsEl.className = "deaths";
+    deathsEl.style.display = "none";
+    deathsEl.innerHTML =
+      '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">' +
+      '<path d="M12 2C6.9 2 3 5.7 3 10.5c0 2.9 1.4 5.2 3.5 6.6V20a1 1 0 0 0 1 1h1.5v-2h2v2h2v-2h2v2h1.5a1 1 0 0 0 1-1v-2.9c2.1-1.4 3.5-3.7 3.5-6.6C21 5.7 17.1 2 12 2Zm-3.5 11a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm7 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg>' +
+      '<span class="deathsCount"></span>';
+    const deathsCountEl = deathsEl.querySelector(".deathsCount");
+
     const dpsContainer = document.createElement("div");
     const dpsNumber = document.createElement("p");
     dpsContainer.className = "dps";
     const dpsContribution = document.createElement("p");
     dpsContribution.className = "dpsContribution";
 
+    const dpsTotal = document.createElement("p");
+    dpsTotal.className = "dpsTotal";
+    dpsTotal.style.display = "none";
+
     dpsContainer.appendChild(dpsNumber);
     dpsContainer.appendChild(dpsContribution);
+    dpsContainer.appendChild(dpsTotal);
 
     contentEl.appendChild(rankEl);
     contentEl.appendChild(classIconEl);
@@ -162,6 +190,7 @@ const createMeterUI = ({
     contentEl.appendChild(supporterBadgeEl);
     contentEl.appendChild(a2toolsBadgeEl);
     contentEl.appendChild(combatPowerEl);
+    contentEl.appendChild(deathsEl);
     contentEl.appendChild(dpsContainer);
     rowEl.appendChild(fillTrackEl);
     rowEl.appendChild(contentEl);
@@ -174,6 +203,9 @@ const createMeterUI = ({
       supporterBadgeEl,
       a2toolsBadgeEl,
       combatPowerEl,
+      deathsEl,
+      deathsCountEl,
+      dpsTotal,
       rankEl,
       dpsContainer,
       classIconEl,
@@ -190,6 +222,8 @@ const createMeterUI = ({
       lastIsSupporter: false,
       lastMetricText: "",
       lastContributionText: "",
+      lastDeaths: -1,
+      lastTotalText: "",
       lastRankText: "",
       lastFillRatio: -1,
       lastClassIconSrc: "",
@@ -309,6 +343,22 @@ const createMeterUI = ({
     if (hadRows !== hasRows) {
       elList.classList.toggle("hasRows", hasRows);
     }
+    elMeter?.classList.toggle("isIdle", !hasRows);
+
+    // The header's figure: the shown players' DPS (or HPS) added up.
+    if (elSummary) {
+      const kind = getSummaryKind?.() === "hps" ? "hps" : "dps";
+      const sum = rows.reduce((total, row) => total + (row?.isOthers ? 0 : Number(row?.[kind]) || 0), 0);
+      const text = `${formatTotal ? formatTotal(sum) : dpsFormatter.format(Math.round(sum))}|${kind}`;
+      if (elSummary.dataset.text !== text) {
+        elSummary.dataset.text = text;
+        const [value] = text.split("|");
+        const valueEl = elSummary.querySelector(".summaryValue");
+        const unitEl = elSummary.querySelector(".summaryUnit");
+        if (valueEl) valueEl.textContent = value;
+        if (unitEl) unitEl.textContent = kind.toUpperCase();
+      }
+    }
 
     let topMetric = 1;
     for (const row of rows) {
@@ -410,6 +460,14 @@ const createMeterUI = ({
         view.lastCombatPowerText = combatPowerText;
       }
 
+      const deaths = Math.max(0, Math.trunc(Number(row.deaths) || 0));
+      if (view.lastDeaths !== deaths) {
+        view.deathsCountEl.textContent = String(deaths);
+        view.deathsEl.style.display = deaths > 0 ? "" : "none";
+        view.deathsEl.title = deaths === 1 ? "Died once" : `Died ${deaths} times`;
+        view.lastDeaths = deaths;
+      }
+
       // "Unknown" is a row whose class is not known yet: no icon, rather than
       // a broken image of a file that does not exist (issue #9).
       // The class's colour, for a theme that colours each bar by class
@@ -484,6 +542,13 @@ const createMeterUI = ({
       if (view.lastContributionText !== contributionText) {
         view.dpsContribution.textContent = contributionText;
         view.lastContributionText = contributionText;
+      }
+
+      const totalText = formatTotal && (showTotal?.() ?? true) ? formatTotal(Number(row.totalDamage) || 0) : "";
+      if (view.lastTotalText !== totalText) {
+        view.dpsTotal.textContent = totalText;
+        view.dpsTotal.style.display = totalText ? "" : "none";
+        view.lastTotalText = totalText;
       }
 
       const rankText = String(rankById?.get(id) ?? "");
@@ -564,6 +629,7 @@ const createMeterUI = ({
     pendingRenderRows = null;
     lastOrderKey = "";
     elList.classList.remove("hasRows");
+    elMeter?.classList.add("isIdle");
     lastVisibleIds = new Set();
 
     const battleTimeEl = elList.querySelector(".battleTime");
