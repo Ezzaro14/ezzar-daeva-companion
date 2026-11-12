@@ -26,9 +26,9 @@
           <button type="button" class="btn small zoomIn" title="Zoom in">+</button>
           <button type="button" class="btn small zoomOut" title="Zoom out">−</button>
           <button type="button" class="btn small fit" title="Show the whole map">Fit</button>
+          <button type="button" class="btn small names" title="Show or hide the names beside the markers" aria-pressed="true">Names</button>
           <button type="button" class="btn small follow" title="Keep you in the middle" aria-pressed="false">Follow me</button>
           <button type="button" class="btn small trackMinimap" title="Find you on the game's minimap, a few times a second while this map is shown" aria-pressed="false">Minimap</button>
-          <button type="button" class="btn small sideToggle" title="Show or hide the filters and settings beside the map" aria-pressed="true">Filters</button>
           <span class="minimapState" hidden></span>
         </div>
         <div class="coords"></div>
@@ -49,7 +49,14 @@
         <div class="dropHint" hidden>Drop the picture to use it for this map</div>
       </div>
 
+      <!-- Folds to its rail (applySide): the rail and its button stay. -->
       <aside class="side">
+        <div class="sideRail">
+          <button type="button" class="sideToggle" title="Hide the filters" aria-label="Hide the filters" aria-expanded="true">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </button>
+        </div>
+        <div class="sideBody">
         <label class="row"><span>Map</span><select class="mapPick"></select></label>
         <input type="search" class="search" placeholder="Search markers…" />
         <div class="row layersAll">
@@ -131,6 +138,7 @@
             <button type="button" class="btn small danger clearSeen">Forget seen monsters</button>
           </div>
         </details>
+        </div>
       </aside>
     </div>
 

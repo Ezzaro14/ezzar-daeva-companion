@@ -11,7 +11,7 @@ Your own screenshot of each world map, lined up with the game's coordinates, wit
 
 **Minimap** finds you on the game's minimap a few times a second, on the map you are on. If it can't find you for a while (a dungeon the meter was started in, or a place the map's picture doesn't show), it stops looking and says so, and starts again when you change map, use a skill, move the map near where you are, or turn it off and on.
 
-**Filters** (top left, with the zoom buttons) hides the sidebar so the map fills the window, and brings it back; the choice is remembered. **All on** and **All off** above the layers turn every layer at once, the saved map file's too.
+**Names** (top left, with the zoom buttons) shows or hides the names beside the markers and the saved map file's spots; region names are a layer of their own. The arrow on the sidebar's rail slides the filters shut so the map fills the window, leaving the rail and its arrow to bring them back; both choices are remembered. **All on** and **All off** above the layers turn every layer at once, the saved map file's too.
 
 ## Adding a map image
 

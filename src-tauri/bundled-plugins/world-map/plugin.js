@@ -293,7 +293,7 @@ function draw() {
     el.style.transform = `scale(${inv})`;
     el.title = mk.label;
     if (mk.cls === "me") el.dataset.me = "";
-    if (view.zoom >= (LABEL_ZOOM[mk.layer] ?? 0)) el.append(Object.assign(document.createElement("span"), { className: "lbl", textContent: mk.label }));
+    if (namesOn() && view.zoom >= (LABEL_ZOOM[mk.layer] ?? 0)) el.append(Object.assign(document.createElement("span"), { className: "lbl", textContent: mk.label }));
     el.addEventListener("click", (e) => {
       e.stopPropagation();
       select(mk);
@@ -1369,8 +1369,8 @@ function drawDots() {
     g.fillText(str, x, y);
   };
   const shapes = dotHits.filter((d) => d.l.shape !== "text");
-  // Names once few enough are in view to read.
-  if (shapes.length <= 160) for (const d of shapes) if (d.e.n) text(d.e.n, d.sx + rad + 4, d.sy, "11px 'Segoe UI', system-ui, sans-serif", "left");
+  // Names once few enough are in view to read, unless turned off.
+  if (namesOn() && shapes.length <= 160) for (const d of shapes) if (d.e.n) text(d.e.n, d.sx + rad + 4, d.sy, "11px 'Segoe UI', system-ui, sans-serif", "left");
   for (const d of dotHits) if (d.l.shape === "text") text(d.e.n, d.sx, d.sy, "600 12px 'Segoe UI', system-ui, sans-serif", "center");
   const sel = selected?.dot && dotHits.find((d) => d.x === selected.x && d.y === selected.y && d.e.n === selected.dot);
   if (sel) {
@@ -1600,17 +1600,40 @@ setInterval(() => {
 }, 5000);
 window.addEventListener("resize", () => draw());
 
-// The sidebar (filters, picture, pins): hidden, the map has the whole window.
+// The sidebar (filters, picture, pins): folded, it slides shut to its rail
+// and the map has the rest of the window. Drawn again once it has moved.
 function applySide() {
   const hidden = !!prefs.sideHidden;
   $(".layout").classList.toggle("sideHidden", hidden);
-  $(".sideToggle").setAttribute("aria-pressed", String(!hidden));
+  const toggle = $(".sideToggle");
+  const label = hidden ? "Show the filters" : "Hide the filters";
+  toggle.setAttribute("aria-expanded", String(!hidden));
+  toggle.title = label;
+  toggle.setAttribute("aria-label", label);
   draw();
 }
 $(".sideToggle").addEventListener("click", () => {
   prefs.sideHidden = !prefs.sideHidden;
   store("prefs", prefs);
   applySide();
+});
+$(".side").addEventListener("transitionend", (e) => {
+  if (e.target === e.currentTarget && e.propertyName === "width") draw();
+});
+
+// The names beside the markers and the saved map file's spots: on until
+// turned off, which a busy map wants (region names are a layer of their own).
+function namesOn() {
+  return prefs.names !== false;
+}
+function applyNames() {
+  $(".names").setAttribute("aria-pressed", String(namesOn()));
+}
+$(".names").addEventListener("click", () => {
+  prefs.names = !namesOn();
+  store("prefs", prefs);
+  applyNames();
+  draw();
 });
 
 // Every layer on or off at once: the built-in ones and the saved map file's
@@ -1632,6 +1655,7 @@ $(".allOff").addEventListener("click", () => setAllLayers(false));
   a2.ready();
   await openMap(prefs.map ?? 1010);
   applySide();
+  applyNames();
   follow = !!prefs.follow;
   $(".follow").setAttribute("aria-pressed", String(follow));
   $(".trackMinimap").setAttribute("aria-pressed", String(!!prefs.minimap));
