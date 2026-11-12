@@ -1852,10 +1852,15 @@ impl DataStorage {
         // are no longer with you.
         let was_in_party = inner.party_members.len() >= 2;
         let now_alone = complete && members.len() <= 1;
+        // Dropped only from a roster that had you: a meter started mid-instance
+        // knows you by the window title or the last session, and a name no
+        // roster lists made every roster an ending (see the test below).
         let local_name = inner.local_character_name.clone();
         let dropped_self = complete
-            && local_name.as_ref().is_some_and(|n| {
-                !n.trim().is_empty() && !members.iter().any(|(name, _)| name.trim() == n.trim())
+            && local_name.as_deref().map(str::trim).is_some_and(|n| {
+                !n.is_empty()
+                    && inner.party_members.keys().any(|name| name.trim() == n)
+                    && !members.iter().any(|(name, _)| name.trim() == n)
             });
 
         if was_in_party && (now_alone || dropped_self) {
@@ -4059,5 +4064,28 @@ mod tests {
         s.append_damage(hit(202, 900, 2_000, 300, false));
         s.note_party_left();
         assert!(s.take_combat_reset_requested(), "an open-world party: someone else on the meter");
+    }
+
+    /// A meter started mid-instance has no self record, only the name from
+    /// the window title or the last session, which can be another character
+    /// (or a typed "Ambulance" for "AmbuIance"). No roster names it, so each
+    /// roster looked like you had been dropped from the party, and every
+    /// other one reset the meter mid-fight.
+    #[test]
+    fn a_roster_without_a_name_never_in_it_does_not_end_the_party() {
+        let s = DataStorage::new();
+        s.set_local_character_name(Some("Ambulance".into()));
+        let party = || vec![("AmbuIance".into(), member(1)), ("JinSoul".into(), member(2)), ("Prenses".into(), member(3))];
+        for _ in 0..4 {
+            s.set_party_roster(party(), true);
+            assert!(!s.take_combat_reset_requested(), "the party is unchanged");
+        }
+        assert_eq!(s.get_party_members().len(), 3);
+
+        // Once listed, a roster without you is still you leaving.
+        s.set_local_character_name(Some("AmbuIance".into()));
+        s.set_party_roster(party(), true);
+        s.set_party_roster(vec![("JinSoul".into(), member(2)), ("Prenses".into(), member(3))], true);
+        assert!(s.take_combat_reset_requested(), "dropped from the party");
     }
 }
