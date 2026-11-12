@@ -11,7 +11,7 @@
 # runs as root (see daeva-companion.install).
 
 pkgname=daeva-companion
-pkgver=2.1.0
+pkgver=2.2.0
 pkgrel=1
 pkgdesc="Ezzar's Daeva Companion: AION 2 DPS meter and combat overlays (Linux/Proton)"
 arch=('x86_64')
