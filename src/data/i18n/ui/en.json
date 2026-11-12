@@ -1,6 +1,7 @@
 {
   "header": {
     "title": "Ezzar's Daeva Companion",
+    "clickThrough": "Click-through: only these buttons take clicks",
     "display": {
       "dps": "DPS",
       "total": "DMG",
@@ -289,7 +290,8 @@
     "autoHideMeter": "Hide when AION2 isn't focused",
     "hideWhenGameClosed": "Hide while AION2 is closed",
     "showSuspendBtn": "Show pause capture button",
-    "showLockBtn": "Show click-through lock button",
+    "showLockBtn": "Show click-through button",
+    "meterClickThrough": "Meter click-through",
     "playerLimit": {
       "label": "Max players shown"
     },
@@ -431,6 +433,8 @@
       "restoreDefaults": "Restore defaults",
       "hint": "Click a keybind, then press 1 to 3 keys. Esc cancels.",
       "lock": "Lock/unlock overlay",
+      "clickThrough": "Meter click-through",
+      "clickThroughHint": "Only the meter's buttons take clicks.",
       "openDesktop": "Desktop shortcuts"
     },
     "defaultMeterMode": {
@@ -496,7 +500,8 @@
       "showTotalDps": "A bar under the rows with the party's combined DPS and damage.",
       "roundDps": "13,412 shows as 13k.",
       "showSuspendBtn": "A button on the meter that stops reading game traffic until you press it again.",
-      "showLockBtn": "A button that makes the meter ignore the mouse, so clicks go through to the game.",
+      "showLockBtn": "A button at the meter's top right that turns its click-through on and off.",
+      "meterClickThrough": "Clicks on the meter go through to the game; only the buttons at its top right still work. Its keybind turns it on and off too.",
       "windowOpacity": "How see-through the meter's background is. Bars and text stay as they are.",
       "titleOpacity": "How see-through the meter's title bar is, apart from the background under it. Until you move it, it follows the background.",
       "meterOpacity": "How solid the coloured damage bars are.",

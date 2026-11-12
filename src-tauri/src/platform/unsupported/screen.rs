@@ -9,7 +9,7 @@ pub fn capture(
     _width: f64,
     _height: f64,
     _scale: f64,
-    _meter: Option<&tauri::WebviewWindow>,
+    _meter: Option<(&tauri::WebviewWindow, crate::platform::screenshot::MeterArea)>,
     _png_path: Option<&Path>,
 ) -> (bool, bool) {
     (false, false)

@@ -173,83 +173,38 @@ test("moving over the same row repositions the tooltip without fetching skills a
 });
 
 const sizingSource = bridgeSource.slice(bridgeSource.indexOf("  const updateWindowSize = () => {"), bridgeSource.indexOf("  // Watch all class changes"));
-const releaseTimers = () => {
-  const timers = new Map();
-  let next = 0;
-  return {
-    timers,
-    globals: {
-      TOOLTIP_RELEASE_MS: 250, tooltipReserve: null, tooltipReleaseTimer: 0,
-      setTimeout: (callback, ms) => { timers.set(++next, { callback, ms }); return next; },
-      clearTimeout: (id) => timers.delete(id),
-    },
-    flush: () => {
-      const pending = [...timers.values()];
-      timers.clear();
-      pending.forEach(({ callback }) => callback());
-    },
-  };
-};
-test("overlay reserves the tooltip's actual width and height and shrinks on close", async () => {
-  let tooltip = { getBoundingClientRect: () => ({ right: 610, bottom: 360 }) };
-  let fullPanel = false;
-  const sizes = [];
-  const release = releaseTimers();
+
+// The meter is part of the overlay (overlay.js): its window is the screen,
+// so a tooltip, a panel or a card never resizes it. A change asks the
+// overlay to lay the meter out and say again where it takes the mouse.
+function sizing(view) {
+  const calls = [];
+  let laidOut = 0;
   const context = vm.createContext({
-    ...release.globals,
-    resizeActive: false, lastSizeKey: "", pendingWindowSize: null, isLinux: false,
-    PANEL_WIDTH: 1200, PANEL_HEIGHT: 800, PROMO_WIDTH: 600, PROMO_HEIGHT: 400,
-    spaceRightBelow: () => ({ w: 900, h: 700 }),
-    window: { A2_VIEW: "main", devicePixelRatio: 1.5, javaBridge: {} },
-    document: {
-      body: { classList: { contains: () => false } },
-      querySelector: (selector) => selector === ".meter" ? { offsetWidth: 380, offsetHeight: 200, scrollHeight: 200 }
-        : selector === ".hoverDetailsTooltip.isVisible" ? tooltip
-        : selector === ".settingsPanel.isOpen" && fullPanel ? {} : null,
-    },
-    invoke: (command, args) => { sizes.push(args); return Promise.resolve(); },
+    viewMode: view,
+    window: { A2_VIEW: view, javaBridge: {}, a2Overlay: { meterChanged: () => laidOut++ } },
+    invoke: (command, args) => { calls.push({ command, args }); return Promise.resolve(); },
   });
   vm.runInContext(sizingSource, context);
-  await vm.runInContext("updateWindowSize()", context);
-  assert.equal(sizes[0].width, 618);
-  assert.equal(sizes[0].height, 368);
-  assert.equal(sizes[0].scale, 1.5);
-  tooltip = null;
-  await vm.runInContext("updateWindowSize()", context);
-  assert.equal(sizes.length, 1, "shrink waits for the release delay");
-  release.flush();
-  await tick();
-  assert.equal(sizes[1].width, 396);
-  assert.equal(sizes[1].height, 210);
-  fullPanel = true;
-  await vm.runInContext("updateWindowSize()", context);
-  assert.equal(sizes[2].width, 1200);
-  assert.equal(sizes[2].height, 800);
+  return { context, calls, laidOut: () => laidOut };
+}
+
+test("the meter's window never resizes for a tooltip: the overlay lays the meter out", async () => {
+  const { context, calls, laidOut } = sizing("main");
+  for (let i = 0; i < 3; i++) assert.equal(await vm.runInContext("updateWindowSize()", context), true);
+  assert.equal(laidOut(), 3);
+  assert.deepEqual(calls, [], "no window call at all");
+  assert.equal(vm.runInContext("window.javaBridge.updateOverlaySize === updateWindowSize", context), true);
 });
 
-
-test("on Linux the overlay does not grow for the tooltip", async () => {
-  const sizes = [];
-  const release = releaseTimers();
-  const context = vm.createContext({
-    ...release.globals,
-    resizeActive: false, lastSizeKey: "", pendingWindowSize: null, isLinux: true,
-    PANEL_WIDTH: 1200, PANEL_HEIGHT: 800, PROMO_WIDTH: 600, PROMO_HEIGHT: 400,
-    spaceRightBelow: () => ({ w: 900, h: 700 }),
-    window: { A2_VIEW: "main", devicePixelRatio: 1, javaBridge: {} },
-    document: {
-      body: { classList: { contains: () => false } },
-      querySelector: (selector) => selector === ".meter" ? { offsetWidth: 380, offsetHeight: 200, scrollHeight: 200 }
-        : selector === ".hoverDetailsTooltip.isVisible" ? { getBoundingClientRect: () => ({ right: 610, bottom: 360 }) }
-        : null,
-    },
-    invoke: (command, args) => { sizes.push(args); return Promise.resolve(); },
-  });
-  vm.runInContext(sizingSource, context);
-  await vm.runInContext("updateWindowSize()", context);
-  assert.deepEqual([sizes[0].width, sizes[0].height], [396, 210], "the meter's own size");
+test("tool windows keep their own size and have no overlay to tell", async () => {
+  for (const view of ["details", "settings", "history"]) {
+    const { context, calls, laidOut } = sizing(view);
+    assert.equal(await vm.runInContext("updateWindowSize()", context), true);
+    assert.equal(laidOut(), 0);
+    assert.deepEqual(calls, []);
+  }
 });
-
 
 test("hover translations preserve the existing details tooltip text", () => {
   for (const locale of ["en", "ru"]) {
@@ -517,44 +472,6 @@ test('invalidating a fight rejects old answers without clearing the new pending 
   assert.equal(app.hoverTooltipPendingRowIds.size, 0);
 });
 
-test('native travel area stays fixed during motion, is screen-clamped and shrinks on close', async () => {
-  let bounds = { right: 610, bottom: 360, width: 240, height: 180 };
-  let room = { w: 900, h: 700 };
-  const sizes = [];
-  const release = releaseTimers();
-  const context = vm.createContext({
-    ...release.globals,
-    resizeActive: false, lastSizeKey: '', pendingWindowSize: null, isLinux: false,
-    PANEL_WIDTH: 1200, PANEL_HEIGHT: 800, PROMO_WIDTH: 600, PROMO_HEIGHT: 400,
-    spaceRightBelow: () => room,
-    window: { A2_VIEW: 'main', devicePixelRatio: 1.5, javaBridge: {} },
-    document: {
-      body: { classList: { contains: () => false } },
-      querySelector: (selector) => selector === '.meter' ? { offsetWidth: 380, offsetHeight: 300, scrollHeight: 300 }
-        : selector === '.hoverDetailsTooltip.isVisible' ? (bounds && { getBoundingClientRect: () => bounds })
-        : selector === '.list:not(.barPreviewList)' ? { getBoundingClientRect: () => ({ right: 380, bottom: 260 }) } : null,
-    },
-    invoke: (command, args) => { sizes.push(args); return Promise.resolve(); },
-  });
-  vm.runInContext(sizingSource, context);
-  await vm.runInContext('updateWindowSize()', context);
-  assert.equal(sizes[0].width, 640);
-  assert.equal(sizes[0].height, 460);
-  bounds = { ...bounds, right: 490, bottom: 320 };
-  await vm.runInContext('updateWindowSize()', context);
-  assert.equal(sizes.length, 1);
-  room = { w: 500, h: 400 };
-  await vm.runInContext('updateWindowSize()', context);
-  assert.equal(sizes[1].width, 500);
-  assert.equal(sizes[1].height, 400);
-  bounds = null;
-  await vm.runInContext('updateWindowSize()', context);
-  release.flush();
-  await tick();
-  assert.equal(sizes[2].width, 396);
-  assert.equal(sizes[2].height, 310);
-});
-
 test('stationary hover schedules no frames and repeated coordinates do not wake rendering', () => {
   const { app, frames, flushFrame } = setup();
   app.pinnedDetailsRowId = null;
@@ -730,50 +647,6 @@ test("an IPC failure of target details is an error, not an empty fight", async (
   await assert.rejects(app.getDetails({ id: 7 }, { targetId: 1, attackerIds: [7] }), /target 1/);
   const empty = await app.getDetails({ id: 7 }, { targetId: 2, attackerIds: [7] });
   assert.equal(empty.skills.length, 0);
-});
-
-test("moving between rows keeps the native window size and leaving the meter shrinks it", async () => {
-  let bounds = { right: 610, bottom: 360, width: 240, height: 180 };
-  const sizes = [];
-  const release = releaseTimers();
-  const context = vm.createContext({
-    ...release.globals,
-    resizeActive: false, lastSizeKey: '', pendingWindowSize: null, isLinux: false,
-    PANEL_WIDTH: 1200, PANEL_HEIGHT: 800, PROMO_WIDTH: 600, PROMO_HEIGHT: 400,
-    spaceRightBelow: () => ({ w: 1900, h: 1000 }),
-    window: { A2_VIEW: 'main', devicePixelRatio: 1, javaBridge: {} },
-    document: {
-      body: { classList: { contains: () => false } },
-      querySelector: (selector) => selector === '.meter' ? { offsetWidth: 380, offsetHeight: 300, scrollHeight: 300 }
-        : selector === '.hoverDetailsTooltip.isVisible' ? (bounds && { getBoundingClientRect: () => bounds })
-        : selector === '.list:not(.barPreviewList)' ? { getBoundingClientRect: () => ({ right: 380, bottom: 260 }) } : null,
-    },
-    invoke: (command, args) => { sizes.push(args); return Promise.resolve(); },
-  });
-  vm.runInContext(sizingSource, context);
-  const update = () => vm.runInContext('updateWindowSize()', context);
-  await update();
-  assert.equal(sizes.length, 1);
-  for (const width of [200, 300, 240]) {
-    bounds = null;
-    await update();
-    await update();
-    bounds = { right: 610, bottom: 360, width, height: 150 };
-    await update();
-  }
-  assert.equal(sizes.length, 2, "a wider row grows the area once; nothing shrinks between rows");
-  assert.equal(sizes[1].width, 700);
-  assert.equal(release.timers.size, 0, "showing the tooltip again cancels the pending shrink");
-  bounds = null;
-  await update();
-  assert.equal(sizes.length, 2);
-  assert.equal(release.timers.size, 1);
-  assert.equal([...release.timers.values()][0].ms, 250);
-  release.flush();
-  await tick();
-  assert.deepEqual({ width: sizes[2].width, height: sizes[2].height }, { width: 396, height: 310 });
-  await update();
-  assert.equal(sizes.length, 3, "no reserved area remains after the tooltip is gone");
 });
 
 test("a target change refreshes the visible tooltip in place", async () => {

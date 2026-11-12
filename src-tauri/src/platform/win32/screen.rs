@@ -34,9 +34,9 @@ fn client_rect(hwnd_raw: isize) -> ScreenRect {
     ScreenRect { left, top, width: rect.right - rect.left, height: rect.bottom - rect.top }
 }
 
-/// Capture a CSS-pixel rect of `caller` (plus all of `meter`, if given), put it
-/// on the clipboard and optionally write it to `png_path`. Blocking. Returns
-/// (clipboard ok, file ok).
+/// Capture a CSS-pixel rect of `caller` (plus the meter's area of the overlay,
+/// if given), put it on the clipboard and optionally write it to `png_path`.
+/// Blocking. Returns (clipboard ok, file ok).
 #[allow(clippy::too_many_arguments)]
 pub fn capture(
     caller: &tauri::WebviewWindow,
@@ -45,13 +45,15 @@ pub fn capture(
     width: f64,
     height: f64,
     scale: f64,
-    meter: Option<&tauri::WebviewWindow>,
+    meter: Option<(&tauri::WebviewWindow, crate::platform::screenshot::MeterArea)>,
     png_path: Option<&Path>,
 ) -> (bool, bool) {
     let Some(owner) = hwnd_of(caller) else { return (false, false) };
     let mut rect = css_rect_to_screen(client_origin(owner), x, y, width, height, scale);
-    if let Some(meter) = meter.and_then(hwnd_of) {
-        rect = rect.union(client_rect(meter));
+    if let Some((window, (mx, my, mw, mh, mscale))) = meter
+        && let Some(hwnd) = hwnd_of(window)
+    {
+        rect = rect.union(css_rect_to_screen(client_origin(hwnd), mx, my, mw, mh, mscale));
     }
     capture_rect(owner, rect, png_path)
 }

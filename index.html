@@ -11,6 +11,11 @@
       href="/src/styles.css"
       rel="stylesheet"
       type="text/css" />
+    <!-- The overlay this page is in the meter's window (overlay.js). -->
+    <link
+      href="/src/js/overlay.css"
+      rel="stylesheet"
+      type="text/css" />
     <!--
       Webfonts, bundled (public/vendor/fonts), loaded without blocking
       first paint: the media="print" swap applies them once they load, so
@@ -57,7 +62,7 @@
           </div>
 
           <div class="headerBtns">
-            <div class="headerBtn lockBtn" style="display:none" role="button" tabindex="0" aria-label="Lock overlay (click-through)" data-i18n-aria-label="settings.showLockBtn"><i data-lucide="lock-open"></i></div>
+            <div class="headerBtn lockBtn" style="display:none" role="button" tabindex="0" aria-pressed="false" aria-label="Click-through: only these buttons take clicks" data-i18n-aria-label="header.clickThrough" title="Click-through: only these buttons take clicks" data-i18n-title="header.clickThrough"><i data-lucide="mouse-pointer"></i></div>
             <div class="headerBtn suspendBtn" style="display:none"><i data-lucide="power"></i></div>
             <div class="headerBtn dashboardBtn" role="button" tabindex="0" aria-label="Dashboard" title="Dashboard"><i data-lucide="layout-dashboard"></i></div>
             <div class="headerBtn historyBtn" role="button" tabindex="0" aria-label="Fight history" data-i18n-aria-label="history.title"><i data-lucide="scroll-text"></i></div>
@@ -751,8 +756,15 @@
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
-                  <label class="settingsToggle lockSetting" style="display:none">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.showLockBtn" title="A button that makes the meter ignore the mouse, so clicks go through to the game." data-i18n-title="settings.tips.showLockBtn">Show click-through lock button</span>
+                  <label class="settingsToggle">
+                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.meterClickThrough" title="Clicks on the meter go through to the game; only the buttons at its top right still work. Its keybind turns it on and off too." data-i18n-title="settings.tips.meterClickThrough">Meter click-through</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="meterClickThroughCheckbox" />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <label class="settingsToggle">
+                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.showLockBtn" title="A button at the meter's top right that turns its click-through on and off." data-i18n-title="settings.tips.showLockBtn">Show click-through button</span>
                     <span class="settingsToggleControl">
                       <input type="checkbox" class="showLockBtnCheckbox" />
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
@@ -1036,12 +1048,21 @@
                       </div>
                     </div>
                   </div>
-                  <div class="settingsRow settingsRowKeybind lockSetting" style="display:none">
+                  <div class="settingsRow settingsRowKeybind">
                     <div class="settingsInfo">
                       <div class="settingsLabel" data-i18n="settings.keybind.lock">Lock/unlock overlay</div>
                     </div>
                     <button class="keybindBtn lockKeybindBtn" type="button" data-keybind="lock">
                       <span class="keybindText">Ctrl+Alt+L</span>
+                    </button>
+                  </div>
+                  <div class="settingsRow settingsRowKeybind">
+                    <div class="settingsInfo">
+                      <div class="settingsLabel" data-i18n="settings.keybind.clickThrough">Meter click-through</div>
+                      <div class="settingsHint" data-i18n="settings.keybind.clickThroughHint">Only the meter's buttons take clicks.</div>
+                    </div>
+                    <button class="keybindBtn clickThroughKeybindBtn" type="button" data-keybind="clickThrough">
+                      <span class="keybindText">Ctrl+Alt+K</span>
                     </button>
                   </div>
                   <div class="settingsRow settingsRowKeybind">
@@ -1629,5 +1650,7 @@
     <script src="/src/js/i18n.js"></script>
     <script src="/src/js/core.js?v=2018a"></script>
     <script src="/src/js/pluginSettings.js"></script>
+    <!-- The meter's window is the overlay over the game: the meter and every plugin's widgets. -->
+    <script src="/src/js/overlay.js"></script>
   </body>
 </html>

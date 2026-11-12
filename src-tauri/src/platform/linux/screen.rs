@@ -145,10 +145,10 @@ fn to_file(image: &Image, path: &Path) -> bool {
     std::fs::write(path, encode_png(image.width, image.height, &image.rgba)).is_ok()
 }
 
-/// Capture a CSS-pixel rect of `caller` (plus all of `meter`, if given, beside
-/// it: Wayland does not say where windows are, so they cannot be placed as on
-/// screen), put it on the clipboard and optionally write it to `png_path`.
-/// Blocking. Returns (clipboard ok, file ok).
+/// Capture a CSS-pixel rect of `caller` (plus the meter's area of the overlay,
+/// if given, beside it: Wayland does not say where windows are, so they
+/// cannot be placed as on screen), put it on the clipboard and optionally
+/// write it to `png_path`. Blocking. Returns (clipboard ok, file ok).
 #[allow(clippy::too_many_arguments)]
 pub fn capture(
     caller: &tauri::WebviewWindow,
@@ -157,7 +157,7 @@ pub fn capture(
     width: f64,
     height: f64,
     _scale: f64,
-    meter: Option<&tauri::WebviewWindow>,
+    meter: Option<(&tauri::WebviewWindow, crate::platform::screenshot::MeterArea)>,
     png_path: Option<&Path>,
 ) -> (bool, bool) {
     let Some((page, ratio)) = snapshot(caller) else {
@@ -166,8 +166,11 @@ pub fn capture(
     };
     let px = |v: f64| (v * ratio).round().max(0.0) as u32;
     let mut image = page.crop(px(x), px(y), px(width), px(height));
-    if let Some((meter_page, _)) = meter.and_then(snapshot) {
-        image = Image::beside(&meter_page, &image);
+    if let Some((window, (mx, my, mw, mh, _))) = meter
+        && let Some((overlay, k)) = snapshot(window)
+    {
+        let px = |v: f64| (v * k).round().max(0.0) as u32;
+        image = Image::beside(&overlay.crop(px(mx), px(my), px(mw), px(mh)), &image);
     }
     let clipboard = to_clipboard(&image);
     let file = png_path.is_some_and(|path| to_file(&image, path));

@@ -79,8 +79,6 @@ pub struct AppState {
     /// The header's suspend button: while set, the capture dispatcher drops
     /// every packet. Shared with it (`CaptureDispatcher::use_suspend_flag`).
     pub capture_suspended: Arc<std::sync::atomic::AtomicBool>,
-    /// The overlay's click-through lock. See `apply_overlay_lock`.
-    pub overlay_lock: Arc<OverlayLock>,
     /// What the last account check found: `None` until one has run, then
     /// `Some(None)` signed out or `Some(Some(_))` signed in. Settings shows it
     /// at once instead of "checking" for as long as the server takes.
@@ -89,35 +87,6 @@ pub struct AppState {
     /// The LAN stream overlay for OBS on another PC; off unless enabled.
     #[cfg(feature = "online")]
     pub stream_overlay: crate::stream_overlay::Manager,
-}
-
-/// The overlay's click-through lock: while locked, clicks go through the meter
-/// to the game, and it cannot be dragged. Only its own lock button stays
-/// clickable, so the same button unlocks it; a hotkey does too.
-///
-/// On Linux the window takes the mouse over the button alone (an input
-/// region, `platform::window::click_through_except`). Elsewhere a window
-/// either takes the mouse or ignores it, all of it, so the button is kept
-/// clickable by watching the pointer: while it is over the button the window
-/// takes the mouse again. That needs the pointer's position outside the
-/// window, which Wayland does not give (`platform::window::cursor_position`),
-/// so the lock is offered only where it is available.
-#[derive(Default)]
-pub struct OverlayLock {
-    locked: std::sync::atomic::AtomicBool,
-    /// The lock button in the main window's page: CSS-pixel x, y, width,
-    /// height, and the page's scale. Sent by the page when it lays out.
-    button: Mutex<Option<(f64, f64, f64, f64, f64)>>,
-    /// Whether the pointer watch is running.
-    watching: std::sync::atomic::AtomicBool,
-    /// A card is open in the page (a one-time popup, the update prompt): the
-    /// window takes the mouse while it is, locked or not, or nothing on the
-    /// card could be clicked. It covers the lock button too.
-    card_open: std::sync::atomic::AtomicBool,
-    /// What the window was last told (`true` = ignore the mouse). Every change
-    /// goes through `sync_click_through` under this lock, so a late pointer
-    /// check can never leave an unlocked window click-through.
-    applied: Mutex<Option<bool>>,
 }
 
 /// The setting that hides the DPS meter, for players who use only plugins:
@@ -132,20 +101,18 @@ pub(crate) fn meter_wanted(app: &tauri::AppHandle) -> bool {
         != Some("false")
 }
 
-/// Show or hide the DPS meter and remember it. Hidden in place (Linux keeps
-/// it mapped, so it comes back where it was). Every window hears
-/// "meter-shown", so Settings and plugin bars follow.
+/// Show or hide the DPS meter and remember it. It is part of the overlay
+/// (`plugins::overlay`), which stays: the page shows or hides the meter in
+/// it. Shown, a meter away for now (auto-hide) comes back too. Every window
+/// hears "meter-shown", so Settings and plugin bars follow.
 pub(crate) fn set_meter_wanted(app: &tauri::AppHandle, shown: bool) {
     if let Some(state) = app.try_state::<AppState>() {
         state.settings.set(SHOW_METER_KEY, if shown { "true" } else { "false" });
     }
-    if let Some(window) = app.get_webview_window("main") {
-        if shown {
-            show_meter_again(app, &window);
-        } else {
-            platform::window::hide_in_place(&window);
-        }
+    if shown {
+        crate::plugins::overlay::meter_back(app);
     }
+    crate::plugins::overlay::refresh(app);
     let _ = app.emit("meter-shown", shown);
 }
 
@@ -178,23 +145,6 @@ fn set_meter_shown(app: tauri::AppHandle, shown: bool) {
 #[tauri::command]
 fn meter_shown(app: tauri::AppHandle) -> bool {
     meter_wanted(&app)
-}
-
-/// Show the meter that auto-hide hid: in place where it was hidden so
-/// (Linux), else as usual. The page re-measures, as its content may have
-/// changed meanwhile.
-fn show_meter_again(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
-    if platform::window::reveal_in_place(window) {
-        // Revealing takes the mouse back; the lock decides that.
-        if let Some(state) = app.try_state::<AppState>() {
-            let lock = state.overlay_lock.clone();
-            *lock.applied.lock() = None;
-            sync_click_through(app, &lock, false);
-        }
-    } else {
-        platform::window::show_on_top_without_focus(window);
-    }
-    let _ = window.emit("force-resize", ());
 }
 
 /// The windows that hide with the meter when AION2 isn't in front ("Hide
@@ -285,20 +235,10 @@ fn auto_hide_now(app: &tauri::AppHandle) {
     if state.settings.get("dpsMeter.autoHideMeter").unwrap_or_default() != "true" || !meter_wanted(app) {
         return;
     }
-    let Some(window) = app.get_webview_window("main") else { return };
-    let front = platform::window_detector::is_aion2_foreground() || window.is_focused().unwrap_or(false);
-    let hidden = !window.is_visible().unwrap_or(true)
-        || window.is_minimized().unwrap_or(false)
-        || platform::window::is_hidden_in_place(&window);
-    if front && hidden {
-        show_meter_again(app, &window);
-    } else if !front && !hidden {
-        platform::window::minimize_off_top(&window);
-    }
+    let front = platform::window_detector::is_aion2_foreground();
+    crate::plugins::overlay::set_meter_away(app, crate::plugins::overlay::Away::Unfocused, !front);
 }
 
-/// Tell the main window whether to ignore the mouse: when locked, unless the
-/// pointer is over the lock button or a card is open.
 /// A screenshot tool (KDE's Spectacle) is the active window: every meter
 /// window lets clicks through, so its area selection can be dragged across
 /// them, which still show in the shot (KDE draws the selection under them).
@@ -311,13 +251,7 @@ pub fn screenshot_tool_in_front() -> bool {
 /// A screenshot tool came to the front (`true`) or left it.
 fn screenshot_tool(app: &tauri::AppHandle, in_front: bool) {
     SCREENSHOT_TOOL.store(in_front, std::sync::atomic::Ordering::Relaxed);
-    // The overlay, by its lock (which reads the flag).
-    if let Some(state) = app.try_state::<AppState>() {
-        let lock = state.overlay_lock.clone();
-        *lock.applied.lock() = None;
-        sync_click_through(app, &lock, false);
-    }
-    // Plugins' icons, by their lock and area.
+    // The overlay: the meter and plugins' icons, by their lock and area.
     crate::plugins::widgets::reapply_locks(app);
     // Settings, History, Details, and plugins' windows: all or nothing.
     for (label, window) in app.webview_windows() {
@@ -325,75 +259,6 @@ fn screenshot_tool(app: &tauri::AppHandle, in_front: bool) {
         if tool && !platform::window::click_through_except(&window, in_front, None) && !cfg!(target_os = "linux") {
             let _ = window.set_ignore_cursor_events(in_front);
         }
-    }
-}
-
-fn sync_click_through(app: &tauri::AppHandle, lock: &OverlayLock, over_button: bool) {
-    use std::sync::atomic::Ordering;
-    let mut applied = lock.applied.lock();
-    let ignore = screenshot_tool_in_front()
-        || click_through(lock.locked.load(Ordering::SeqCst), over_button, lock.card_open.load(Ordering::SeqCst));
-    // The region follows the button, so it is set again even unchanged.
-    if let Some(main) = app.get_webview_window("main") {
-        if platform::window::click_through_except(&main, ignore, *lock.button.lock()) {
-            *applied = Some(ignore);
-            return;
-        }
-    }
-    // Not applied on Linux means the window has no GDK window yet, and tao's
-    // own call would unwrap it and abort. Left for the next sync.
-    if cfg!(target_os = "linux") {
-        return;
-    }
-    if *applied == Some(ignore) {
-        return;
-    }
-    if let Some(main) = app.get_webview_window("main") {
-        if main.set_ignore_cursor_events(ignore).is_ok() {
-            *applied = Some(ignore);
-        }
-    }
-}
-
-fn click_through(locked: bool, over_button: bool, card_open: bool) -> bool {
-    locked && !over_button && !card_open
-}
-
-fn pointer_over_lock_button(app: &tauri::AppHandle, lock: &OverlayLock) -> bool {
-    let Some((px, py)) = platform::window::cursor_position() else { return false };
-    let Some((x, y, w, h, scale)) = *lock.button.lock() else { return false };
-    let Some(origin) = app.get_webview_window("main").and_then(|m| m.inner_position().ok()) else {
-        return false;
-    };
-    let (left, top) = (origin.x as f64 + x * scale, origin.y as f64 + y * scale);
-    let (px, py) = (px as f64, py as f64);
-    px >= left && px < left + w * scale && py >= top && py < top + h * scale
-}
-
-/// Lock or unlock the overlay. Locking starts the pointer watch, which ends
-/// by itself once unlocked.
-pub(crate) fn apply_overlay_lock(app: &tauri::AppHandle, locked: bool) {
-    use std::sync::atomic::Ordering;
-    let Some(state) = app.try_state::<AppState>() else { return };
-    let lock = state.overlay_lock.clone();
-    lock.locked.store(locked, Ordering::SeqCst);
-    sync_click_through(app, &lock, false);
-    tracing::info!("Overlay {}", if locked { "locked (click-through)" } else { "unlocked" });
-    // No pointer watch where the window keeps the button by its input region.
-    if cfg!(target_os = "linux") {
-        return;
-    }
-    if locked && !lock.watching.swap(true, Ordering::SeqCst) {
-        let app = app.clone();
-        std::thread::spawn(move || {
-            while lock.locked.load(Ordering::SeqCst) {
-                std::thread::sleep(Duration::from_millis(50));
-                let over = pointer_over_lock_button(&app, &lock);
-                sync_click_through(&app, &lock, over);
-            }
-            sync_click_through(&app, &lock, false);
-            lock.watching.store(false, Ordering::SeqCst);
-        });
     }
 }
 
@@ -881,10 +746,11 @@ struct Hotkeys {
 }
 
 /// The keybind settings: changing one registers the keys again.
-const HOTKEY_KEYS: [&str; 6] = [
+const HOTKEY_KEYS: [&str; 7] = [
     "dpsMeter.hotkey",
     "dpsMeter.toggleWindowHotkey",
     "dpsMeter.lockHotkey",
+    "dpsMeter.clickThroughHotkey",
     "dpsMeter.pluginWindowsHotkey",
     "dpsMeter.markVisibleHotkey",
     "dpsMeter.markPickupHotkey",
@@ -941,10 +807,11 @@ fn restart_global_hotkeys(app: &tauri::AppHandle) {
 /// The keybind settings and their defaults, as Settings shows them: the
 /// plugin windows key and the two capture marks have none (`""`), so they are
 /// off until one is set.
-pub const HOTKEY_DEFAULTS: [(&str, &str); 6] = [
+pub const HOTKEY_DEFAULTS: [(&str, &str); 7] = [
     ("dpsMeter.hotkey", "Ctrl+Alt+R"),
     ("dpsMeter.toggleWindowHotkey", "Ctrl+Alt+Up"),
     ("dpsMeter.lockHotkey", "Ctrl+Alt+L"),
+    ("dpsMeter.clickThroughHotkey", "Ctrl+Alt+K"),
     ("dpsMeter.pluginWindowsHotkey", ""),
     ("dpsMeter.markVisibleHotkey", ""),
     ("dpsMeter.markPickupHotkey", ""),
@@ -1009,11 +876,8 @@ fn start_hotkeys(app: &tauri::AppHandle, settings: &Settings) {
         // Show or hide the meter, and remember it (as Settings →
         // Plugins → Show the DPS meter does). Hidden by auto-hide
         // only, it is shown, as before, and nothing changes.
-        if meter_wanted(&h)
-            && let Some(window) = h.get_webview_window("main")
-            && (!window.is_visible().unwrap_or(true) || platform::window::is_hidden_in_place(&window))
-        {
-            show_meter_again(&h, &window);
+        if meter_wanted(&h) && crate::plugins::overlay::meter_away() {
+            crate::plugins::overlay::meter_back(&h);
             return;
         }
         let shown = !meter_wanted(&h);
@@ -1021,12 +885,16 @@ fn start_hotkeys(app: &tauri::AppHandle, settings: &Settings) {
     }));
     let h = app.clone();
     let lock = binding("lock", "dpsMeter.lockHotkey", Box::new(move || {
-        // Toggle the click-through lock of everything on screen (the meter
-        // and the overlay's widgets, as the dashboard's Lock), and tell the
-        // meter's page so its button and saved setting follow.
+        // Lock or unlock everything on screen, as the dashboard's Lock: the
+        // meter and the widgets stay put, and the widgets let clicks through.
         let locked = crate::plugins::bundled::all_locked(&h);
         crate::plugins::bundled::overlay_lock_all(h.clone(), !locked);
-        let _ = h.emit("overlay-lock-changed", !locked);
+    }));
+    let h = app.clone();
+    let click_through = binding("clickThrough", "dpsMeter.clickThroughHotkey", Box::new(move || {
+        // The meter's click-through: only its title bar's buttons take clicks.
+        let on = !crate::plugins::overlay::meter_click_through(&h);
+        crate::plugins::overlay::set_meter_click_through(&h, on);
     }));
     let h = app.clone();
     let plugins = binding("plugins", "dpsMeter.pluginWindowsHotkey", Box::new(move || {
@@ -1046,7 +914,7 @@ fn start_hotkeys(app: &tauri::AppHandle, settings: &Settings) {
     }));
 
     hotkeys.manager.start(
-        vec![reload, toggle, lock, plugins, mark_visible, mark_pickup],
+        vec![reload, toggle, lock, click_through, plugins, mark_visible, mark_pickup],
         move |key, state, assigned| {
             set_hotkey_status(&status_handle, |s| {
                 s.insert(key.to_string(), state.to_string());
@@ -1330,46 +1198,6 @@ fn suspend_capture(state: tauri::State<'_, AppState>, suspended: bool) {
     // on (a player found it in 2.0.37, issue #6).
     state.capture_suspended.store(suspended, std::sync::atomic::Ordering::SeqCst);
     tracing::info!("Capture {}", if suspended { "suspended" } else { "resumed" });
-}
-
-/// Whether the click-through lock can work here (it needs the pointer's
-/// position outside the window; see `OverlayLock`).
-#[tauri::command]
-fn overlay_lock_supported() -> bool {
-    platform::window::cursor_position().is_some()
-}
-
-#[tauri::command]
-fn set_overlay_locked(app: tauri::AppHandle, locked: bool) {
-    apply_overlay_lock(&app, locked);
-}
-
-/// A card opened or closed in the main window's page (see
-/// `OverlayLock::card_open`). The lock itself stays as it was.
-#[tauri::command]
-fn set_overlay_card_open(app: tauri::AppHandle, open: bool) {
-    let Some(state) = app.try_state::<AppState>() else { return };
-    let lock = state.overlay_lock.clone();
-    lock.card_open.store(open, std::sync::atomic::Ordering::SeqCst);
-    sync_click_through(&app, &lock, false);
-}
-
-#[tauri::command]
-fn is_overlay_locked(state: tauri::State<'_, AppState>) -> bool {
-    state.overlay_lock.locked.load(std::sync::atomic::Ordering::SeqCst)
-}
-
-/// Where the lock button is in the main window's page, so it stays clickable
-/// while the rest of the window lets clicks through.
-#[tauri::command]
-fn set_lock_button_rect(app: tauri::AppHandle, state: tauri::State<'_, AppState>, x: f64, y: f64, width: f64, height: f64, scale: f64) {
-    let scale = if scale.is_finite() && scale > 0.0 { scale } else { 1.0 };
-    *state.overlay_lock.button.lock() = Some((x, y, width, height, scale));
-    // On Linux the button's input region moves with it.
-    if cfg!(target_os = "linux") {
-        let lock = state.overlay_lock.clone();
-        sync_click_through(&app, &lock, false);
-    }
 }
 
 #[tauri::command]
@@ -1799,36 +1627,14 @@ fn open_url(url: String) {
     platform::shell::open_url(&url);
 }
 
-#[tauri::command]
-fn resize_window(app: tauri::AppHandle, width: f64, height: f64, scale: Option<f64>) {
-    // Only the overlay auto-sizes itself. The details window is sized to a
-    // whole monitor by open_details_window and must never be resized from JS.
-    let Some(window) = app.get_webview_window("main") else { return };
-    // `width`/`height` are the page's CSS pixels and `scale` its
-    // devicePixelRatio. WebView2 draws a CSS pixel at the display scale TIMES
-    // Windows' Accessibility "Text size", while a logical size here covers the
-    // display scale only, so with Text size above 100% the meter outgrew its
-    // window and was cut off. The page's own ratio covers both.
-    let size = match scale.filter(|s| s.is_finite() && *s > 0.0) {
-        Some(scale) => tauri::Size::Physical(tauri::PhysicalSize {
-            width: (width * scale).ceil() as u32,
-            height: (height * scale).ceil() as u32,
-        }),
-        None => tauri::Size::Logical(tauri::LogicalSize { width, height }),
-    };
-    platform::window::set_size(&window, size);
-}
-
-/// Linux can load a hidden WebKit window. Map it only after restoring its
-/// position and sizing the meter, so its initial 400x300 rectangle never flashes.
+/// Linux can load a hidden WebKit window. The overlay (the meter's window,
+/// `plugins::overlay`) is mapped once its page is ready, so its first frame
+/// is never an empty rectangle; the page shows or hides the meter in it.
 #[tauri::command]
 fn main_window_ready(window: tauri::WebviewWindow) {
-    // Hidden for plugins only: it stays hidden.
-    if window.label() == "main" && !meter_wanted(window.app_handle()) {
-        platform::window::hide_in_place(&window);
-        return;
-    }
     platform::window_startup::main_ready(&window);
+    // Mapped now: where it takes the mouse, at once.
+    crate::plugins::overlay::reapply_input(window.app_handle());
 }
 
 /// Displays as reported by the OS, for the "Show Details on Monitor" picker.
@@ -2725,11 +2531,13 @@ async fn capture_screenshot(
     filename: Option<String>,
 ) -> ScreenshotResult {
     let scale = scale.unwrap_or_else(|| webview_window.scale_factor().unwrap_or(1.0));
+    // The meter is a part of the overlay (`plugins::overlay`): that part.
     let meter = include_meter
         .unwrap_or(false)
         .then(|| app.get_webview_window("main"))
         .flatten()
-        .filter(|main| main.label() != webview_window.label());
+        .filter(|main| main.label() != webview_window.label())
+        .and_then(|main| Some((main, crate::plugins::overlay::meter_rect()?)));
     let path = save_file.unwrap_or(false).then(|| {
         let dir = folder
             .filter(|f| !f.trim().is_empty())
@@ -2743,7 +2551,7 @@ async fn capture_screenshot(
     });
     tauri::async_runtime::spawn_blocking(move || {
         let (clipboard, file_ok) = platform::screenshot::capture(
-            &webview_window, x, y, width, height, scale, meter.as_ref(), path.as_deref(),
+            &webview_window, x, y, width, height, scale, meter.as_ref().map(|(w, r)| (w, *r)), path.as_deref(),
         );
         if path.is_some() && !file_ok {
             tracing::warn!("Screenshot not saved to {:?}", path);
@@ -2772,17 +2580,6 @@ async fn choose_screenshot_folder(
     current: Option<String>,
 ) -> Option<String> {
     platform::screenshot::pick_folder(&webview_window, current.as_deref())
-}
-
-#[tauri::command]
-fn start_drag(app: tauri::AppHandle, state: tauri::State<'_, AppState>) {
-    // A locked overlay stays where it is.
-    if state.overlay_lock.locked.load(std::sync::atomic::Ordering::SeqCst) {
-        return;
-    }
-    if let Some(window) = app.get_webview_window("main") {
-        platform::window::start_drag(&window);
-    }
 }
 
 /// Drag a tool window (Details, History, Settings) by its header. Their CSS
@@ -3305,7 +3102,6 @@ pub fn run() {
                     .build()
                     .unwrap_or_default(),
                 capture_suspended: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-                overlay_lock: Arc::new(OverlayLock::default()),
                 #[cfg(feature = "online")]
                 account_seen: Mutex::new(None),
                 #[cfg(feature = "online")]
@@ -3395,27 +3191,14 @@ pub fn run() {
                 }
             }
 
-            // Restore saved window position and ensure always-on-top
+            // The meter's window is the overlay over the game (plugins::overlay):
+            // shown once its page is ready, or after a while if it never says.
+            // The page shows the meter in it, or not (plugins only).
             if let Some(window) = app.get_webview_window("main") {
-                let state_ref = app.state::<AppState>();
-                if let (Some(x), Some(y)) = (state_ref.settings.get("window.x"), state_ref.settings.get("window.y")) {
-                    if let (Ok(x), Ok(y)) = (x.parse::<i32>(), y.parse::<i32>()) {
-                        // Don't restore minimized positions (Windows uses -32000,-32000)
-                        if x > -10000 && y > -10000 {
-                            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
-                        }
-                    }
-                }
-                let _ = window.set_always_on_top(true);
-                if let Ok(size) = window.inner_size() {
-                    platform::window::set_size(&window, tauri::Size::Physical(size));
-                }
-                if meter_wanted(app.handle()) {
-                    platform::window_startup::arm_main_fallback(window);
-                } else {
+                platform::window_startup::arm_main_fallback(window);
+                if !meter_wanted(app.handle()) {
                     // Plugins only: the meter stays hidden, unless no plugin
                     // window is on screen by then.
-                    platform::window::hide_in_place(&window);
                     let handle = app.handle().clone();
                     tauri::async_runtime::spawn(async move {
                         tokio::time::sleep(std::time::Duration::from_secs(8)).await;
@@ -3425,6 +3208,9 @@ pub fn run() {
                         let _ = handle.run_on_main_thread(move || keep_something_on_screen(&h, ""));
                     });
                 }
+            }
+            if let Err(e) = crate::plugins::overlay::ensure(app.handle()) {
+                tracing::warn!("Overlay: {e}");
             }
 
             // Check if Npcap is available before starting capture
@@ -3465,10 +3251,6 @@ pub fn run() {
             app.manage(std::sync::Arc::clone(&plugin_host));
             plugin_host.reload(app.handle());
             crate::plugins::restore_windows(app.handle());
-            // Every plugin's widgets, in one window over the game.
-            if let Err(e) = crate::plugins::overlay::ensure(app.handle()) {
-                tracing::warn!("Overlay: {e}");
-            }
             if let Err(e) = crate::plugins::bundled::open_dashboard(app.handle(), None, crate::plugins::bundled::shows_at_start(app.handle())) {
                 tracing::warn!("Dashboard: {e}");
             }
@@ -3602,13 +3384,7 @@ pub fn run() {
                                 && meter_wanted(&handle)
                                 && !platform::window_detector::find_aion2_window();
                             if want != hidden_closed {
-                                if let Some(window) = handle.get_webview_window("main") {
-                                    if want {
-                                        platform::window::minimize_off_top(&window);
-                                    } else {
-                                        show_meter_again(&handle, &window);
-                                    }
-                                }
+                                crate::plugins::overlay::set_meter_away(&handle, crate::plugins::overlay::Away::Closed, want);
                                 hidden_closed = want;
                             }
                         }
@@ -3617,18 +3393,13 @@ pub fn run() {
                         // The chosen seconds after the last hit the meter
                         // shrinks to its title bar's buttons (core.js
                         // "meter-resting"; the window follows its size), and
-                        // the next hit brings it back. Not while it has the
-                        // focus (the last fight being read).
+                        // the next hit brings it back.
                         let ooc_secs: i64 = state.settings.get("dpsMeter.hideOutOfCombat")
                             .and_then(|v| v.parse().ok())
                             .unwrap_or(0);
-                        let meter_focused = handle.get_webview_window("main")
-                            .and_then(|w| w.is_focused().ok())
-                            .unwrap_or(false);
                         let want_ooc = ooc_secs > 0
                             && !hidden_closed
                             && meter_wanted(&handle)
-                            && (hidden_ooc || !meter_focused)
                             && crate::clock::now_ms() - state.data_storage.combat_feed().last_combat_ms() > ooc_secs * 1000;
                         if want_ooc != hidden_ooc {
                             let _ = handle.emit_to("main", "meter-resting", want_ooc);
@@ -3642,30 +3413,18 @@ pub fn run() {
                                 .unwrap_or_default() == "true"
                             && meter_wanted(&handle);
                         if auto_hide {
-                            if let Some(window) = handle.get_webview_window("main") {
-                                let aion_fg = platform::window_detector::is_aion2_foreground();
-                                let is_self_fg = window.is_focused().unwrap_or(false);
-                                let is_visible = window.is_visible().unwrap_or(true);
-                                let is_minimized = window.is_minimized().unwrap_or(false);
-                                if tick_count % 4 == 0 {
-                                    tracing::trace!("auto-hide: aion_fg={} self_fg={} visible={} minimized={} hide_delay={}",
-                                        aion_fg, is_self_fg, is_visible, is_minimized, hide_delay);
-                                }
-                                // Linux hides it in place (transparent, mapped).
-                                let hidden = !is_visible || is_minimized
-                                    || platform::window::is_hidden_in_place(&window);
-                                if aion_fg || is_self_fg {
-                                    hide_delay = 0;
-                                    if hidden {
-                                        show_meter_again(&handle, &window);
-                                    }
-                                } else if !hidden {
-                                    // Wait 3 ticks (1.5s) before hiding to avoid
-                                    // flickering during alt-tab transitions
-                                    hide_delay += 1;
-                                    if hide_delay >= 3 {
-                                        platform::window::minimize_off_top(&window);
-                                    }
+                            // The meter, in the overlay: back at once with the
+                            // game in front, away 3 ticks (1.5 s) after it left
+                            // the front, so an alt-tab doesn't flicker it.
+                            let aion_fg = platform::window_detector::is_aion2_foreground();
+                            let away = crate::plugins::overlay::meter_away();
+                            if aion_fg {
+                                hide_delay = 0;
+                                crate::plugins::overlay::set_meter_away(&handle, crate::plugins::overlay::Away::Unfocused, false);
+                            } else if !away {
+                                hide_delay += 1;
+                                if hide_delay >= 3 {
+                                    crate::plugins::overlay::set_meter_away(&handle, crate::plugins::overlay::Away::Unfocused, true);
                                 }
                             }
                             // The rest go and come back with it: gone while
@@ -3683,22 +3442,20 @@ pub fn run() {
                                     hide_with_meter(&handle, &mut hidden_with_meter);
                                 }
                             }
-                        } else if !hidden_with_meter.is_empty() {
-                            // Auto-hide turned off meanwhile: back.
-                            show_with_meter(&handle, &mut hidden_with_meter);
+                        } else {
+                            // Auto-hide off (or the meter hidden by the player):
+                            // nothing is away for it.
+                            hide_delay = 0;
+                            crate::plugins::overlay::set_meter_away(&handle, crate::plugins::overlay::Away::Unfocused, false);
+                            if !hidden_with_meter.is_empty() {
+                                show_with_meter(&handle, &mut hidden_with_meter);
+                            }
                         }
 
-                        // --- Save window position every ~5 seconds (every 10 ticks) ---
+                        // --- Save window positions every ~5 seconds (every 10 ticks) ---
+                        // (The meter's place in the overlay is saved as it is
+                        // dragged: plugins::overlay.)
                         if tick_count % 10 == 0 {
-                            if let Some(window) = handle.get_webview_window("main") {
-                                if let Ok(pos) = window.outer_position() {
-                                    // Don't save minimized/hidden positions
-                                    if pos.x > -10000 && pos.y > -10000 {
-                                        state.settings.set("window.x", &pos.x.to_string());
-                                        state.settings.set("window.y", &pos.y.to_string());
-                                    }
-                                }
-                            }
                             // These float independently of the overlay, so each
                             // remembers where it was left. Per-fight windows
                             // (details-*) are deliberately absent: they are
@@ -3871,6 +3628,10 @@ pub fn run() {
             crate::plugins::overlay::overlay_metrics,
             crate::plugins::overlay::overlay_input,
             crate::plugins::overlay::overlay_moved,
+            crate::plugins::overlay::overlay_meter_moved,
+            crate::plugins::overlay::overlay_opacity,
+            crate::plugins::overlay::meter_set_click_through,
+            crate::plugins::overlay::meter_click_through_on,
             crate::plugins::overlay::overlay_post,
             crate::plugins::overlay::overlay_reset_layout,
             crate::plugins::overlay::overlay_screens,
@@ -3931,13 +3692,7 @@ pub fn run() {
             write_cached_icon,
             log_from_ui,
             suspend_capture,
-            overlay_lock_supported,
-            set_overlay_locked,
-            set_overlay_card_open,
-            is_overlay_locked,
-            set_lock_button_rect,
             is_capture_suspended,
-            resize_window,
             main_window_ready,
             list_monitors,
             open_details_window,
@@ -3952,7 +3707,6 @@ pub fn run() {
             capture_screenshot,
             default_screenshot_folder,
             choose_screenshot_folder,
-            start_drag,
             start_tool_drag,
             begin_tool_resize,
             compositor_resize_supported,
@@ -3975,17 +3729,6 @@ pub fn run() {
 mod tests {
     #[cfg_attr(not(feature = "online"), allow(unused_imports))]
     use super::*;
-
-    /// Locked, the window ignores the mouse except over the lock button, and
-    /// while a card is open: a one-time popup at start under a lock left on
-    /// from last time could not be clicked, and it covered the lock button.
-    #[test]
-    fn a_locked_window_takes_the_mouse_while_a_card_is_open() {
-        assert!(click_through(true, false, false));
-        assert!(!click_through(true, true, false));
-        assert!(!click_through(true, false, true));
-        assert!(!click_through(false, false, false));
-    }
 
     #[cfg(feature = "online")]
     #[test]

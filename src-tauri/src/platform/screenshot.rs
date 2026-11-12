@@ -28,6 +28,11 @@ impl ScreenRect {
     }
 }
 
+/// Where the meter is drawn in the overlay window (`plugins::overlay`): CSS
+/// px x, y, width, height, and the page's scale. A screenshot that includes
+/// the meter takes that part of the window, not all of it.
+pub type MeterArea = (f64, f64, f64, f64, f64);
+
 /// A CSS-pixel rect inside a window's client area, as screen pixels, given the
 /// client area's on-screen origin.
 pub fn css_rect_to_screen(origin: (i32, i32), x: f64, y: f64, w: f64, h: f64, scale: f64) -> ScreenRect {

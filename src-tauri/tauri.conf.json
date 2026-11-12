@@ -15,13 +15,16 @@
     "windows": [
       {
         "title": "Ezzar's Daeva Companion",
-        "width": 400,
-        "height": 300,
+        "width": 1280,
+        "height": 720,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
         "resizable": true,
-        "shadow": false
+        "shadow": false,
+        "skipTaskbar": true,
+        "focus": false,
+        "focusable": false
       }
     ],
     "security": {

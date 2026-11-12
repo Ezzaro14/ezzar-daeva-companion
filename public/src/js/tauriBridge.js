@@ -40,10 +40,8 @@
   // Native startup policy is independent of the webview's user agent.
   const loadsHidden = window.__A2_WINDOW_STARTUP__?.loadsHidden === true;
   const reusesSettings = window.__A2_WINDOW_STARTUP__?.reusesSettings === true;
-  let compositorResize = isLinux ? null : false;
   const compositorResizeReady = isLinux ? invoke("compositor_resize_supported")
     .then((supported) => {
-      compositorResize = supported;
       if (supported) {
         const apply = () => document.body.classList.add("linuxOverlay");
         if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply, { once: true });
@@ -51,7 +49,7 @@
       }
       return supported;
     })
-    .catch(() => { compositorResize = false; return false; })
+    .catch(() => false)
     : Promise.resolve(false);
 
   // Three windows share this bundle: the game overlay (label "main"), the
@@ -334,13 +332,14 @@
   }) : undefined;
   const settingsLifecycleReady = Promise.all([settingsShownSubscription, settingsHiddenSubscription]);
 
-  // The lock hotkey toggled the click-through lock; the page follows.
   listen("hotkey-status", (event) => {
     window._dpsApp?.applyHotkeyStatus?.(event?.payload || {});
   });
 
-  listen("overlay-lock-changed", (event) => {
-    window._dpsApp?._onOverlayLockChanged?.(!!event?.payload);
+  // The meter's click-through turned on or off (its button, Settings, or
+  // its keybind; plugins/overlay.rs): every window follows.
+  listen("meter-click-through", (event) => {
+    window._dpsApp?._onMeterClickThrough?.(!!event?.payload);
   });
 
   // Out of combat a while (Settings → Hide out of combat; app.rs): the meter
@@ -572,15 +571,9 @@
         return;
       }
       if (viewMode !== "main") return;
-      // Startup setters may already have requested this same size. Await the
-      // actual native requests, including a newer size queued while waiting.
-      for (let attempt = 0; attempt < 2; ++attempt) {
-        let applied = await updateWindowSize();
-        while (pendingWindowSize) applied = await pendingWindowSize.promise;
-        if (!applied) continue;
-        await invoke("main_window_ready").catch(() => {});
-        return;
-      }
+      // The overlay lays the meter out before its window is mapped.
+      await updateWindowSize();
+      await invoke("main_window_ready").catch(() => {});
     },
 
     // --- Settings ---
@@ -672,12 +665,9 @@
 
     // --- Window ---
     moveWindow() {
-      // No-op — native drag handles window movement via start_drag command.
-      // This also effectively disables core.js's bindDragToMoveWindow since
-      // it checks `if (!window.javaBridge) return` on mousemove — the function
-      // exists but does nothing, so the JS drag system runs but has no effect.
-      // The ghost panel logic is tied to hasDragMoved which requires >3px of
-      // mouse movement with isDragging=true. We prevent this below.
+      // No-op: the overlay moves the meter (overlay.js, "Moving the meter"
+      // below). core.js's own drag never starts, as that press is taken here
+      // first.
     },
     exitApp() {
       invoke("quit_app").catch(() => {});
@@ -758,6 +748,13 @@
     getCurrentLockHotKey() {
       return this.getSetting("dpsMeter.lockHotkey") || "Ctrl+Alt+L";
     },
+    // The meter's click-through (app.rs, HOTKEY_DEFAULTS).
+    getCurrentClickThroughHotKey() {
+      return this.getSetting("dpsMeter.clickThroughHotkey") || "Ctrl+Alt+K";
+    },
+    setClickThroughHotkey(mods, vk) {
+      this.setSetting("dpsMeter.clickThroughHotkey", this._buildHotkeyLabel(mods, vk));
+    },
     // No default: "" until one is set.
     getCurrentPluginWindowsHotKey() {
       return this.getSetting("dpsMeter.pluginWindowsHotkey") || "";
@@ -787,6 +784,7 @@
       this.setSetting("dpsMeter.hotkey", "Ctrl+Alt+R");
       this.setSetting("dpsMeter.toggleWindowHotkey", "Ctrl+Alt+Up");
       this.setSetting("dpsMeter.lockHotkey", "Ctrl+Alt+L");
+      this.setSetting("dpsMeter.clickThroughHotkey", "Ctrl+Alt+K");
       this.setSetting("dpsMeter.pluginWindowsHotkey", "");
       this.setSetting("dpsMeter.markVisibleHotkey", "");
       this.setSetting("dpsMeter.markPickupHotkey", "");
@@ -799,20 +797,13 @@
     setLockHotkey(mods, vk) {
       this.setSetting("dpsMeter.lockHotkey", this._buildHotkeyLabel(mods, vk));
     },
-    // The click-through lock (OverlayLock in app.rs). A promise: whether the
-    // backend can keep the lock button clickable here.
-    overlayLockSupported() {
-      return invoke("overlay_lock_supported").catch(() => false);
+    // The meter's click-through (plugins/overlay.rs): on, only its title
+    // bar's buttons take clicks. Every window hears "meter-click-through".
+    setMeterClickThrough(on) {
+      return invoke("meter_set_click_through", { on: !!on }).catch(() => {});
     },
-    setOverlayLocked(locked) {
-      invoke("set_overlay_locked", { locked: !!locked }).catch(() => {});
-    },
-    // A card (popup) open in the page takes the mouse though locked.
-    setOverlayCardOpen(open) {
-      invoke("set_overlay_card_open", { open: !!open }).catch(() => {});
-    },
-    setLockButtonRect(x, y, width, height, scale) {
-      invoke("set_lock_button_rect", { x, y, width, height, scale }).catch(() => {});
+    getMeterClickThrough() {
+      return invoke("meter_click_through_on").catch(() => false);
     },
     setHotkey(mods, vk) {
       const label = this._buildHotkeyLabel(mods, vk);
@@ -1082,53 +1073,14 @@
   });
   if (viewMode !== "settings" || settingsActive) startStatusPolling();
 
-  // ===== Dynamic window resizing =====
-  const PANEL_WIDTH = 1540;
-  const PANEL_HEIGHT = 820;
-  const PROMO_WIDTH = 400;
-  const PROMO_HEIGHT = 480;
-  let lastSizeKey = "";
-  let pendingWindowSize = null;
-  let resizeActive = false;
+  // ===== Resizing =====
+  // The meter is part of the overlay (overlay.js, plugins/overlay.rs): its
+  // window covers the game's screen and never changes size for it. The corner
+  // handle resizes the meter in the page (core.js bindResizeHandle). The tool
+  // windows (Settings, History, Details) are resized from their edges on
+  // Linux, through the compositor where it can (startNativeResize).
   let nativeResize = null;
   let primaryHeld = false;
-
-  const overlayPadding = () => ({ w: 16, h: 10 });
-
-  const overlayMinimum = (meter) => {
-    const height = meter.style.height;
-    const minHeight = meter.style.minHeight;
-    // Measure normal-flow content without the user's saved empty space.
-    meter.style.height = "auto";
-    meter.style.minHeight = "0";
-    const style = getComputedStyle(meter);
-    const contentHeight = Math.max(30, parseFloat(style.height) || 0);
-    const outerHeight = Math.ceil(meter.getBoundingClientRect().height);
-    const borderWidth = style.boxSizing === "border-box" ? 0
-      : (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.borderRightWidth) || 0)
-        + (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
-    meter.style.height = height;
-    meter.style.minHeight = minHeight;
-    const padding = overlayPadding();
-    return { contentHeight, width: 300 + borderWidth + padding.w, height: outerHeight + padding.h };
-  };
-
-  // Follow the compositor viewport while automatic content sizing is paused.
-  const followNativeSize = () => {
-    if (!nativeResize || window.A2_VIEW !== "main") return;
-    const meter = document.querySelector(".meter");
-    if (!meter) return;
-    const padding = overlayPadding();
-    const style = getComputedStyle(meter);
-    const px = (name) => parseFloat(style[name]) || 0;
-    const borderW = style.boxSizing === "border-box" ? 0
-      : px("borderLeftWidth") + px("borderRightWidth") + px("paddingLeft") + px("paddingRight");
-    const borderH = style.boxSizing === "border-box" ? 0
-      : px("borderTopWidth") + px("borderBottomWidth") + px("paddingTop") + px("paddingBottom");
-    // Viewport units follow layout immediately, without waiting for resize events.
-    meter.style.width = `max(300px, calc(100vw - ${padding.w + borderW}px))`;
-    meter.style.height = `max(${nativeResize.contentHeight || 30}px, calc(100vh - ${padding.h + borderH}px))`;
-  };
 
   const finishNativeResize = (cancel = false) => {
     const operation = nativeResize;
@@ -1140,7 +1092,6 @@
       await operation.started;
       // Consume the compositor's final configure before pinning the size again.
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      followNativeSize();
       let finished = false;
       try {
         const cancelRequested = operation.cancel;
@@ -1157,20 +1108,7 @@
         operation.finished = null;
         return false;
       }
-      if (window.A2_VIEW === "main") {
-        const meter = document.querySelector(".meter");
-        if (meter?.style.height) {
-          const style = getComputedStyle(meter);
-          meter.style.width = style.width;
-          meter.style.minHeight = style.height;
-          meter.style.height = "";
-          // Kept across restarts (core.js bindResizeHandle).
-          if (!operation.cancel) window.dispatchEvent(new Event("meter-resized"));
-        }
-      }
       nativeResize = null;
-      resizeActive = false;
-      lastSizeKey = "";
       return true;
     })();
     return operation.finished;
@@ -1179,20 +1117,8 @@
   const startNativeResize = async (direction, minWidth, minHeight) => {
     if (nativeResize && !await finishNativeResize(true)) return;
     if (!primaryHeld) return;
-    resizeActive = true;
     const operation = { finished: null, started: null, cancel: false };
     nativeResize = operation;
-    if (window.A2_VIEW === "main") {
-      const meter = document.querySelector(".meter");
-      if (meter) {
-        const minimum = overlayMinimum(meter);
-        operation.contentHeight = minimum.contentHeight;
-        minWidth = minimum.width;
-        minHeight = minimum.height;
-        followNativeSize();
-        meter.style.minHeight = `${minimum.contentHeight}px`;
-      }
-    }
     operation.started = invoke("begin_window_resize", {
       minWidth, minHeight, scale: window.devicePixelRatio || 1,
     }).then((held) => {
@@ -1215,143 +1141,26 @@
       finishNativeResize();
     }
   };
-  document.addEventListener("pointermove", finishOnPointerReturn, { capture: true });
-  document.addEventListener("pointerover", finishOnPointerReturn, { capture: true });
-  document.addEventListener("mouseup", (event) => {
-    if (event.button !== 0) return;
-    primaryHeld = false;
-    finishNativeResize();
-  }, { capture: true });
-  document.addEventListener("mousedown", (event) => {
-    primaryHeld = event.button === 0;
-    finishNativeResize(true);
-  }, { capture: true });
+  if (viewMode !== "main") {
+    document.addEventListener("pointermove", finishOnPointerReturn, { capture: true });
+    document.addEventListener("pointerover", finishOnPointerReturn, { capture: true });
+    document.addEventListener("mouseup", (event) => {
+      if (event.button !== 0) return;
+      primaryHeld = false;
+      finishNativeResize();
+    }, { capture: true });
+    document.addEventListener("mousedown", (event) => {
+      primaryHeld = event.button === 0;
+      finishNativeResize(true);
+    }, { capture: true });
+  }
 
-  // The screen space right of and below the window. The overlay grows from its
-  // top-left corner, and growing past the screen edge makes a window manager
-  // that keeps windows on screen (KWin) move it back, out from under the
-  // cursor: the tooltip hid, the window shrank, the row was under the cursor
-  // again, in a loop (issue #11). Windows simply lets it hang off screen.
-  const spaceRightBelow = () => {
-    const s = window.screen;
-    const right = (s.availLeft || 0) + (s.availWidth || 1920);
-    const bottom = (s.availTop || 0) + (s.availHeight || 1080);
-    return {
-      w: Math.max(0, right - (window.screenX || 0)),
-      h: Math.max(0, bottom - (window.screenY || 0)),
-    };
-  };
-
-  // Crossing the gap between rows hides the tooltip for a moment. Keep its area
-  // briefly so the native window does not shrink and grow back on every row.
-  const TOOLTIP_RELEASE_MS = 250;
-  let tooltipReserve = null;
-  let tooltipReleaseTimer = 0;
+  // The meter changed (rows, a panel, a card, its size): the overlay lays it
+  // out again and says where it takes the mouse. Tool windows own their own
+  // geometry.
   const updateWindowSize = () => {
-    if (resizeActive) return Promise.resolve(false); // Don't fight the user while they're resizing
-    // Tool windows own their own geometry (and remember it). The overlay's
-    // auto-sizing would otherwise shrink them to meter dimensions.
-    if (window.A2_VIEW !== "main") return;
-
-    const fullPanel = !!(
-      document.querySelector(".settingsPanel.isOpen") ||
-      document.querySelector(".detailsPanel.open") ||
-      document.querySelector(".historyPanel.isOpen") ||
-      document.querySelector(".historyPanel.open")
-    );
-    // On Linux the window never grows for the tooltip, which stays inside it:
-    // KWin moved a growing meter up and left, and back as it shrank.
-    const tooltip = fullPanel || isLinux ? null : document.querySelector(".hoverDetailsTooltip.isVisible");
-    // The one-time Discord popup needs room for its card, no more: a
-    // full-panel window would block clicks on the game around it.
-    const promoOpen = !fullPanel && !!document.querySelector(".discordPromo.isOpen");
-
-    // Measure meter width (may be resized by user via drag handle) and height
-    const meter = document.querySelector(".meter");
-    let contentW = 396;
-    let contentH = 300;
-    if (meter) {
-      contentW = Math.ceil(meter.offsetWidth) + 16;
-      const meterH = Math.max(meter.offsetHeight, meter.scrollHeight);
-      // The ping sits inside the footer row, so it is part of offsetHeight.
-      contentH = Math.ceil(meterH) + 10;
-    }
-
-    // The tooltip's extra room stops at the screen edge; the meter itself
-    // never shrinks below its content.
-    const tooltipBounds = tooltip?.getBoundingClientRect();
-    // Reserve the tooltip's travel over the rows once. Resizing the native
-    // window for every pointer position can stall WebKit/GTK and the compositor.
-    const listBounds = tooltip ? document.querySelector(".list:not(.barPreviewList)")?.getBoundingClientRect() : null;
-    const room = spaceRightBelow();
-    const tooltipW = tooltipBounds
-      ? Math.ceil(Math.max(tooltipBounds.right, listBounds ? listBounds.right + 12 + tooltipBounds.width : 0)) + 8
-      : contentW;
-    const tooltipH = tooltipBounds
-      ? Math.ceil(Math.max(tooltipBounds.bottom, listBounds ? listBounds.bottom + 12 + tooltipBounds.height : 0)) + 8
-      : contentH;
-    if (tooltip) {
-      clearTimeout(tooltipReleaseTimer);
-      tooltipReleaseTimer = 0;
-      // Within one hover the area only grows, so rows with different tooltip
-      // sizes do not resize the window back and forth.
-      tooltipReserve = {
-        w: Math.max(tooltipW, tooltipReserve?.w || 0),
-        h: Math.max(tooltipH, tooltipReserve?.h || 0),
-      };
-    } else if (fullPanel) {
-      clearTimeout(tooltipReleaseTimer);
-      tooltipReleaseTimer = 0;
-      tooltipReserve = null;
-    } else if (tooltipReserve && !tooltipReleaseTimer) {
-      tooltipReleaseTimer = setTimeout(() => {
-        tooltipReleaseTimer = 0;
-        tooltipReserve = null;
-        updateWindowSize();
-      }, TOOLTIP_RELEASE_MS);
-    }
-    const w = fullPanel
-      ? PANEL_WIDTH
-      : promoOpen
-        ? Math.max(contentW, PROMO_WIDTH)
-        : tooltipReserve
-          ? Math.max(contentW, Math.min(tooltipReserve.w, room.w))
-          : contentW;
-    const h = fullPanel
-      ? Math.max(PANEL_HEIGHT, contentH)
-      : promoOpen
-        ? Math.max(contentH, PROMO_HEIGHT)
-        : tooltipReserve
-          ? Math.max(contentH, Math.min(tooltipReserve.h, room.h))
-          : contentH;
-    const scale = window.devicePixelRatio || 1;
-    const sizeKey = `${w}x${h}@${scale}`;
-    if (sizeKey === lastSizeKey) return pendingWindowSize?.promise || Promise.resolve(true);
-    lastSizeKey = sizeKey;
-    // The page's devicePixelRatio, so the backend sizes the window in the
-    // pixels the page is actually drawn at (Windows text size included).
-    const operation = { promise: null };
-    // Separate IPC fetches can arrive out of order. Queue size changes so the
-    // latest dimensions reach the native window last, and share an in-flight
-    // same-size request with notifyUiReady instead of treating it as applied.
-    operation.promise = Promise.resolve(pendingWindowSize?.promise)
-      .then(() => {
-        // A queued auto-size must not interrupt a resize the player began.
-        if (resizeActive) return false;
-        return invoke("resize_window", { width: w, height: h, scale }).then(() => true);
-      })
-      .then((applied) => {
-        if (!applied && pendingWindowSize === operation) lastSizeKey = "";
-        return applied;
-      }, () => {
-        if (pendingWindowSize === operation) lastSizeKey = "";
-        return false;
-      })
-      .finally(() => {
-        if (pendingWindowSize === operation) pendingWindowSize = null;
-      });
-    pendingWindowSize = operation;
-    return operation.promise;
+    if (viewMode === "main") window.a2Overlay?.meterChanged?.();
+    return Promise.resolve(true);
   };
 
   window.javaBridge.updateOverlaySize = updateWindowSize;
@@ -1373,14 +1182,12 @@
   } else if (viewMode === "main") {
     startObserving();
   }
-  // Fallback poll
+  // Fallback poll (cheap: the overlay says nothing when nothing moved).
   if (viewMode === "main") setInterval(updateWindowSize, 500);
 
-  // Force resize when window is restored from auto-hide
-  // (content may have changed while minimized, stale lastSizeKey would skip resize)
+  // The meter shown again: its rows may have changed meanwhile.
   listen("force-resize", () => {
     staleHover();
-    lastSizeKey = "";
     updateWindowSize();
   });
 
@@ -1390,15 +1197,13 @@
   // stuck to it) until it times out, about a minute, even after the meter quits.
   document.addEventListener("dragstart", (e) => e.preventDefault(), { capture: true });
 
-  // ===== Window dragging =====
-  // Core.js's JS-based drag (moveWindow + screenX/Y) is too slow over IPC.
-  // Use native Win32 drag via WM_NCLBUTTONDOWN — instant, OS-handled, zero latency.
-  // Intercept mousedown on .meter in capture phase before core.js sees it.
-  // Intercept mousedown to:
-  // 1. Start native drag on header/footer/empty meter areas
-  // 2. Block core.js's JS drag system everywhere (it doesn't work in Tauri)
-  // 3. Let clicks on interactive elements (.item, buttons, panels) pass through
-  document.addEventListener("mousedown", (e) => {
+  // ===== Moving the meter =====
+  // The overlay moves it (overlay.js pressMeter): a press on its title bar,
+  // footer or any empty part of it drags it, unless everything is locked.
+  // Taken here in the capture phase, before core.js sees it (its own drag
+  // moved a window, which the meter no longer has). Clicks on buttons, rows
+  // and panels go through as usual.
+  if (viewMode === "main") document.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
     const target = e.target?.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
     // Let interactive elements handle their own clicks normally
@@ -1408,10 +1213,9 @@
     if (target?.closest?.(".settingsPanel, .historyPanel, .detailsBody, .detailsHeader, .detailsSettingsMenu")) return;
     // Let meter bar item clicks pass through for details/hover
     if (target?.closest?.(".item")) return;
-    // Everything else in .meter: native drag
     if (target?.closest?.(".meter")) {
       e.stopImmediatePropagation();
-      invoke("start_drag");
+      window.a2Overlay?.pressMeter?.(e);
     }
   }, { capture: true });
 
@@ -1514,48 +1318,6 @@
   if (viewMode !== "settings") setInterval(() => {
     invoke("get_fight_history").then((h) => { window._cachedFightHistory = h; }).catch(() => {});
   }, 10000);
-
-  // ===== Overlay resize handle =====
-  const expandViewport = () => {
-    resizeActive = true;
-    const space = spaceRightBelow();
-    invoke("resize_window", { width: Math.min(space.w, 2000), height: Math.min(space.h, 1200), scale: window.devicePixelRatio || 1 }).catch(() => {});
-  };
-  const shrinkViewport = () => {
-    if (nativeResize) return;
-    if (resizeActive) {
-      resizeActive = false;
-      lastSizeKey = "";
-    }
-  };
-  document.addEventListener("mousedown", (e) => {
-    if (e.button !== 0 || !e.target?.closest?.(".resizeHandle")) return;
-    if (compositorResize === false) {
-      expandViewport();
-      return;
-    }
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    compositorResizeReady.then((supported) => {
-      if (!primaryHeld) return;
-      if (supported) {
-        const padding = overlayPadding();
-        startNativeResize("SouthEast", 300 + padding.w, 30 + padding.h);
-      } else {
-        // Replay an early press once backend detection has completed.
-        e.target.dispatchEvent(new MouseEvent("mousedown", e));
-      }
-    });
-  }, { capture: true });
-  document.addEventListener("mouseup", shrinkViewport);
-  // A release outside the window sends no mouseup; the next move shows it.
-  // (Not on blur: KWin blurs the window at the start of every drag.)
-  // Only a move inside the window is trusted (see bindResizeHandle in core.js).
-  document.addEventListener("mousemove", (e) => {
-    const inside = e.clientX >= 0 && e.clientY >= 0
-      && e.clientX < window.innerWidth && e.clientY < window.innerHeight;
-    if (resizeActive && (e.buttons & 1) === 0 && inside) shrinkViewport();
-  });
 
   // Startup diagnostics
   invoke("debug_status").then((s) => {

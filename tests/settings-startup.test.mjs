@@ -192,130 +192,27 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-test('the full Linux bridge waits for resize_window before revealing the meter', async () => {
-  const size = deferred();
-  const app = setupBridge({ view: 'main', loadsHidden: true,
-    nativeInvoke: command => command === 'resize_window' ? size.promise : undefined });
-  const ready = app.window.javaBridge.notifyUiReady();
-  await settle();
-  assert.equal(app.calls.filter(call => call.command === 'resize_window').length, 1);
-  assert.ok(!app.calls.some(call => call.command === 'main_window_ready'));
-  size.resolve();
-  await ready;
-  assert.equal(app.calls.filter(call => call.command === 'main_window_ready').length, 1);
-});
-
-test('readiness shares the same-size request that startup has already sent', async () => {
-  const size = deferred();
-  const app = setupBridge({ view: 'main', loadsHidden: true,
-    nativeInvoke: command => command === 'resize_window' ? size.promise : undefined });
-  const first = app.window.javaBridge.updateOverlaySize();
-  assert.equal(app.window.javaBridge.updateOverlaySize(), first);
-  const ready = app.window.javaBridge.notifyUiReady();
-  await settle();
-  assert.equal(app.calls.filter(call => call.command === 'resize_window').length, 1);
-  assert.ok(!app.calls.some(call => call.command === 'main_window_ready'));
-  size.resolve();
-  assert.equal(await first, true);
-  await ready;
-  assert.equal(await app.window.javaBridge.updateOverlaySize(), true);
-  assert.equal(app.calls.filter(call => call.command === 'resize_window').length, 1);
-});
-
-test('new dimensions are queued in order and readiness waits for the latest native size', async () => {
-  const first = deferred(), second = deferred();
-  let resizes = 0, width = 380;
-  const app = setupBridge({ view: 'main', loadsHidden: true,
-    nativeInvoke: command => command === 'resize_window' ? [first, second][resizes++].promise : undefined });
-  app.document.querySelector = selector => selector === '.meter'
-    ? { get offsetWidth() { return width; }, offsetHeight: 240, scrollHeight: 240 } : null;
-  const ready = app.window.javaBridge.notifyUiReady();
-  await settle();
-  width = 420;
-  const next = app.window.javaBridge.updateOverlaySize();
-  await settle();
-  assert.equal(resizes, 1);
-  first.resolve();
-  await settle();
-  assert.equal(resizes, 2);
-  assert.deepEqual(app.calls.filter(call => call.command === 'resize_window').map(call => call.args.width), [396, 436]);
-  assert.ok(!app.calls.some(call => call.command === 'main_window_ready'));
-  second.resolve();
-  assert.equal(await next, true);
-  await ready;
-  assert.equal(app.calls.filter(call => call.command === 'main_window_ready').length, 1);
-});
-
-test('a queued size keeps the display scale that belongs to its measured dimensions', async () => {
-  const first = deferred();
-  let resizes = 0;
-  const app = setupBridge({ view: 'main', nativeInvoke: command => {
-    if (command === 'resize_window') return ++resizes === 1 ? first.promise : null;
-  } });
-  app.window.devicePixelRatio = 1;
-  app.window.javaBridge.updateOverlaySize();
-  await settle();
-  app.window.devicePixelRatio = 2;
-  const second = app.window.javaBridge.updateOverlaySize();
-  app.window.devicePixelRatio = 3;
-  first.resolve();
-  assert.equal(await second, true);
-  assert.deepEqual(app.calls.filter(call => call.command === 'resize_window').map(call => call.args.scale), [1, 2]);
-});
-
-test('a queued automatic size does not interrupt the actual Windows resize press', async () => {
-  const first = deferred();
-  let resizes = 0, width = 380;
-  const app = setupBridge({ view: 'main', linux: false, nativeInvoke: command => {
-    if (command === 'resize_window') return ++resizes === 1 ? first.promise : null;
-  } });
-  app.context.Node = { TEXT_NODE: 3 };
-  app.document.querySelector = selector => selector === '.meter'
-    ? { get offsetWidth() { return width; }, offsetHeight: 240, scrollHeight: 240 } : null;
-  app.window.javaBridge.updateOverlaySize();
-  await settle();
-  width = 420;
-  const second = app.window.javaBridge.updateOverlaySize();
-  const target = { nodeType: 1, closest: selector => selector === '.resizeHandle' ? target : null };
-  app.domHandlers.get('mousedown').forEach(handler => handler.callback({ button: 0, target }));
-  assert.deepEqual(app.calls.filter(call => call.command === 'resize_window').map(call => call.args.width), [396, 1920]);
-  first.resolve();
-  assert.equal(await second, false);
-  assert.equal(resizes, 2);
-});
-
-test('a failed resize is retried before readiness without an unhandled rejection', async () => {
-  const retry = deferred();
-  let resizes = 0;
-  const app = setupBridge({ view: 'main', loadsHidden: true, nativeInvoke: command => {
-    if (command !== 'resize_window') return;
-    return ++resizes === 1 ? Promise.reject(new Error('resize failed')) : retry.promise;
-  } });
-  const ready = app.window.javaBridge.notifyUiReady();
-  await settle();
-  assert.equal(resizes, 2);
-  assert.ok(!app.calls.some(call => call.command === 'main_window_ready'));
-  retry.resolve();
-  await ready;
-  assert.equal(app.calls.filter(call => call.command === 'main_window_ready').length, 1);
-});
-
-test('failed background and readiness resizes release deduplication for a later same-size retry', async () => {
-  let fail = true, resizes = 0;
-  const app = setupBridge({ view: 'main', loadsHidden: true, nativeInvoke: command => {
-    if (command !== 'resize_window') return;
-    ++resizes;
-    if (fail) throw new Error('native resize unavailable');
-    return null;
-  } });
-  assert.equal(await app.window.javaBridge.updateOverlaySize(), false);
+// The meter is part of the overlay (overlay.js): its window is the screen
+// and is never sized for it. Linux maps the overlay once the meter is laid
+// out in it, so its first frame is never an empty rectangle.
+test('the full Linux bridge lays the meter out in the overlay before revealing it', async () => {
+  const app = setupBridge({ view: 'main', loadsHidden: true });
+  app.window.a2Overlay = { meterChanged: () => app.calls.push({ command: 'laid out' }) };
   await app.window.javaBridge.notifyUiReady();
-  assert.equal(resizes, 3);
-  assert.ok(!app.calls.some(call => call.command === 'main_window_ready'));
-  fail = false;
-  await app.window.javaBridge.notifyUiReady();
-  assert.equal(resizes, 4);
-  assert.equal(app.calls.filter(call => call.command === 'main_window_ready').length, 1);
+  const order = app.calls.map(call => call.command).filter(c => c === 'laid out' || c === 'main_window_ready');
+  assert.deepEqual(order, ['laid out', 'main_window_ready']);
+  assert.ok(!app.calls.some(call => call.command === 'resize_window'));
+});
+
+test('a meter change asks the overlay to lay it out, never the window to resize', async () => {
+  for (const linux of [true, false]) {
+    let laidOut = 0;
+    const app = setupBridge({ view: 'main', linux });
+    app.window.a2Overlay = { meterChanged: () => laidOut++ };
+    for (let i = 0; i < 3; i++) assert.equal(await app.window.javaBridge.updateOverlaySize(), true);
+    assert.equal(laidOut, 3);
+    assert.ok(!app.calls.some(call => /resize/.test(call.command) && call.command !== 'compositor_resize_supported'));
+  }
 });
 
 test('the full bridge preserves visible startup and never resizes a tool window', async () => {

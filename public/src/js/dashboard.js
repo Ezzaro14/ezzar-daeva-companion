@@ -275,7 +275,7 @@
         <div class="card"><div class="cardHead">${icon("user")} Character</div><div class="cardText">${who}</div></div>
         <div class="card"><div class="cardHead">${icon("gamepad-2")} AION 2</div><div class="big">${game ? "Running" : "Not running"}</div></div>
         <div class="card link" data-go="overlay"><div class="cardHead">${icon("layers")} On screen</div>
-          <div class="cardText">${overlay.hidden ? "Hidden" : overlay.editing ? "Editing the layout" : overlay.locked ? "Locked: clicks go through to the game" : "Unlocked: the overlay's widgets take clicks"}</div></div>
+          <div class="cardText">${overlay.hidden ? "Hidden" : overlay.editing ? "Editing the layout" : overlay.locked ? "Locked: nothing moves, and the widgets let clicks through to the game" : "Unlocked: the meter and the widgets take clicks and can be dragged"}</div></div>
       </div>
       <h2>Combat</h2>
       <div class="cards">
@@ -293,7 +293,7 @@
       </div>
       <h2>Character</h2>
       <div class="cards">${card("progression-guide", "Your gear, Daevanion boards and skills against the strongest of your class: what to improve first.")}${card("daily-planner", "What to do each day and week, with a reminder before a reset.")}</div>
-      <p class="note">The meter itself is the small window over the game; its fight history and settings open from the sidebar. Everything here keeps running with this window closed.</p>`;
+      <p class="note">The meter is part of the overlay over the game, with the widgets; its fight history and settings open from the sidebar. Everything here keeps running with this window closed.</p>`;
     window.lucide?.createIcons?.({ root: home });
     for (const el of home.querySelectorAll("[data-go]")) el.addEventListener("click", () => show(el.dataset.go));
     home.querySelector(".tourCard")?.addEventListener("click", () => startTour());
@@ -313,10 +313,10 @@
       .join("");
     page.innerHTML = `
       <h2>Everything on screen</h2>
-      <p class="note">Every bar, alert and timer is on one overlay over the game, on the game's screen.</p>
+      <p class="note">The DPS meter and every bar, alert and timer are on one overlay over the game, on the game's screen.</p>
       <div class="cards">
-        <div class="card"><div class="cardHead">${icon("move")} Edit layout</div><div class="cardText">Shows everything (alerts as samples) on a grid, to drag into place. Press Done on the screen, or Edit layout again.</div></div>
-        <div class="card"><div class="cardHead">${icon("lock")} Lock</div><div class="cardText">Clicks go through the overlay to the game. Unlocked, its widgets take clicks.</div></div>
+        <div class="card"><div class="cardHead">${icon("move")} Edit layout</div><div class="cardText">Shows everything (alerts as samples) on a grid, to drag into place, each with a slider for how see-through it is. Press Done on the screen, or Edit layout again.</div></div>
+        <div class="card"><div class="cardHead">${icon("lock")} Lock</div><div class="cardText">Nothing moves, and the widgets let clicks go through to the game. The meter still takes clicks, unless its click-through is on (Meter settings, or its keybind): then only its buttons do.</div></div>
         <div class="card"><div class="cardHead">${icon("eye-off")} Hide all</div><div class="cardText">The meter and the overlay out of sight, until shown again.</div></div>
       </div>
       <div class="row screenRow">

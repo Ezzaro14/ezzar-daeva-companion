@@ -337,8 +337,9 @@ pub fn overlay_state(app: tauri::AppHandle) -> Value {
     overlay_value(&app)
 }
 
-/// Lock (clicks go through to the game, nothing moves) or unlock everything
-/// on screen: the meter and every plugin's widgets.
+/// Lock or unlock everything on screen. Locked, nothing moves and the
+/// widgets let clicks through to the game; the meter still takes them,
+/// unless its click-through is on (`overlay::set_meter_click_through`).
 #[tauri::command]
 pub fn overlay_lock_all(app: tauri::AppHandle, locked: bool) {
     set_setting(&app, OVERLAY_LOCKED_KEY, locked);
@@ -348,7 +349,6 @@ pub fn overlay_lock_all(app: tauri::AppHandle, locked: bool) {
             state.settings.set(&format!("dpsMeter.pluginWidgetsLocked.{id}"), if locked { "true" } else { "false" });
         }
     }
-    crate::app::apply_overlay_lock(&app, locked);
     tell_overlay(&app);
 }
 
@@ -358,11 +358,9 @@ pub fn overlay_lock_all(app: tauri::AppHandle, locked: bool) {
 #[tauri::command]
 pub fn overlay_edit(app: tauri::AppHandle, editing: bool) {
     EDITING.store(editing, std::sync::atomic::Ordering::Relaxed);
-    let locked = !editing && all_locked(&app);
     if editing && setting(&app, OVERLAY_HIDDEN_KEY) {
         show_all(&app, true);
     }
-    crate::app::apply_overlay_lock(&app, locked);
     tell_overlay(&app);
 }
 

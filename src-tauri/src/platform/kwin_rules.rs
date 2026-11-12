@@ -67,13 +67,6 @@ pub const ICONS_GROUP: &str = "daeva-companion-icons";
 /// (plugins::widgets). No other window of the meter's has it.
 pub const ICON_TITLE_MARK: &str = " · ";
 
-/// The title of the one window that holds every plugin's widgets over the
-/// game (`plugins::overlay`). It has `ICON_TITLE_MARK`, so the icons' rule
-/// keeps it from taking focus too.
-pub fn widget_layer_title() -> String {
-    format!("{}{ICON_TITLE_MARK}overlay", crate::fork::APP_NAME)
-}
-
 /// The icons' rule: the meter's windows whose title contains
 /// `ICON_TITLE_MARK` (`titlematch` 2), `acceptfocus` false, forced.
 pub fn icons_rule_entries() -> Vec<(&'static str, &'static str)> {

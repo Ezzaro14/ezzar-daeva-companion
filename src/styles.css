@@ -694,6 +694,8 @@ body.linuxOverlay .meter {
 .header .headerBtns.hasSuspendBtn { gap: 6px; }
 .header .headerBtns .suspendBtn { color: rgba(255, 255, 255, 0.55); }
 .header .headerBtns .suspendBtn.isSuspended { color: #ff6b6b; }
+/* Click-through on (overlay.js): lit, as the way to turn it off. */
+.header .headerBtns .lockBtn.isLocked { color: #7cc4ff; }
 
 /* ---------- boss HP: the waterline ---------- */
 

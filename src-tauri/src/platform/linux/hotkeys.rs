@@ -42,6 +42,7 @@ const APP_ID: &str = crate::fork::APP_ID;
 const RELOAD: &str = "reset";
 const TOGGLE: &str = "toggle";
 const LOCK: &str = "lock";
+const CLICK_THROUGH: &str = "click-through";
 const PLUGINS: &str = "plugins";
 const MARK_VISIBLE: &str = "mark-visible";
 const MARK_PICKUP: &str = "mark-pickup";
@@ -51,7 +52,8 @@ fn shortcut_of(name: &str) -> Option<(&'static str, &'static str)> {
     Some(match name {
         "reload" => (RELOAD, "Reset the meter"),
         "toggle" => (TOGGLE, "Show or hide the meter"),
-        "lock" => (LOCK, "Turn the click-through lock on or off"),
+        "lock" => (LOCK, "Lock or unlock everything on screen"),
+        "clickThrough" => (CLICK_THROUGH, "Meter click-through: only its buttons take clicks"),
         "plugins" => (PLUGINS, "Bring back the open plugin windows"),
         "markVisible" => (MARK_VISIBLE, "Mark the packet capture: hidden cube visible"),
         "markPickup" => (MARK_PICKUP, "Mark the packet capture: hidden cube picked up"),
@@ -313,6 +315,7 @@ fn status_key(id: &str) -> Option<&'static str> {
         RELOAD => Some("reload"),
         TOGGLE => Some("toggle"),
         LOCK => Some("lock"),
+        CLICK_THROUGH => Some("clickThrough"),
         PLUGINS => Some("plugins"),
         MARK_VISIBLE => Some("markVisible"),
         MARK_PICKUP => Some("markPickup"),

@@ -140,7 +140,6 @@ class DpsApp {
       detailsMonitor: "dpsMeter.detailsMonitor",
       showSuspendBtn: "dpsMeter.showSuspendBtn",
       showLockBtn: "dpsMeter.showLockBtn",
-      overlayLocked: "dpsMeter.overlayLocked",
     };
 
     this.dpsFormatter = new Intl.NumberFormat("en-US");
@@ -1053,9 +1052,11 @@ class DpsApp {
     const container = tooltip.offsetParent;
     const origin = container?.getBoundingClientRect?.() || { left: 0, top: 0 };
     const screen = window.screen || {};
-    // On Linux the tooltip stays inside the window: growing the window for it
-    // made KWin move the meter up and left while it showed (2026-10-16).
-    const inWindow = !!document.documentElement?.classList.contains("linux");
+    // The tooltip stays inside the window: on Linux, growing the window for
+    // it made KWin move the meter up and left while it showed (2026-10-16);
+    // the overlay's window is the screen.
+    const inWindow = !!document.documentElement?.classList.contains("linux")
+      || !!document.documentElement?.classList.contains("a2overlay");
     const availableWidth = Math.max(32, inWindow
       ? window.innerWidth - origin.left
       : (screen.availLeft || 0) + (screen.availWidth || window.innerWidth) - (window.screenX || 0) - origin.left);
@@ -2436,7 +2437,7 @@ class DpsApp {
       this._setCaptureSuspended(!this._captureSuspended);
     });
     this.lockBtn?.addEventListener("click", () => {
-      this._setOverlayLocked(!this._overlayLocked);
+      this._setMeterClickThrough(!this._clickThrough);
     });
     this.targetModeBtn?.addEventListener("click", () => {
       const modes = ["lastHitByMe", "bossTargets", "trainTargets", "allTargets"];
@@ -4454,6 +4455,7 @@ class DpsApp {
     const reloadBtn = document.querySelector(".reloadKeybindBtn");
     const toggleBtn = document.querySelector(".toggleKeybindBtn");
     const lockKeyBtn = document.querySelector(".lockKeybindBtn");
+    const clickThroughKeyBtn = document.querySelector(".clickThroughKeybindBtn");
     const pluginsKeyBtn = document.querySelector(".pluginsKeybindBtn");
     const markVisibleBtn = document.querySelector(".markVisibleKeybindBtn");
     const markPickupBtn = document.querySelector(".markPickupKeybindBtn");
@@ -4471,6 +4473,10 @@ class DpsApp {
       if (lockKeyBtn) {
         lockKeyBtn.querySelector(".keybindText").textContent =
           window.javaBridge?.getCurrentLockHotKey?.() || "Ctrl+Alt+L";
+      }
+      if (clickThroughKeyBtn) {
+        clickThroughKeyBtn.querySelector(".keybindText").textContent =
+          window.javaBridge?.getCurrentClickThroughHotKey?.() || "Ctrl+Alt+K";
       }
       if (pluginsKeyBtn) {
         const label = window.javaBridge?.getCurrentPluginWindowsHotKey?.() || "";
@@ -4496,7 +4502,8 @@ class DpsApp {
     this.applyHotkeyStatus = (status) => {
       lastHotkeyStatus = status && typeof status === "object" ? status : {};
       const rows = [
-        [reloadBtn, "reload"], [toggleBtn, "toggle"], [lockKeyBtn, "lock"], [pluginsKeyBtn, "plugins"],
+        [reloadBtn, "reload"], [toggleBtn, "toggle"], [lockKeyBtn, "lock"], [clickThroughKeyBtn, "clickThrough"],
+        [pluginsKeyBtn, "plugins"],
         [markVisibleBtn, "markVisible"], [markPickupBtn, "markPickup"],
       ]
         .filter(([btn]) => btn && btn.closest?.(".settingsRowKeybind")?.style?.display !== "none")
@@ -4592,6 +4599,7 @@ class DpsApp {
     reloadBtn?.addEventListener("click", () => handleKeybindClick(reloadBtn, "reload"));
     toggleBtn?.addEventListener("click", () => handleKeybindClick(toggleBtn, "toggle"));
     lockKeyBtn?.addEventListener("click", () => handleKeybindClick(lockKeyBtn, "lock"));
+    clickThroughKeyBtn?.addEventListener("click", () => handleKeybindClick(clickThroughKeyBtn, "clickThrough"));
     pluginsKeyBtn?.addEventListener("click", () => handleKeybindClick(pluginsKeyBtn, "plugins"));
     markVisibleBtn?.addEventListener("click", () => handleKeybindClick(markVisibleBtn, "markVisible"));
     markPickupBtn?.addEventListener("click", () => handleKeybindClick(markPickupBtn, "markPickup"));
@@ -4665,6 +4673,9 @@ class DpsApp {
       } else if (type === "lock") {
         window.javaBridge?.setLockHotkey?.(mods, vk);
         if (lockKeyBtn) lockKeyBtn.querySelector(".keybindText").textContent = label;
+      } else if (type === "clickThrough") {
+        window.javaBridge?.setClickThroughHotkey?.(mods, vk);
+        if (clickThroughKeyBtn) clickThroughKeyBtn.querySelector(".keybindText").textContent = label;
       } else if (type === "plugins") {
         window.javaBridge?.setPluginWindowsHotkey?.(mods, vk);
       } else if (type === "markVisible") {
@@ -6526,6 +6537,8 @@ class DpsApp {
     this.resizeHandle.addEventListener("mousedown", (event) => {
       event.preventDefault();
       event.stopPropagation();
+      // Locked, the meter stays its size as it stays put (overlay.js).
+      if (document.documentElement.classList.contains("meterLocked")) return;
       const rect = this.meterEl.getBoundingClientRect();
       startWidth = rect.width;
       startHeight = rect.height;
@@ -6538,92 +6551,60 @@ class DpsApp {
     document.addEventListener("mouseup", onMouseUp);
   }
 
-  // ===== Click-through lock =====
-  // Locked, the overlay lets clicks through to the game and cannot be
-  // dragged; only its lock button stays clickable (the backend watches the
-  // pointer, see OverlayLock in app.rs), and a hotkey toggles it too. Offered
-  // only where the backend can do that: Windows, not Wayland.
+  // ===== Click-through =====
+  // The meter is part of the overlay (overlay.js, plugins/overlay.rs). With
+  // its click-through on, clicks on it go through to the game and only its
+  // title bar's buttons still take them, so it can be turned off again from
+  // there. The button among them (Settings → Show click-through button), a
+  // toggle in Settings and a keybind turn it on and off; every window hears
+  // "meter-click-through" and follows. Moving the meter is the overlay's
+  // Lock, apart from this.
 
   initOverlayLock() {
-    this._overlayLocked = false;
+    this._clickThrough = this.safeGetSetting("dpsMeter.clickThrough") === "true";
     this.showLockBtnCheckbox = document.querySelector(".showLockBtnCheckbox");
+    this.clickThroughCheckbox = document.querySelector(".meterClickThroughCheckbox");
     const isOverlay = window.A2_VIEW === "main";
-    Promise.resolve(window.javaBridge?.overlayLockSupported?.())
-      .then((supported) => {
-        if (!supported) return;
-        document.querySelectorAll(".lockSetting").forEach((el) => { el.style.display = ""; });
-        const show = this.safeGetSetting(this.storageKeys.showLockBtn) === "true";
-        if (this.showLockBtnCheckbox) {
-          this.showLockBtnCheckbox.checked = show;
-          this.showLockBtnCheckbox.addEventListener("change", (event) => {
-            const isChecked = !!event.target?.checked;
-            this.safeSetSetting(this.storageKeys.showLockBtn, String(isChecked));
-            if (!isOverlay) return;
-            this._applyLockBtnVisibility(isChecked);
-            // Hiding the button must not leave a locked overlay behind.
-            if (!isChecked) this._setOverlayLocked(false);
-          });
-        }
-        if (!isOverlay) return;
-        this._applyLockBtnVisibility(show);
-        window.addEventListener("resize", () => this._sendLockBtnRect());
-        this._watchOverlayCards();
-        // Stay locked across restarts, as the player left it.
-        if (show && this.safeGetSetting(this.storageKeys.overlayLocked) === "true") {
-          requestAnimationFrame(() => this._setOverlayLocked(true));
-        }
-      })
+    const show = this.safeGetSetting(this.storageKeys.showLockBtn) === "true";
+    if (this.showLockBtnCheckbox) {
+      this.showLockBtnCheckbox.checked = show;
+      this.showLockBtnCheckbox.addEventListener("change", (event) => {
+        const isChecked = !!event.target?.checked;
+        this.safeSetSetting(this.storageKeys.showLockBtn, String(isChecked));
+        if (isOverlay) this._applyLockBtnVisibility(isChecked);
+      });
+    }
+    this.clickThroughCheckbox?.addEventListener("change", (event) => {
+      this._setMeterClickThrough(!!event.target?.checked);
+    });
+    if (isOverlay) this._applyLockBtnVisibility(show);
+    this._onMeterClickThrough(this._clickThrough);
+    // The backend's word, in case the saved copy here is behind.
+    Promise.resolve(window.javaBridge?.getMeterClickThrough?.())
+      .then((on) => { if (typeof on === "boolean") this._onMeterClickThrough(on); })
       .catch(() => {});
-  }
-
-  // A card open in the page (a one-time popup at start, the update prompt,
-  // the support card) takes the mouse though the overlay is locked: locked
-  // from last time, nothing on it could be clicked, and it covers the lock
-  // button. The lock itself stays as it was.
-  _watchOverlayCards() {
-    const cards = [...document.querySelectorAll(".updateModal, .discordPromo, .supportModal")];
-    if (!cards.length || typeof MutationObserver !== "function") return;
-    let wasOpen = false;
-    const sync = () => {
-      const open = cards.some((card) => card.classList.contains("isOpen"));
-      if (open === wasOpen) return;
-      wasOpen = open;
-      window.javaBridge?.setOverlayCardOpen?.(open);
-    };
-    const observer = new MutationObserver(sync);
-    for (const card of cards) observer.observe(card, { attributes: true, attributeFilter: ["class"] });
-    sync();
   }
 
   _applyLockBtnVisibility(show) {
     if (this.lockBtn) this.lockBtn.style.display = show ? "" : "none";
     this.headerBtns?.classList.toggle("hasLockBtn", !!show);
-    if (show) requestAnimationFrame(() => this._sendLockBtnRect());
   }
 
-  // Where the button is, so the backend keeps it clickable while locked.
-  _sendLockBtnRect() {
-    if (!this.lockBtn || this.lockBtn.style.display === "none") return;
-    const r = this.lockBtn.getBoundingClientRect();
-    if (!r.width || !r.height) return;
-    window.javaBridge?.setLockButtonRect?.(r.left, r.top, r.width, r.height, window.devicePixelRatio || 1);
+  _setMeterClickThrough(on) {
+    this._onMeterClickThrough(!!on);
+    window.javaBridge?.setMeterClickThrough?.(!!on);
   }
 
-  _setOverlayLocked(locked) {
-    this._sendLockBtnRect();
-    window.javaBridge?.setOverlayLocked?.(!!locked);
-    this._onOverlayLockChanged(!!locked);
-  }
-
-  // Also called when the hotkey toggled the lock (the backend has done it).
-  _onOverlayLockChanged(locked) {
-    this._overlayLocked = !!locked;
-    this.safeSetSetting(this.storageKeys.overlayLocked, String(this._overlayLocked));
-    document.body.classList.toggle("overlayLocked", this._overlayLocked);
+  // Also when its keybind or another window turned it on or off.
+  _onMeterClickThrough(on) {
+    this._clickThrough = !!on;
+    document.body.classList.toggle("meterClickThrough", this._clickThrough);
+    if (this.clickThroughCheckbox) this.clickThroughCheckbox.checked = this._clickThrough;
     if (!this.lockBtn) return;
-    this.lockBtn.classList.toggle("isLocked", this._overlayLocked);
+    this.lockBtn.classList.toggle("isLocked", this._clickThrough);
+    this.lockBtn.setAttribute("aria-pressed", String(this._clickThrough));
     const icon = document.createElement("i");
-    icon.setAttribute("data-lucide", this._overlayLocked ? "lock" : "lock-open");
+    icon.setAttribute("data-lucide", this._clickThrough ? "mouse-pointer-ban" : "mouse-pointer");
     this.lockBtn.replaceChildren(icon);
     window.lucide?.createIcons?.({ root: this.lockBtn });
   }

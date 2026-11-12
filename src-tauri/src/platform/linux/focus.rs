@@ -109,8 +109,9 @@ function place(w) {
         });
     });
 }
-// The one overlay (plugins::overlay): it covers the screen the game is on, or
-// the one the player chose, and follows the game to another.
+// The one overlay (plugins::overlay), the meter's own window: it covers the
+// screen the game is on, or the one the player chose, and follows the game to
+// another.
 var OVERLAY = "__OVERLAY__", METER = "__METER__";
 function isOverlay(w) {
     return mine(w) && String(w.caption) === OVERLAY;
@@ -467,7 +468,7 @@ fn load_script(connection: &zbus::blocking::Connection) -> Result<i32, String> {
     let js_string = |s: &str| serde_json::to_string(s).unwrap_or_default();
     let script = SCRIPT
         .replace("__PID__", &std::process::id().to_string())
-        .replace("\"__OVERLAY__\"", &js_string(&crate::platform::kwin_rules::widget_layer_title()))
+        .replace("\"__OVERLAY__\"", &js_string(&crate::plugins::overlay::title()))
         .replace("\"__METER__\"", &js_string(crate::platform::kwin_rules::OVERLAY_TITLE));
     std::fs::write(&path, script).map_err(|e| format!("writing the script: {e}"))?;
 

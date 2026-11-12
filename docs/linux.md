@@ -247,7 +247,7 @@ To remove it:
 | Automatic updates | Works for the packages; builds from source update with `git pull` |
 | Class icons | Works (missing in the 2.0.34 package and earlier; fixed in 2.0.35) |
 | Global hotkeys | From 2.0.59, once turned on in Settings → Keybinds, through your desktop's global shortcuts: see [Global hotkeys](#global-hotkeys) |
-| Click-through lock | From 2.0.42, when the meter runs through XWayland (`GDK_BACKEND=x11 a2tools-dps-meter`): turn on the lock button in Settings. On native Wayland an app cannot see where the pointer is outside its own window, so the button stays hidden there |
+| Click-through | Works on Wayland and X11: the meter is part of the overlay, whose input region lets clicks through everywhere but where the meter and the widgets take them (Settings → Meter click-through, or its keybind) |
 | Discord activity | From 2.0.42: your class, level and server in your Discord status, through the Discord app on the same computer |
 | Screenshots | Works from 2.0.41, to the clipboard and a folder (`~/Pictures/A2Tools DPS Meter` by default). On Linux the meter pictures itself on a plain background, since Wayland lets no app copy the screen |
 | Auto-hide when the game loses focus | Not yet (the meter stays visible) |

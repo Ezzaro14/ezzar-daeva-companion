@@ -1,62 +1,116 @@
-/* The one overlay over the game (overlay.js). Transparent but for the
-   widgets; editing the layout, a grid and a handle over each widget. */
-html, body {
+/* The overlay over the game (overlay.js): the meter's page, transparent but
+   for the meter and the widgets; editing the layout, a grid and a handle
+   over each, with a slider for how see-through it is. Scoped to the overlay
+   (html.a2overlay): Settings, History and Details load this page too. */
+html.a2overlay,
+html.a2overlay body {
   margin: 0;
   width: 100%;
   height: 100%;
   overflow: hidden;
   background: transparent;
-  font-family: "Pretendard", "Segoe UI", system-ui, sans-serif;
-  user-select: none;
 }
-.layer { position: absolute; inset: 0; pointer-events: none; }
-.widget { position: absolute; left: 0; top: 0; pointer-events: auto; will-change: transform; }
-.widget.hidden { visibility: hidden; }
-.widget iframe { display: block; width: 100%; height: 100%; border: 0; background: transparent; }
+html.a2overlay body { user-select: none; }
+
+/* The meter, placed by overlay.js over the widgets. */
+html.a2overlay .container {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+}
+html.a2overlay.meterOff .container { visibility: hidden; }
+/* Locked, the meter stays its size as it stays put. */
+html.a2overlay.meterLocked .container .meter .resizeHandle { display: none; }
+/* Click-through: only the title bar's buttons take clicks, and say so. */
+html.a2overlay.meterClickThrough .container .meter { cursor: default; }
+
+/* Cards (an update, a one-time offer) sit over the screen's middle without
+   dimming the game: only the card takes the mouse. */
+html.a2overlay .discordPromo,
+html.a2overlay .supportModal { background: transparent; }
+
+.ovLayer { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.ovWidget { position: absolute; left: 0; top: 0; pointer-events: auto; will-change: transform; }
+.ovWidget.hidden { visibility: hidden; }
+.ovWidget iframe { display: block; width: 100%; height: 100%; border: 0; background: transparent; }
 
 /* Editing the layout. */
-.grid, .guides, .editBar { display: none; }
-body.editing { background: rgba(6, 9, 15, 0.42); }
-body.editing .grid {
+.ovGrid, .ovGuides, .ovEditBar, .ovHandles { display: none; }
+html.a2overlay.ovEditing body { background: rgba(6, 9, 15, 0.42); }
+html.ovEditing .ovGrid {
   display: block;
   position: absolute;
   inset: 0;
+  z-index: 0;
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
   background-size: 32px 32px;
 }
-body.editing .guides { display: block; }
-.guide { position: absolute; background: #7cc4ff; opacity: 0; transition: opacity 0.12s; }
-.guide.on { opacity: 0.85; }
-.guide.v { left: 50%; top: 0; bottom: 0; width: 1px; }
-.guide.h { top: 50%; left: 0; right: 0; height: 1px; }
+html.ovEditing .ovGuides { display: block; position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.ovGuide { position: absolute; background: #7cc4ff; opacity: 0; transition: opacity 0.12s; }
+.ovGuide.on { opacity: 0.85; }
+.ovGuide.v { left: 50%; top: 0; bottom: 0; width: 1px; }
+.ovGuide.h { top: 50%; left: 0; right: 0; height: 1px; }
 
-.handle { display: none; position: absolute; box-sizing: border-box; cursor: grab; border-radius: 8px; }
-body.editing .handle {
-  display: block;
+html.ovEditing .ovHandles { display: block; position: absolute; inset: 0; z-index: 50; pointer-events: none; }
+.ovHandle {
+  position: absolute;
+  box-sizing: border-box;
+  cursor: grab;
+  border-radius: 8px;
+  pointer-events: auto;
   border: 1.5px dashed rgba(124, 196, 255, 0.75);
   background: rgba(124, 196, 255, 0.08);
+  font-family: "Pretendard", "Segoe UI", system-ui, sans-serif;
 }
-body.editing .handle:hover { border-style: solid; background: rgba(124, 196, 255, 0.14); }
-.widget.dragging .handle { cursor: grabbing; border-style: solid; border-color: #7cc4ff; }
-.handleLabel {
+.ovHandle.hidden { display: none; }
+.ovHandle:hover { border-style: solid; background: rgba(124, 196, 255, 0.14); }
+.ovHandle.dragging { cursor: grabbing; border-style: solid; border-color: #7cc4ff; }
+.ovHandleBar {
   position: absolute;
   left: -1px;
   bottom: calc(100% + 4px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
   white-space: nowrap;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: #e6f2ff;
-  background: rgba(18, 44, 74, 0.92);
+  background: rgba(18, 44, 74, 0.94);
   border: 1px solid rgba(124, 196, 255, 0.5);
   border-radius: 5px;
-  padding: 2px 7px;
-  pointer-events: none;
+  padding: 2px 4px 2px 7px;
+}
+/* No room above it: below. */
+.ovHandle.barBelow .ovHandleBar { bottom: auto; top: calc(100% + 4px); }
+.ovHandleLabel { pointer-events: none; }
+.ovOpacity {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 7px;
+  border-left: 1px solid rgba(124, 196, 255, 0.3);
+  cursor: default;
+}
+.ovOpacity input[type="range"] {
+  width: 72px;
+  height: 14px;
+  margin: 0;
+  accent-color: #7cc4ff;
+  cursor: pointer;
+}
+.ovOpacityValue {
+  min-width: 30px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: rgba(230, 242, 255, 0.8);
 }
 
-body.editing .editBar {
+html.ovEditing .ovEditBar {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -70,12 +124,13 @@ body.editing .editBar {
   border: 1px solid rgba(124, 196, 255, 0.35);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
   color: #eef2f8;
+  font-family: "Pretendard", "Segoe UI", system-ui, sans-serif;
   font-size: 13px;
-  z-index: 10;
+  z-index: 60;
 }
-.editTitle { font-weight: 700; color: #7cc4ff; }
-.editHint { color: rgba(226, 232, 242, 0.7); }
-.editBtn {
+.ovEditTitle { font-weight: 700; color: #7cc4ff; }
+.ovEditHint { color: rgba(226, 232, 242, 0.7); }
+.ovEditBtn {
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -86,6 +141,6 @@ body.editing .editBar {
   padding: 6px 14px;
   cursor: pointer;
 }
-.editBtn:hover { background: rgba(255, 255, 255, 0.13); }
-.editBtn.primary { background: #2f7de1; border-color: #4a92ee; }
-.editBtn.primary:hover { background: #3b8af0; }
+.ovEditBtn:hover { background: rgba(255, 255, 255, 0.13); }
+.ovEditBtn.primary { background: #2f7de1; border-color: #4a92ee; }
+.ovEditBtn.primary:hover { background: #3b8af0; }

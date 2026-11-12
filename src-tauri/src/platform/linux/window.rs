@@ -324,13 +324,6 @@ pub fn is_hidden_in_place(window: &tauri::WebviewWindow) -> bool {
     hidden_in_place().lock().unwrap_or_else(|p| p.into_inner()).contains(window.label())
 }
 
-/// Hide the meter while the game is not in front. Kept mapped (see
-/// `hide_in_place`) rather than minimized: on Wayland an application cannot
-/// bring its own minimized window back.
-pub fn minimize_off_top(window: &tauri::WebviewWindow) {
-    hide_in_place(window);
-}
-
 /// Size a meter window and pin its size hints to that size. Window managers
 /// only edge-tile or maximize a window whose minimum size is below its maximum
 /// (KWin: `X11Window::isResizable`), so pinned hints keep KDE, GNOME and the

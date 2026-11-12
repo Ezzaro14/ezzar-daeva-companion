@@ -23,11 +23,6 @@ pub fn hide_without_focus(window: &tauri::WebviewWindow) {
 /// Here a window can be built hidden and shown later as it is.
 pub const HIDE_AFTER_BUILD: bool = false;
 
-pub fn minimize_off_top(window: &tauri::WebviewWindow) {
-    let _ = window.set_always_on_top(false);
-    let _ = window.minimize();
-}
-
 pub fn set_size(window: &tauri::WebviewWindow, size: tauri::Size) {
     let _ = window.set_size(size);
 }

@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 const source = readFileSync(new URL("../public/src/js/tauriBridge.js", import.meta.url), "utf8");
 const startup = source.slice(source.indexOf("  const { invoke }"), source.indexOf("  // Three windows"));
-const overlay = source.slice(source.indexOf("  // ===== Overlay resize handle"), source.indexOf("  // Startup diagnostics"));
+const meter = source.slice(source.indexOf("  // ===== Moving the meter"), source.indexOf("  // ===== Tool windows: drag by the header"));
 const tool = source.slice(source.indexOf("  // ===== Tool windows: drag by the header"), source.indexOf("  // Pre-fetch device list"));
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -40,19 +40,18 @@ function setup({ userAgent = "Linux", supported = false, view = "main", detect }
       window: { getCurrentWindow: () => ({ startResizeDragging: (direction) => calls.push({ command: "startResizeDragging", direction }) }) },
     },
   };
+  const pressed = [];
+  window.a2Overlay = { pressMeter: (event) => pressed.push(event) };
   const context = vm.createContext({
     window, document, navigator: { userAgent }, console, Node: { TEXT_NODE: 3 },
-    resizeActive: false, nativeResize: null, primaryHeld: true, lastSizeKey: "",
-    spaceRightBelow: () => ({ w: 1920, h: 1080 }),
-    overlayPadding: () => ({ w: 16, h: 10 }),
+    viewMode: view, nativeResize: null, primaryHeld: true,
     startNativeResize: (...args) => nativeResizes.push(args),
-    MouseEvent: class { constructor(type, event) { Object.assign(this, event); this.type = type; } },
   });
   vm.runInContext(startup, context);
   vm.runInContext(tool, context);
-  vm.runInContext(overlay, context);
+  vm.runInContext(meter, context);
   const emit = (name, event) => (events.get(name) || []).forEach((handler) => handler(event));
-  return { calls, nativeResizes, classes, emit, context };
+  return { calls, nativeResizes, classes, emit, context, pressed };
 }
 
 function pressHandle() {
@@ -63,19 +62,6 @@ function pressHandle() {
     stopImmediatePropagation() { this.stopped = true; },
   };
 }
-
-test("Windows skips Linux capability detection and preserves an immediate resize press", async () => {
-  const app = setup({ userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" });
-  assert.equal(app.calls.length, 0);
-  const press = pressHandle();
-  app.emit("mousedown", press);
-  assert.equal(press.prevented, undefined);
-  assert.equal(press.stopped, undefined);
-  assert.equal(app.calls[0].command, "resize_window");
-  assert.equal(app.calls[0].args.width, 1920);
-  await tick();
-  assert.equal(app.nativeResizes.length, 0);
-});
 
 test("Windows tool windows drag from the header by the page, not by app-region", () => {
   // -webkit-app-region made WebView2 move a helper window on every layout
@@ -98,17 +84,6 @@ test("Windows tool windows drag from the header by the page, not by app-region",
   assert.equal(onButton.prevented, undefined);
 });
 
-test("other Linux desktops keep viewport resizing without GNOME styling", async () => {
-  const app = setup({ supported: false });
-  await tick();
-  const press = pressHandle();
-  app.emit("mousedown", press);
-  assert.equal(press.stopped, undefined);
-  assert.equal(app.calls.at(-1).command, "resize_window");
-  assert.equal(app.nativeResizes.length, 0);
-  assert.equal(app.classes.has("linuxOverlay"), false);
-});
-
 test("other Linux desktops keep the begin_tool_resize edge path", async () => {
   const app = setup({ supported: false, view: "details" });
   await tick();
@@ -124,17 +99,7 @@ test("other Linux desktops keep the begin_tool_resize edge path", async () => {
   assert.equal(app.nativeResizes.length, 0);
 });
 
-test("GNOME uses compositor resizing for the overlay and tool edges", async () => {
-  const overlayApp = setup({ supported: true });
-  await tick();
-  const press = pressHandle();
-  overlayApp.emit("mousedown", press);
-  await tick();
-  assert.equal(press.stopped, true);
-  assert.deepEqual(overlayApp.nativeResizes[0], ["SouthEast", 316, 40]);
-  assert.equal(overlayApp.classes.has("linuxOverlay"), true);
-  assert.equal(overlayApp.calls.some((call) => call.command === "resize_window"), false);
-
+test("GNOME and KDE use compositor resizing for the tool windows' edges", async () => {
   const toolApp = setup({ supported: true, view: "details" });
   await tick();
   toolApp.emit("mousedown", { ...pressHandle(), clientX: 1, clientY: 1, target: { closest: () => false } });
@@ -143,35 +108,49 @@ test("GNOME uses compositor resizing for the overlay and tool edges", async () =
   assert.equal(toolApp.calls.some((call) => call.command === "begin_tool_resize"), false);
 });
 
-test("a released early press does not start resizing after Linux detection settles", async () => {
-  let resolve;
-  const app = setup({ detect: new Promise((done) => { resolve = done; }) });
-  app.emit("mousedown", pressHandle());
-  vm.runInContext("primaryHeld = false", app.context);
-  resolve(true);
-  await tick();
-  assert.equal(app.nativeResizes.length, 0);
+// The meter is part of the overlay (overlay.js): its window is the screen,
+// so its corner handle resizes it in the page (core.js bindResizeHandle) and
+// a press on it is never taken here, on any desktop.
+test("the meter's corner handle is the page's, never a window resize", async () => {
+  for (const userAgent of ["Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Linux"]) {
+    for (const supported of [false, true]) {
+      const app = setup({ userAgent, supported });
+      await tick();
+      const press = pressHandle();
+      app.emit("mousedown", press);
+      await tick();
+      assert.equal(press.stopped, undefined, "core.js gets the press");
+      assert.equal(press.prevented, undefined);
+      assert.deepEqual(app.nativeResizes, []);
+      const windowCalls = app.calls.filter((call) => call.command !== "compositor_resize_supported");
+      assert.deepEqual(windowCalls, [], "no window call");
+      assert.deepEqual(app.pressed, [], "not a move either");
+    }
+  }
 });
 
-test("an early press on another Linux desktop replays the original viewport path", async () => {
-  let resolve;
-  const app = setup({ detect: new Promise((done) => { resolve = done; }) });
-  const press = pressHandle();
-  press.target.dispatchEvent = (event) => app.emit(event.type, event);
-  app.emit("mousedown", press);
-  assert.equal(press.stopped, true);
-  resolve(false);
-  await tick();
-  assert.equal(app.calls.at(-1).command, "resize_window");
-  assert.equal(app.nativeResizes.length, 0);
-});
+// A press on the meter's title bar or an empty part of it moves the meter in
+// the overlay (pressMeter), not its window; buttons and rows keep their clicks.
+test("a press on the meter moves it in the overlay, and its buttons and rows still click", () => {
+  const app = setup({ userAgent: "Linux" });
+  const pressOn = (...selectors) => ({
+    button: 0,
+    target: { closest: (selector) => selectors.some((s) => selector.split(",").map((x) => x.trim()).includes(s)) },
+    stopImmediatePropagation() { this.stopped = true; },
+  });
+  const bar = pressOn(".meter");
+  app.emit("mousedown", bar);
+  assert.equal(bar.stopped, true);
+  assert.deepEqual(app.pressed, [bar]);
+  for (const target of [".headerBtn", ".item", "button", ".bossIcon"]) {
+    const press = pressOn(".meter", target);
+    app.emit("mousedown", press);
+    assert.equal(press.stopped, undefined, `${target} keeps its click`);
+  }
+  assert.equal(app.pressed.length, 1);
+  assert.equal(app.calls.some((call) => call.command === "start_drag"), false);
 
-test("failed Linux capability detection falls back to the existing resize path", async () => {
-  const app = setup({ detect: Promise.reject(new Error("IPC failed")) });
-  await tick();
-  const press = pressHandle();
-  app.emit("mousedown", press);
-  assert.equal(press.stopped, undefined);
-  assert.equal(app.calls.at(-1).command, "resize_window");
-  assert.equal(app.classes.has("linuxOverlay"), false);
+  const details = setup({ userAgent: "Linux", view: "details" });
+  details.emit("mousedown", pressOn(".meter"));
+  assert.deepEqual(details.pressed, [], "only the meter's own page has a meter to move");
 });
