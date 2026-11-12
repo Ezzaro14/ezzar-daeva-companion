@@ -1721,12 +1721,17 @@ a2.on("bossMap", (m) => {
 //
 // In the dashboard the alert is a notice kept on screen until the cube is
 // opened: by you, it goes; by someone else, it says so and goes after the
-// usual few seconds. A cube that leaves range unopened keeps its notice, as
-// it may still be there; one not seen for CUBE_LOST_MS is let go. Events from
-// before the window opened (replayed to it) are old news and say nothing.
+// usual few seconds. A cube that leaves range unopened says you are too far
+// and its notice goes after CUBE_FAR_S; back in range, it is near again. A
+// notice with no news for CUBE_LOST_MS goes too (a teleport may leave no
+// "gone"), and a cube away that long is forgotten. Events from before the
+// window opened (replayed to it) are old news and say nothing.
 const CUBE_TEMPLATE = 1301199;
 const CUBE_FRESH_MS = 15_000;
 const CUBE_LOST_MS = 5 * 60_000;
+const CUBE_FAR_S = 5;
+// Back in range after this long away: the sound again, as for a new cube.
+const CUBE_AGAIN_MS = 30_000;
 // `37 36` comes about 50 ms after `38 36`: the wait before "someone is opening",
 // in case it's you and the meter doesn't know your character's id yet.
 const CUBE_MINE_WAIT_MS = 400;
@@ -1735,17 +1740,19 @@ const CUBE_UI = {
     alert: "Hidden cube nearby!",
     opening: "Someone is opening the hidden cube…",
     taken: "Someone else opened the hidden cube",
+    far: "Too far from the hidden cube",
     setting: "Alert when a hidden cube is near",
   },
 };
 const cubeText = (k) => CUBE_UI[language]?.[k] ?? CUBE_UI.en[k];
-// Entity id → { mine: you are opening it, seen: last in range (ms), away: out of range }.
+// Entity id → { mine: you are opening it, seen: last news of it (ms), away: out of range }.
 const cubes = new Map();
 const cubeNotice = (entity) => `cube-${entity}`;
 const fresh = (meta) => !(meta?.at && Date.now() - meta.at > CUBE_FRESH_MS);
-// The cube's notice, kept (`keep`) until replaced, or taken away with "".
-function cubeSay(entity, text, keep) {
-  if (hostedInDashboard) a2.notify(text, { id: cubeNotice(entity), keep }).catch(() => {});
+// The cube's notice, kept (`keep`) until replaced, or for `hold` seconds, or
+// taken away with "".
+function cubeSay(entity, text, keep, hold) {
+  if (hostedInDashboard) a2.notify(text, { id: cubeNotice(entity), keep, hold }).catch(() => {});
 }
 function cubeDone(entity, text) {
   cubes.delete(entity);
@@ -1756,9 +1763,15 @@ a2.on("decoded:object-spawn", (data, meta) => {
   if (Number(data?.template) !== CUBE_TEMPLATE || prefs.cubeAlert === false || !fresh(meta)) return;
   const known = cubes.get(data.entity);
   if (known) {
-    // Back in range: its notice is still up.
+    // Back in range: near again, its "too far" notice replaced.
+    const awayFor = known.away ? Date.now() - known.seen : 0;
     known.seen = Date.now();
+    if (!known.away) return;
     known.away = false;
+    if (hostedInDashboard) {
+      cubeSay(data.entity, cubeText("alert"), true);
+      if (awayFor > CUBE_AGAIN_MS) soundAlert("cube");
+    }
     return;
   }
   cubes.set(data.entity, { mine: false, seen: Date.now(), away: false });
@@ -1780,7 +1793,9 @@ a2.on("decoded:object-opening", (data, meta) => {
   if (!cubes.has(data?.entity) || !fresh(meta)) return;
   setTimeout(() => {
     const cube = cubes.get(data.entity);
-    if (cube && !cube.mine) cubeSay(data.entity, cubeText("opening"), true);
+    if (!cube) return;
+    cube.seen = Date.now();
+    if (!cube.mine) cubeSay(data.entity, cubeText("opening"), true);
   }, CUBE_MINE_WAIT_MS);
 });
 a2.on("decoded:object-opened", (data, meta) => {
@@ -1789,16 +1804,20 @@ a2.on("decoded:object-opened", (data, meta) => {
   if (cube.mine) cubeDone(data.entity, "");
   else cubeDone(data.entity, cubeText("taken"));
 });
+// Out of range unopened (an opened one is gone already): too far, said for
+// a few seconds. Kept in mind, so coming back says it is near again.
 a2.on("decoded:object-gone", (data) => {
   const cube = cubes.get(data?.entity);
-  if (!cube) return;
+  if (!cube || cube.away) return;
   cube.seen = Date.now();
   cube.away = true;
+  cubeSay(data.entity, cubeText("far"), false, CUBE_FAR_S);
 });
-// A cube out of range for CUBE_LOST_MS: someone may have opened it out of view.
+// No news of a cube for CUBE_LOST_MS: its notice goes (one near, after a
+// teleport that sent no "gone") and the cube is forgotten.
 setInterval(() => {
   const now = Date.now();
-  for (const [entity, cube] of cubes) if (cube.away && now - cube.seen > CUBE_LOST_MS) cubeDone(entity, "");
+  for (const [entity, cube] of cubes) if (now - cube.seen > CUBE_LOST_MS) cubeDone(entity, "");
 }, 30_000);
 
 // Hosted in Ezzar's Daeva Companion's dashboard: alerts go to its Notices.
