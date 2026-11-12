@@ -74,6 +74,9 @@
       "wix": {
         "template": "wix/main.wxs"
       },
+      "nsis": {
+        "template": "nsis/installer.nsi"
+      },
       "webviewInstallMode": {
         "type": "skip"
       }

@@ -1,6 +1,6 @@
 name: Installers
 
-# Ezzar's Daeva Companion's installers: the Windows .msi, the Linux .deb (built on Ubuntu 22.04, so it runs on older systems
+# Ezzar's Daeva Companion's installers: the Windows .msi and setup .exe, the Linux .deb (built on Ubuntu 22.04, so it runs on older systems
 # too), the .rpm for Fedora and Bazzite (packaging/linux/build-rpm.sh, in
 # a Fedora container) and the Arch package for CachyOS, Arch, Manjaro and
 # EndeavourOS (packaging/arch/daeva-companion, in an Arch container).
@@ -15,7 +15,7 @@ env:
 
 jobs:
   windows:
-    name: Windows .msi
+    name: Windows .msi and setup .exe
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -39,12 +39,15 @@ jobs:
       - name: Build
         run: |
           npm ci
-          npx tauri build --bundles msi
+          npx tauri build --bundles msi,nsis
       - uses: actions/upload-artifact@v7
         with:
           name: windows-installers
-          # No NSIS setup: its script breaks on the apostrophe in the name.
-          path: src-tauri/target/release/bundle/msi/*.msi
+          # The setup .exe is built from src-tauri/nsis/installer.nsi, Tauri's
+          # template with the apostrophe in the name quoted so NSIS takes it.
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
 
   linux-deb:

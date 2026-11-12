@@ -88,10 +88,10 @@ sudo dnf install ./out/daeva-companion-*.x86_64.rpm
 
    ```powershell
    npm install
-   npx tauri build
+   npx tauri build --bundles msi,nsis
    ```
 
-   The MSI is in `src-tauri/target/release/bundle/msi/`.
+   The MSI is in `src-tauri/target/release/bundle/msi/`, the setup .exe in `src-tauri/target/release/bundle/nsis/`.
 3. Run it as administrator (needed for packet capture).
 
 ## Developing
