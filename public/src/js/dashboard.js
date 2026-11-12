@@ -108,7 +108,8 @@
         need("notify");
         const id = o?.id ? String(o.id).slice(0, 64) : null;
         if (String(text)) toast(mod.name, String(text));
-        return call("plugin_toast", { text: String(text), id, keep: !!o?.keep });
+        const hold = Number.isFinite(Number(o?.hold)) && o?.hold != null ? Number(o.hold) : null;
+        return call("plugin_toast", { text: String(text), id, keep: !!o?.keep, hold });
       },
       "armory.character": ([who]) => (
         need("feed:armory"),

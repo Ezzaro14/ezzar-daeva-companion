@@ -33,7 +33,8 @@ async function place() {
 }
 
 // A notice with an id replaces the shown one of that id; `keep` holds it until
-// then; an empty text takes it away (plugins/bundled.rs, plugin_toast).
+// then, `hold` (ms) for its own time; an empty text takes it away
+// (plugins/bundled.rs, plugin_toast).
 function notice(n) {
   if (!n.text) {
     if (n.id) a2.widgets.send("toast", { dismiss: n.id }).catch(() => {});
@@ -42,7 +43,8 @@ function notice(n) {
   recent = [n, ...recent].slice(0, MAX_RECENT);
   a2.storage.set("recent", recent).catch(() => {});
   render();
-  const shown = { title: n.name || n.from, text: n.text, at: Date.now(), id: n.id || null, keep: !!n.keep };
+  const hold = Number(n.hold) > 0 ? Number(n.hold) : null;
+  const shown = { title: n.name || n.from, text: n.text, at: Date.now(), id: n.id || null, keep: !!n.keep, hold };
   if (prefs.on) a2.widgets.send("toast", { notice: shown }).catch(() => {});
 }
 

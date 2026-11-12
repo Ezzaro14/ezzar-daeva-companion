@@ -32,9 +32,10 @@
 //   await a2.storage.get("state")              the plugin's own saved data
 //   await a2.storage.set("state", value)
 //   a2.notify("Text")                          a short message in the plugin's window
-//   a2.notify("Text", { id, keep })            fork: the same, named `id` so a later notify with that id
-//                                              replaces it; `keep` holds it on screen until replaced;
-//                                              a2.notify("", { id }) takes it away
+//   a2.notify("Text", { id, keep, hold })      fork: the same, named `id` so a later notify with that id
+//                                              replaces it; `keep` holds it on screen until replaced,
+//                                              `hold` for that many seconds (1 to 60) instead of the
+//                                              Notices setting; a2.notify("", { id }) takes it away
 //   await a2.copy("Text")                      text to the clipboard (permission "feed:combat")
 //   await a2.systemNotify("Title", "Text")     a desktop notification (permission "notify:system")
 //   await a2.armory.character()                you as the official site shows you; or
@@ -169,7 +170,13 @@
     notify: (text, options) =>
       call("notify", [
         String(text ?? ""),
-        options && typeof options === "object" ? { id: options.id == null ? null : String(options.id), keep: !!options.keep } : null,
+        options && typeof options === "object"
+          ? {
+              id: options.id == null ? null : String(options.id),
+              keep: !!options.keep,
+              hold: Number.isFinite(Number(options.hold)) && options.hold != null ? Number(options.hold) : null,
+            }
+          : null,
       ]),
     // Fork: text to the clipboard (permission "feed:combat").
     copy: (text) => call("clipboard.write", [String(text)]),

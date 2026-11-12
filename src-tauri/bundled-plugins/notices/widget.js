@@ -1,6 +1,6 @@
 // The notices popup: up to three at a time, newest on top, each gone after
-// `hold` ms; one with an id is updated in place by the next of that id, and
-// one kept (`keep`) stays until then. Only the popups (or, while placing, the
+// `hold` ms (its own, or the setting's); one with an id is updated in place by
+// the next of that id, and one kept (`keep`) stays until then. Only the popups (or, while placing, the
 // outline) take the mouse.
 const stack = document.querySelector(".stack");
 const placeholder = document.querySelector(".placeholder");
@@ -29,8 +29,9 @@ function fade(el) {
 }
 
 // Its countdown, from the start: none for a kept one.
-function arm(el, keep) {
+function arm(el, keep, ownHold) {
   clearTimeout(el._timer);
+  const hold = ownHold > 0 ? ownHold : config.hold;
   el.classList.toggle("kept", keep);
   const old = el.querySelector(".bar");
   const bar = document.createElement("div");
@@ -38,8 +39,8 @@ function arm(el, keep) {
   if (keep) {
     bar.style.animation = "none";
   } else {
-    bar.style.animationDuration = `${config.hold}ms`;
-    el._timer = setTimeout(() => fade(el), config.hold);
+    bar.style.animationDuration = `${hold}ms`;
+    el._timer = setTimeout(() => fade(el), hold);
   }
   if (old) old.replaceWith(bar);
   else el.append(bar);
@@ -59,7 +60,7 @@ function add(n) {
   el.className = `notice w-panel w-edge ${toneOf(n)}`;
   el.querySelector(".title").textContent = n.title || "";
   el.querySelector(".text").textContent = n.text || "";
-  arm(el, !!n.keep);
+  arm(el, !!n.keep, Number(n.hold) || 0);
   // Over three: the oldest that isn't kept goes first.
   while (stack.children.length > MAX) {
     const timed = [...stack.children].reverse().find((c) => !c.classList.contains("kept"));
