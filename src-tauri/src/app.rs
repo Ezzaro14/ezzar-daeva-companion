@@ -91,7 +91,7 @@ pub struct AppState {
 
 /// The setting that hides the DPS meter, for players who use only plugins:
 /// capture, uploads and plugins go on; the overlay stays hidden until shown
-/// again (Settings → Plugins, the toggle hotkey, or a plugin window's bar).
+/// again (Settings → Plugins, the toggle hotkey, or the dashboard's Meter button).
 const SHOW_METER_KEY: &str = "dpsMeter.showMeter";
 
 pub(crate) fn meter_wanted(app: &tauri::AppHandle) -> bool {
@@ -116,23 +116,12 @@ pub(crate) fn set_meter_wanted(app: &tauri::AppHandle, shown: bool) {
     let _ = app.emit("meter-shown", shown);
 }
 
-/// Whether something would be left to open the meter or a plugin with, with
-/// `except` (a window about to go) gone: the meter, another plugin window,
-/// or an unlocked widget (double-clicked, it opens its plugin's window).
-pub(crate) fn way_back_without(app: &tauri::AppHandle, except: &str) -> bool {
-    meter_wanted(app)
-        || app.webview_windows().into_iter().any(|(label, w)| {
-            label != except && label.starts_with("plugin-")
-                && w.is_visible().unwrap_or(false) && !platform::window::is_hidden_in_place(&w)
-        })
-        || crate::plugins::widgets::any_unlocked_widget_shown(app)
-}
-
 /// The meter hidden and nothing left on screen to open anything with (a
-/// tester hid both, 2026-10-17): the meter comes back. `except` is a window
-/// about to go.
-pub(crate) fn keep_something_on_screen(app: &tauri::AppHandle, except: &str) {
-    if !way_back_without(app, except) {
+/// tester hid both, 2026-10-17): the meter comes back. Something is left
+/// while an unlocked widget shows (double-clicked, it opens its plugin's
+/// page in the dashboard).
+pub(crate) fn keep_something_on_screen(app: &tauri::AppHandle) {
+    if !meter_wanted(app) && !crate::plugins::widgets::any_unlocked_widget_shown(app) {
         set_meter_wanted(app, true);
     }
 }
@@ -148,18 +137,17 @@ fn meter_shown(app: tauri::AppHandle) -> bool {
 }
 
 /// The windows that hide with the meter when AION2 isn't in front ("Hide
-/// when AION2 isn't focused"): Settings, Battle History and Details, and the
-/// windows and icons of plugins set to (Settings → Plugins; an alert's icon
-/// is often wanted most then). Only the meter hid, and the rest stayed over
-/// the browser (Hirai, 2026-10-19).
-fn hides_with_meter(app: &tauri::AppHandle, label: &str) -> bool {
-    TOOL_WINDOWS.contains(&label) || label.starts_with("details-") || crate::plugins::hides_unfocused(app, label)
+/// when AION2 isn't focused"): Settings, Battle History and Details. Only the
+/// meter hid, and the rest stayed over the browser (Hirai, 2026-10-19). The
+/// widgets of plugins set to (Settings → Plugins) hide in the overlay.
+fn hides_with_meter(label: &str) -> bool {
+    TOOL_WINDOWS.contains(&label) || label.starts_with("details-")
 }
 
 /// Hide those of `hides_with_meter` that are up, noting each.
 fn hide_with_meter(app: &tauri::AppHandle, hidden: &mut std::collections::HashSet<String>) {
     for (label, window) in app.webview_windows() {
-        if !hides_with_meter(app, &label) || hidden.contains(&label) {
+        if !hides_with_meter(&label) || hidden.contains(&label) {
             continue;
         }
         if window.is_visible().unwrap_or(false) && !platform::window::is_hidden_in_place(&window) {
@@ -253,9 +241,9 @@ fn screenshot_tool(app: &tauri::AppHandle, in_front: bool) {
     SCREENSHOT_TOOL.store(in_front, std::sync::atomic::Ordering::Relaxed);
     // The overlay: the meter and plugins' icons, by their lock and area.
     crate::plugins::widgets::reapply_locks(app);
-    // Settings, History, Details, and plugins' windows: all or nothing.
+    // Settings, History and Details: all or nothing.
     for (label, window) in app.webview_windows() {
-        let tool = TOOL_WINDOWS.contains(&label.as_str()) || label.starts_with("details-") || label.starts_with("plugin-");
+        let tool = TOOL_WINDOWS.contains(&label.as_str()) || label.starts_with("details-");
         if tool && !platform::window::click_through_except(&window, in_front, None) && !cfg!(target_os = "linux") {
             let _ = window.set_ignore_cursor_events(in_front);
         }
@@ -805,7 +793,7 @@ fn restart_global_hotkeys(app: &tauri::AppHandle) {
 }
 
 /// The keybind settings and their defaults, as Settings shows them: the
-/// plugin windows key and the two capture marks have none (`""`), so they are
+/// dashboard key and the two capture marks have none (`""`), so they are
 /// off until one is set.
 pub const HOTKEY_DEFAULTS: [(&str, &str); 7] = [
     ("dpsMeter.hotkey", "Ctrl+Alt+R"),
@@ -898,10 +886,11 @@ fn start_hotkeys(app: &tauri::AppHandle, settings: &Settings) {
     }));
     let h = app.clone();
     let plugins = binding("plugins", "dpsMeter.pluginWindowsHotkey", Box::new(move || {
-        tracing::info!("Hotkey: bringing back the plugin windows");
+        // The dashboard, where every plugin is: in front, or away again.
+        tracing::info!("Hotkey: the dashboard");
         let app = h.clone();
         // Window calls belong on the main thread.
-        let _ = h.run_on_main_thread(move || crate::plugins::bring_back_windows(&app));
+        let _ = h.run_on_main_thread(move || crate::plugins::bundled::toggle_dashboard(&app));
     }));
 
     let h = app.clone();
@@ -2936,18 +2925,6 @@ pub fn run() {
         // Closing the meter quits, even with Details, History or a kept
         // Settings window still open.
         .on_window_event(|window, event| {
-            // Plugin windows open where they were left, at the size they
-            // were left (#76).
-            if let tauri::WindowEvent::Moved(at) = event
-                && window.label().starts_with("plugin-")
-            {
-                crate::plugins::note_moved(window.app_handle(), window.label(), *at);
-            }
-            if let tauri::WindowEvent::Resized(size) = event
-                && window.label().starts_with("plugin-")
-            {
-                crate::plugins::note_resized(window.app_handle(), window, *size);
-            }
             if matches!(event, tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_))
                 && TOOL_WINDOWS.contains(&window.label())
             {
@@ -2962,21 +2939,6 @@ pub fn run() {
                 && window.label().starts_with("details-")
             {
                 save_window_geometry(window.app_handle(), window.label(), FIGHT_WINDOW_KEY);
-            }
-            // Plugin widgets (#77) close with their plugin's window.
-            if let tauri::WindowEvent::Destroyed = event
-                && let Some(id) = window.label().strip_prefix("plugin-")
-            {
-                crate::plugins::widgets::close_all(window.app_handle(), id);
-                crate::plugins::boss_live::forget_plugin(window.app_handle(), id);
-                // The meter hidden and its last plugin window closed: nothing
-                // would be left on screen, so the meter comes back.
-                let app = window.app_handle();
-                let label = window.label().to_string();
-                let others = app.webview_windows().into_keys().any(|l| l != label && l.starts_with("plugin-"));
-                if !others && !meter_wanted(app) {
-                    set_meter_wanted(app, true);
-                }
             }
             if window.label() == "main"
                 && let tauri::WindowEvent::CloseRequested { api, .. } = event
@@ -3197,15 +3159,13 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 platform::window_startup::arm_main_fallback(window);
                 if !meter_wanted(app.handle()) {
-                    // Plugins only: the meter stays hidden, unless no plugin
-                    // window is on screen by then.
+                    // Plugins only: the meter stays hidden, unless no
+                    // unlocked widget is on screen by then.
                     let handle = app.handle().clone();
                     tauri::async_runtime::spawn(async move {
                         tokio::time::sleep(std::time::Duration::from_secs(8)).await;
-                        // No plugin window on screen by then (none started,
-                        // or all hidden): the meter comes back.
                         let h = handle.clone();
-                        let _ = handle.run_on_main_thread(move || keep_something_on_screen(&h, ""));
+                        let _ = handle.run_on_main_thread(move || keep_something_on_screen(&h));
                     });
                 }
             }
@@ -3250,7 +3210,7 @@ pub fn run() {
             let plugin_host = std::sync::Arc::new(crate::plugins::PluginHost::default());
             app.manage(std::sync::Arc::clone(&plugin_host));
             plugin_host.reload(app.handle());
-            crate::plugins::restore_windows(app.handle());
+            // The dashboard runs every plugin that is on, each as a page.
             if let Err(e) = crate::plugins::bundled::open_dashboard(app.handle(), None, crate::plugins::bundled::shows_at_start(app.handle())) {
                 tracing::warn!("Dashboard: {e}");
             }
@@ -3600,9 +3560,6 @@ pub fn run() {
             crate::plugins::plugin_install,
             crate::plugins::plugin_uninstall,
             crate::plugins::plugin_debug_frame,
-            crate::plugins::plugin_window,
-            crate::plugins::plugin_window_fit,
-            crate::plugins::plugin_close,
             crate::plugins::plugin_open,
             crate::plugins::plugin_set_enabled,
             crate::plugins::plugin_set_hide,

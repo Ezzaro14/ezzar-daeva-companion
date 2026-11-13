@@ -12,8 +12,7 @@
   --ok: #5fd08a;
 }
 /* color-scheme on the controls only: on the whole page it would differ from
-   the plugins' pages, and the browser then paints their frames opaque white
-   (as pluginHost.css notes). */
+   the plugins' pages, and the browser then paints their frames opaque white. */
 button, input, select { color-scheme: dark; }
 /* So a dropdown's open list, drawn in the page's light scheme, has its
    options dark: their light text was on white. */

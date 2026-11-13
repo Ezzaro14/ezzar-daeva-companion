@@ -1,9 +1,10 @@
-// The dashboard (plugins/bundled.rs): every bundled plugin as a page of one
-// window, and one set of controls for everything on screen. Each plugin runs
-// in a sandboxed frame of its own, as in its own window (pluginHost.js): it
-// asks for things by message, and this page passes on what its manifest
-// permits, naming the plugin to the backend (`plugin`), since every frame
-// shares this one window.
+// The dashboard (plugins/bundled.rs): every plugin as a page of one window
+// (the bundled ones, and any installed or developer copy, which runs instead
+// of a bundled one of its id), and one set of controls for everything on
+// screen. Each plugin runs in a sandboxed frame of its own: it asks for
+// things by message, and this page passes on what its manifest permits,
+// naming the plugin to the backend (`plugin`), since every frame shares this
+// one window.
 (() => {
   const { invoke, convertFileSrc } = window.__TAURI__.core;
   const { listen } = window.__TAURI__.event;
@@ -40,6 +41,8 @@
     let run = null;
     let delivered = 0;
     let early = [];
+    // When its widget last asked to open it (a double-click).
+    let openAskedAt = 0;
     const CURSOR_KEY = `dashboard.cursor.${id}`;
     const allowed = (p) => !!manifest?.permissions?.includes(p);
     const need = (p) => {
@@ -83,8 +86,15 @@
         call("plugin_boss_follow", { server: Number(server), bosses: (Array.isArray(bosses) ? bosses : []).map(String) })
       ),
       // In the dashboard a plugin's "window" is its page: showing it opens
-      // the dashboard there; hiding and fitting it are for windows of their own.
-      "window.show": () => (need("window"), invoke("dashboard_open", { module: id })),
+      // the dashboard there, just after its widget asked to (a double-click).
+      // A plugin made for a window of its own shows it unasked too (a pop-up
+      // while farming), which would bring the dashboard over the game.
+      // Hiding and fitting it are for windows of their own.
+      "window.show": () => {
+        need("window");
+        if (Date.now() - openAskedAt > 3000) return true;
+        return invoke("dashboard_open", { module: id });
+      },
       "window.hide": () => (need("window"), true),
       "window.fit": () => (need("window"), true),
       "widgets.open": ([name, size]) => (
@@ -126,7 +136,10 @@
       "map.minimap": () => (need("maps"), call("plugin_map_minimap")),
       "clipboard.write": ([text]) => (need("feed:combat"), call("plugin_copy_text", { text: String(text) })),
       "notify.system": ([title, body]) => (need("notify:system"), call("plugin_system_notify", { title: String(title), body: String(body) })),
+      // Only for the plugins that come with the app: no plugin had it in a
+      // window of its own.
       openUrl: ([raw]) => {
+        if (!mod.bundled) throw new Error("unknown call openUrl");
         const url = new URL(String(raw));
         if (url.protocol !== "https:" || url.username || url.password || url.href.length > 2048) throw new Error("only https links open");
         if (Date.now() - lastLinkAt < 1000) throw new Error("one link a second");
@@ -157,6 +170,7 @@
       hear(payload) {
         if (payload.event === "widget" || payload.event === "locked") return;
         if ((payload.event === "widget-message" || payload.event === "widget-moved") && !allowed("widgets")) return;
+        if (payload.event === "widget-message" && payload.data?.data?.open) openAskedAt = Date.now();
         if (typeof payload.seq !== "number") deliver(payload.event, payload.data);
         else if (early) early.push(payload);
         else deliverLogged(payload);
@@ -299,13 +313,20 @@
     home.querySelector(".tourCard")?.addEventListener("click", () => startTour());
   }
 
+  // Where a module comes from, unless it comes with the app.
+  const origin = (m) =>
+    m.bundled ? ""
+    : m.replaces ? `Your installed copy, version ${m.version}: it runs instead of the one that comes with the app.`
+    : m.reviewed ? `Installed plugin, version ${m.version}.`
+    : `From a folder (developer mode), version ${m.version}.`;
+
   function renderOverlay() {
     const page = $(".overlayPage");
     const rows = modules
       .map(
         (m) => `<div class="row">
           <span>${icon(ICONS[m.id] || "puzzle")}</span>
-          <div class="grow"><div>${esc(m.name)}</div><div class="sub">${esc(m.description)}</div></div>
+          <div class="grow"><div>${esc(m.name)}</div><div class="sub">${esc(m.description)}</div>${origin(m) ? `<div class="sub">${esc(origin(m))}</div>` : ""}</div>
           <button type="button" class="btn" data-open="${esc(m.id)}">Settings</button>
           <label class="switch" title="On: it runs, and its overlays can show"><input type="checkbox" data-module="${esc(m.id)}" ${m.enabled ? "checked" : ""}><span></span></label>
         </div>`,
@@ -392,19 +413,25 @@
 
   // ── wiring ────────────────────────────────────────────────────────────────
 
-  async function loadModules() {
+  // Read the modules again: start the ones turned on, stop those turned off
+  // or gone, and run anew those with other files (another copy, another
+  // version, or `restart`: files changed on disk).
+  async function loadModules(restart = []) {
     const list = (await invoke("dashboard_modules")).modules || [];
     modules = list;
-    // Start the ones turned on, stop those turned off.
-    for (const m of modules) {
-      if (m.enabled && !hosts.has(m.id)) {
-        const h = createHost(m);
-        hosts.set(m.id, h);
-        h.start().catch((e) => console.error(`[dashboard] ${m.id}`, e));
-      } else if (!m.enabled && hosts.has(m.id)) {
-        hosts.get(m.id).stop();
-        hosts.delete(m.id);
+    const byId = new Map(list.map((m) => [m.id, m]));
+    for (const [id, h] of hosts) {
+      const m = byId.get(id);
+      if (!m || !m.enabled || m.path !== h.mod.path || m.version !== h.mod.version || restart.includes(id)) {
+        h.stop();
+        hosts.delete(id);
       }
+    }
+    for (const m of list) {
+      if (!m.enabled || hosts.has(m.id)) continue;
+      const h = createHost(m);
+      hosts.set(m.id, h);
+      h.start().catch((e) => console.error(`[dashboard] ${m.id}`, e));
     }
     renderNav();
   }
@@ -415,8 +442,8 @@
   });
 
   // Only events sent to this window: a plain `listen` hears every window's,
-  // and each plugin event goes to its plugin's own window as well, so every
-  // one came twice (a fold toggled twice stayed shut).
+  // and when plugins had windows of their own every event came twice (a fold
+  // toggled twice stayed shut).
   window.__TAURI__.webviewWindow.getCurrentWebviewWindow().listen("plugin-event", (event) => {
     const payload = event.payload || {};
     if (typeof payload.event !== "string") return;
@@ -437,6 +464,13 @@
     if (current === "home") renderHome();
   });
   listen("dashboard-show", (event) => show(String(event.payload || "home")));
+  // A plugin installed, removed, updated, or turned on or off (Settings).
+  listen("dashboard-modules", (event) => {
+    const restart = Array.isArray(event.payload?.restart) ? event.payload.restart.map(String) : [];
+    loadModules(restart)
+      .then(() => show(current))
+      .catch((e) => console.error("[dashboard] modules", e));
+  });
 
   function renderStatus() {
     $(".dot").classList.toggle("on", game);

@@ -297,7 +297,7 @@ fn state(app: &tauri::AppHandle) -> Value {
     let unfocused = UNFOCUSED.load(Ordering::Relaxed);
     let hidden_plugins: Vec<&String> = ids
         .iter()
-        .filter(|id| super::game_hides(app, id) || (unfocused && super::hides_unfocused(app, &format!("plugin-{id}"))))
+        .filter(|id| super::game_hides(app, id) || (unfocused && super::hides_unfocused(app, id)))
         .collect();
     let locked: serde_json::Map<String, Value> = ids.iter().map(|id| (id.clone(), Value::Bool(is_locked(app, id)))).collect();
     serde_json::json!({
@@ -697,7 +697,7 @@ pub fn overlay_moved(app: tauri::AppHandle, window: tauri::WebviewWindow, plugin
     let scale = lock(&METRICS).2.max(0.1);
     let data = serde_json::json!({ "name": name, "x": (at.0 * sw * scale).round(), "y": (at.1 * sh * scale).round() });
     let event = serde_json::json!({ "plugin": plugin, "event": "widget-moved", "data": data });
-    super::emit_plugin(&app, &plugin, event).map_err(|e| e.to_string())
+    super::emit_plugin(&app, event).map_err(|e| e.to_string())
 }
 
 /// The player moved the meter (`x, y`: its top left as fractions of the
@@ -785,7 +785,7 @@ pub fn overlay_post(app: tauri::AppHandle, window: tauri::WebviewWindow, plugin:
         return Err("message too large".into());
     }
     let event = serde_json::json!({ "plugin": plugin, "event": "widget-message", "data": { "name": name, "data": data } });
-    super::emit_plugin(&app, &plugin, event).map_err(|e| e.to_string())
+    super::emit_plugin(&app, event).map_err(|e| e.to_string())
 }
 
 /// Turn the meter's click-through on or off (its title bar button, Settings).

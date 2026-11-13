@@ -318,7 +318,7 @@ impl Client {
 
 fn emit(app: &tauri::AppHandle, plugin: &str, event: &str, data: Value) {
     let msg = serde_json::json!({ "plugin": plugin, "event": event, "data": data });
-    let _ = super::emit_plugin(app, plugin, msg);
+    let _ = super::emit_plugin(app, msg);
 }
 
 /// You (or a character by name and server), as the official site shows it.

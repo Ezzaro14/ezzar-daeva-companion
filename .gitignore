@@ -33,13 +33,9 @@ settings.properties
 
 # Copied static files (generated from src/ at build/dev time)
 /public/*
-# The plugin windows' host page (src-tauri/src/plugins).
-!/public/plugin-host.html
-!/public/plugin-widget.html
-# The dashboard's and the overlay's pages (src-tauri/src/plugins): without
-# them a clean checkout shows the meter in both windows.
+# The dashboard's page (src-tauri/src/plugins): without it a clean checkout
+# shows the meter in its window.
 !/public/dashboard.html
-!/public/overlay.html
 !/public/src/
 /public/src/*
 !/public/src/js/

@@ -35,6 +35,8 @@ Everything is in one **dashboard** window (it opens with the app; the meter's he
 
 Each module can be turned off on the dashboard's **Overlay** page.
 
+Plugins you install (Settings → Plugins) or load from a folder run in the dashboard too, each as a page of its own. One installed under the id of a module that comes with the app, such as A2Tools' own Pet Soul Tracker, runs in that module's place, and the **Overlay** page says so.
+
 ### The World Map
 
 Verteron and Altgard come with their map pictures, lined up from the start (this private build's own, stitched from gaming.tools' tile packs). The game's map art can't be shipped publicly, so every other map uses a picture you add: open the world map in game zoomed out to the whole region and take a screenshot (or use a map picture you have), then paste it (Ctrl+V), drop it on the map, or choose it. The markers are spread over it at once; **drag them** (and size, turn or mirror them) until the Kibelisks sit on the teleport statues, or **click three known places** (Kibelisks, or where you stand in game) for an exact fit. The picture stays on your computer.

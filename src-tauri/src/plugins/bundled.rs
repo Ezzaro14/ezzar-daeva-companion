@@ -200,8 +200,8 @@ pub const SYSTEM_NOTIFY: &str = "notify:system";
 
 // ── The dashboard ──────────────────────────────────────────────────────────
 
-/// The dashboard's window: every bundled plugin in one place, as pages of a
-/// sidebar (public/dashboard.html), with one Lock, Edit layout and Hide for
+/// The dashboard's window: every plugin in one place, as pages of a sidebar
+/// (public/dashboard.html), with one Lock, Edit layout and Hide for
 /// everything on screen. Made at start, hidden, so the plugins run; closing
 /// it hides it.
 pub const DASHBOARD: &str = "dashboard";
@@ -251,31 +251,70 @@ pub fn open_dashboard(app: &tauri::AppHandle, module: Option<&str>, show: bool) 
         .map_err(|e| e.to_string())
 }
 
+/// Show the dashboard in front, or put it away when it already is there (the
+/// "plugins" hotkey, which brought back plugins' windows when they had some).
+pub fn toggle_dashboard(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window(DASHBOARD) {
+        let in_front = window.is_visible().unwrap_or(false)
+            && !window.is_minimized().unwrap_or(false)
+            && window.is_focused().unwrap_or(false);
+        if in_front {
+            let _ = window.hide();
+            return;
+        }
+    }
+    if let Err(e) = open_dashboard(app, None, true) {
+        tracing::warn!("Dashboard: {e}");
+    }
+}
+
 /// Open the dashboard, on a module's page if one is named.
 #[tauri::command]
 pub fn dashboard_open(app: tauri::AppHandle, module: Option<String>) -> Result<(), String> {
     open_dashboard(&app, module.as_deref(), true)
 }
 
-/// The modules the dashboard shows: the bundled plugins, on or off.
+/// The modules the dashboard shows and runs: every plugin that loads, on or
+/// off. The bundled ones, and any installed or developer copy, which runs
+/// instead of a bundled one of its id (`replaces`); such a copy of the Pet
+/// Soul Tracker was left out of the dashboard, so it seemed gone
+/// (2026-11-12). `path` and `version` tell the dashboard when a page is to
+/// run other files.
 #[tauri::command]
 pub fn dashboard_modules(app: tauri::AppHandle) -> Result<Value, String> {
+    let shipped: Vec<String> = dirs(&app)
+        .iter()
+        .filter_map(|d| d.file_name().map(|n| n.to_string_lossy().into_owned()))
+        .collect();
     let view = super::plugin_list(app)?;
     let modules: Vec<Value> = view
         .plugins
         .iter()
-        .filter(|p| p.bundled && p.error.is_none())
+        .filter(|p| p.error.is_none())
         .map(|p| {
             serde_json::json!({
                 "id": p.id,
                 "name": p.name,
                 "description": p.description,
+                "version": p.version,
+                "path": p.path,
+                "bundled": p.bundled,
+                "replaces": !p.bundled && shipped.contains(&p.id),
+                "reviewed": p.reviewed,
                 "enabled": !view.disabled.contains(&p.id),
                 "widgets": p.permissions.iter().any(|x| x == "widgets"),
             })
         })
         .collect();
     Ok(serde_json::json!({ "modules": modules }))
+}
+
+/// The plugins changed (installed, removed, updated, turned on or off): the
+/// dashboard reads its modules again, starting and stopping pages to match,
+/// and runs `restart`'s anew.
+pub fn modules_changed(app: &tauri::AppHandle, restart: &[String]) {
+    use tauri::Emitter;
+    let _ = app.emit_to(DASHBOARD, "dashboard-modules", serde_json::json!({ "restart": restart }));
 }
 
 /// The plugins whose widgets the dashboard's Lock and Edit layout cover.
@@ -434,7 +473,7 @@ pub fn plugin_toast(
             "hold": hold,
         },
     });
-    super::emit_plugin(&app, NOTICES, event).map_err(|e| e.to_string())
+    super::emit_plugin(&app, event).map_err(|e| e.to_string())
 }
 
 // ── The World Map's files ──────────────────────────────────────────────────

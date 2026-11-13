@@ -46,7 +46,7 @@
         return t("settings.plugins.permWidgets", "Show small windows of its own, which you can move anywhere and lock in place");
       }
       if (permission === "window") {
-        return t("settings.plugins.permWindow", "Show and hide its own window, without taking focus from the game");
+        return t("settings.plugins.permWindow", "Open its page in the dashboard when you double-click its widget");
       }
       if (permission === "events:character") {
         return t("settings.plugins.permCharacter", "See your character's name, server, class and level");

@@ -54,7 +54,7 @@ fn shortcut_of(name: &str) -> Option<(&'static str, &'static str)> {
         "toggle" => (TOGGLE, "Show or hide the meter"),
         "lock" => (LOCK, "Lock or unlock everything on screen"),
         "clickThrough" => (CLICK_THROUGH, "Meter click-through: only its buttons take clicks"),
-        "plugins" => (PLUGINS, "Bring back the open plugin windows"),
+        "plugins" => (PLUGINS, "Show or hide the dashboard"),
         "markVisible" => (MARK_VISIBLE, "Mark the packet capture: hidden cube visible"),
         "markPickup" => (MARK_PICKUP, "Mark the packet capture: hidden cube picked up"),
         _ => return None,
