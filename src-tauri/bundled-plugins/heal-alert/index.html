@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Heal Alert</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="banner" hidden></div>
+    <ul class="members"></ul>
+    <div class="foot">
+      <span class="status"></span>
+      <button type="button" class="gear" title="Settings">⚙</button>
+    </div>
+    <div class="settings" hidden>
+      <label>Alert under
+        <select class="line">
+          <option value="40">40%</option><option value="50">50%</option><option value="60">60%</option>
+          <option value="70">70%</option><option value="80">80%</option>
+        </select>
+      </label>
+      <label>Sound
+        <span>
+          <select class="sound">
+            <option value="voice">Voice: "Heal!"</option>
+            <option value="alarm">Alarm</option><option value="chime">Chime</option><option value="ping">Ping</option>
+            <option value="own">Your own file</option>
+            <option value="">None</option>
+          </select>
+          <button type="button" class="test">Test</button>
+        </span>
+      </label>
+      <label>Volume
+        <input type="range" class="volume" min="0" max="100" step="5" />
+      </label>
+      <label title="Over the game, on the overlay: drag it there under Edit layout">Over the game
+        <select class="onScreen">
+          <option value="alert">The banner, on an alert</option>
+          <option value="bars">HP bars, and the banner</option>
+          <option value="off">Nothing: the sound only</option>
+        </select>
+      </label>
+      <label class="ownRow" hidden>File
+        <span>
+          <span class="ownName"></span>
+          <button type="button" class="choose">Choose…</button>
+          <input type="file" class="file" accept="audio/*" hidden />
+        </span>
+      </label>
+    </div>
+    <script src="/_sdk/a2.js"></script>
+    <script src="voice.js"></script>
+    <script src="logic.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

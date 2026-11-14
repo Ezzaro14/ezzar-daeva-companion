@@ -1,0 +1,67 @@
+[
+  {
+    "version": "0.1.9",
+    "en": "Updated from the game's November 4 patch: Russian and French lines as the game now words them, and Vakron's new skill.",
+    "ko": "11월 4일 게임 패치 반영: 러시아어와 프랑스어 대사를 게임의 현재 표현으로, 바크론의 새 스킬 추가.",
+    "ja": "11月4日のゲームパッチを反映：ロシア語とフランス語のセリフをゲームの現在の表現に更新し、バクロンの新スキルを追加。",
+    "de": "Aktualisiert mit dem Spielpatch vom 4. November: russische und französische Zeilen wie im Spiel, und Vakrons neue Fertigkeit.",
+    "fr": "Mis à jour avec le patch du 4 novembre : répliques russes et françaises telles que le jeu les formule, et la nouvelle compétence de Vakron.",
+    "es": "Actualizado con el parche del 4 de noviembre: frases en ruso y francés como las dice ahora el juego, y la nueva habilidad de Vakron.",
+    "pt": "Atualizado com o patch de 4 de novembro: falas em russo e francês como o jogo as diz agora, e a nova habilidade de Vakron.",
+    "ru": "Обновлено по патчу игры от 4 ноября: русские и французские реплики в нынешней формулировке игры и новый навык Вакрона.",
+    "zh-Hant": "依 11 月 4 日的遊戲更新：俄文與法文台詞改為遊戲目前的用語，並加入巴克隆的新技能。",
+    "zh-Hans": "依 11 月 4 日的游戏更新：俄文与法文台词改为游戏目前的用语，并加入巴克隆的新技能。"
+  },
+  {
+    "version": "0.1.8",
+    "en": "Enhanced Boss Telegraph is now called Boss Callouts. Your settings and your own words for calls are kept.",
+    "ko": "Enhanced Boss Telegraph의 이름이 보스 알림(Boss Callouts)으로 바뀌었습니다. 설정과 직접 입력한 알림 문구는 그대로 유지됩니다.",
+    "ja": "Enhanced Boss Telegraph は Boss Callouts(ボスコールアウト)に名前が変わりました。設定と自分で入力した呼びかけはそのままです。",
+    "de": "Enhanced Boss Telegraph heißt jetzt Boss Callouts (Boss-Ansagen). Deine Einstellungen und eigenen Ansagen bleiben erhalten.",
+    "fr": "Enhanced Boss Telegraph s'appelle désormais Boss Callouts (Annonces de boss). Vos réglages et vos propres textes sont conservés.",
+    "es": "Enhanced Boss Telegraph ahora se llama Boss Callouts (Avisos de jefes). Se conservan tus ajustes y tus propios textos.",
+    "pt": "Enhanced Boss Telegraph agora se chama Boss Callouts (Avisos de chefes). Suas configurações e seus próprios textos são mantidos.",
+    "ru": "Enhanced Boss Telegraph теперь называется Boss Callouts (Подсказки боссов). Настройки и ваши собственные фразы сохраняются.",
+    "zh-Hant": "Enhanced Boss Telegraph 已更名為 Boss Callouts（首領提示）。你的設定與自訂提示文字都會保留。",
+    "zh-Hans": "Enhanced Boss Telegraph 已更名为 Boss Callouts（首领提示）。你的设置与自定义提示文字都会保留。"
+  },
+  {
+    "version": "0.1.7",
+    "en": "Uses less memory: its sound engine closes after 30 seconds of silence and starts again for the next alert.",
+    "ko": "메모리를 덜 사용합니다. 30초 동안 소리가 없으면 사운드 엔진을 닫고, 다음 알림 때 다시 시작합니다.",
+    "ja": "メモリ使用量が減りました。30秒間音がなければサウンドエンジンを閉じ、次の通知で再び起動します。",
+    "de": "Braucht weniger Speicher: Die Sound-Engine schließt nach 30 Sekunden Stille und startet beim nächsten Alarm neu.",
+    "fr": "Utilise moins de mémoire : son moteur audio se ferme après 30 secondes de silence et redémarre à la prochaine alerte.",
+    "es": "Usa menos memoria: su motor de sonido se cierra tras 30 segundos de silencio y se reinicia con la siguiente alerta.",
+    "pt": "Usa menos memória: o motor de som fecha após 30 segundos de silêncio e reinicia no próximo alerta.",
+    "ru": "Меньше расход памяти: звуковой движок закрывается после 30 секунд тишины и запускается снова при следующем оповещении.",
+    "zh-Hant": "佔用更少記憶體：靜音 30 秒後關閉音效引擎，下次提醒時再重新啟動。",
+    "zh-Hans": "占用更少内存：静音 30 秒后关闭音效引擎，下次提醒时再重新启动。"
+  },
+  {
+    "version": "0.1.6",
+    "en": "The settings window for reduced vision: a text size for the window, stronger contrast, a clear focus ring, and Off said in words.",
+    "ko": "저시력 사용자를 위한 설정 창: 창 글자 크기, 더 강한 대비, 뚜렷한 포커스 표시, '꺼짐'을 글자로 표시.",
+    "ja": "弱視の方のための設定画面：ウィンドウの文字サイズ、強いコントラスト、はっきりしたフォーカス表示、「オフ」を文字で表示。",
+    "de": "Das Einstellungsfenster für eingeschränktes Sehen: eine Textgröße fürs Fenster, stärkerer Kontrast, ein klarer Fokusrahmen und „Aus“ in Worten.",
+    "fr": "La fenêtre des réglages pour la basse vision : une taille de texte pour la fenêtre, un contraste renforcé, un cadre de focus net et « Désactivé » écrit.",
+    "es": "La ventana de ajustes para baja visión: tamaño de texto de la ventana, más contraste, un marco de foco claro y «Apagado» escrito.",
+    "pt": "A janela de configurações para baixa visão: tamanho de texto da janela, mais contraste, um contorno de foco claro e «Desligado» escrito.",
+    "ru": "Окно настроек для слабовидящих: размер текста окна, повышенный контраст, заметная рамка фокуса и «Выкл.» словами.",
+    "zh-Hant": "為弱視玩家改善設定視窗：視窗文字大小、更高對比、清楚的焦點框，並以文字標示「已關閉」。",
+    "zh-Hans": "为弱视玩家改善设置窗口：窗口文字大小、更高对比、清楚的焦点框，并以文字标示“已关闭”。"
+  },
+  {
+    "version": "0.1.5",
+    "en": "▶ on each call plays it now, as a fight would.",
+    "ko": "각 알림의 ▶로 전투 때처럼 바로 재생해 볼 수 있습니다.",
+    "ja": "各呼びかけの ▶ で、戦闘中と同じように今すぐ再生できます。",
+    "de": "▶ bei jedem Ruf spielt ihn sofort ab, wie im Kampf.",
+    "fr": "▶ sur chaque appel le joue tout de suite, comme en combat.",
+    "es": "▶ en cada aviso lo reproduce ya, como en un combate.",
+    "pt": "▶ em cada aviso o toca agora, como numa luta.",
+    "ru": "▶ у каждого сигнала проигрывает его сразу, как в бою.",
+    "zh-Hant": "每個提示的 ▶ 可立即播放，就像戰鬥中一樣。",
+    "zh-Hans": "每个提示的 ▶ 可立即播放，就像战斗中一样。"
+  }
+]

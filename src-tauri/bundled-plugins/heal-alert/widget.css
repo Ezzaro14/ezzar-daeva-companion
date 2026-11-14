@@ -1,0 +1,44 @@
+/* Heal Alert over the game: the red banner while someone is under the line,
+   and each member's HP as a bar (Ezzar's Daeva Companion). */
+[hidden] { display: none !important; }
+.box {
+  display: inline-block;
+  min-width: 180px;
+  padding: 6px 8px;
+}
+.banner {
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(214, 38, 38, 0.92);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  text-align: center;
+  box-shadow: 0 0 12px rgba(255, 70, 70, 0.6);
+}
+.members { margin: 0; padding: 0; list-style: none; }
+.members li {
+  display: grid;
+  grid-template-columns: 14px 1fr 40px;
+  align-items: center;
+  gap: 6px;
+  height: 16px;
+  font-family: var(--w-num);
+  font-size: 12px;
+}
+.members .n { color: var(--w-muted); text-align: right; }
+.members .bar {
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+.members .fill { display: block; height: 100%; background: var(--w-good); }
+.members li.mid .fill { background: var(--w-warn); }
+.members li.low .fill { background: var(--w-bad); }
+.members li.low .pct { color: var(--w-bad); font-weight: 700; }
+.members li.down { opacity: 0.45; }
+.members .pct { text-align: right; }
+body:not(.locked) .box { cursor: grab; }

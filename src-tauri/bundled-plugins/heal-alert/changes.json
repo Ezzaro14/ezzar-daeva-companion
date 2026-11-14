@@ -1,0 +1,41 @@
+[
+  {
+    "version": "1.2.4",
+    "en": "Uses less memory: its sound engine closes after 30 seconds of silence and starts again for the next alert.",
+    "ko": "메모리를 덜 사용합니다. 30초 동안 소리가 없으면 사운드 엔진을 닫고, 다음 알림 때 다시 시작합니다.",
+    "ja": "メモリ使用量が減りました。30秒間音がなければサウンドエンジンを閉じ、次の通知で再び起動します。",
+    "de": "Braucht weniger Speicher: Die Sound-Engine schließt nach 30 Sekunden Stille und startet beim nächsten Alarm neu.",
+    "fr": "Utilise moins de mémoire : son moteur audio se ferme après 30 secondes de silence et redémarre à la prochaine alerte.",
+    "es": "Usa menos memoria: su motor de sonido se cierra tras 30 segundos de silencio y se reinicia con la siguiente alerta.",
+    "pt": "Usa menos memória: o motor de som fecha após 30 segundos de silêncio e reinicia no próximo alerta.",
+    "ru": "Меньше расход памяти: звуковой движок закрывается после 30 секунд тишины и запускается снова при следующем оповещении.",
+    "zh-Hant": "佔用更少記憶體：靜音 30 秒後關閉音效引擎，下次提醒時再重新啟動。",
+    "zh-Hans": "占用更少内存：静音 30 秒后关闭音效引擎，下次提醒时再重新启动。"
+  },
+  {
+    "version": "1.2.3",
+    "en": "The alert can be the sound alone, and it has a volume.",
+    "ko": "알림을 소리만으로 설정할 수 있고, 음량도 조절됩니다.",
+    "ja": "通知を音だけにでき、音量も調整できます。",
+    "de": "Der Alarm kann nur ein Ton sein, mit eigener Lautstärke.",
+    "fr": "L'alerte peut n'être qu'un son, avec son volume.",
+    "es": "El aviso puede ser solo el sonido, con su volumen.",
+    "pt": "O alerta pode ser só o som, com volume ajustável.",
+    "ru": "Оповещение может быть только звуком, с регулировкой громкости.",
+    "zh-Hant": "提醒可以只用聲音，並可調整音量。",
+    "zh-Hans": "提醒可以只用声音，并可调整音量。"
+  },
+  {
+    "version": "1.2.0",
+    "en": "For Clerics: a voice and a banner when a party member drops under 60% HP.",
+    "ko": "치유성 전용: 파티원의 HP가 60% 아래로 떨어지면 음성과 배너로 알려 줍니다.",
+    "ja": "治癒星向け：パーティーメンバーのHPが60%を下回ると音声とバナーで知らせます。",
+    "de": "Für Kleriker: eine Stimme und ein Banner, wenn ein Gruppenmitglied unter 60 % LP fällt.",
+    "fr": "Pour les Clercs : une voix et une bannière quand un membre du groupe passe sous 60 % de PV.",
+    "es": "Para Clérigos: una voz y un aviso cuando un miembro del grupo baja del 60 % de PV.",
+    "pt": "Para Clérigos: uma voz e um aviso quando um membro do grupo cai abaixo de 60% de PV.",
+    "ru": "Для Целителей: голос и баннер, когда у члена группы меньше 60% здоровья.",
+    "zh-Hant": "治癒星專用：隊友 HP 低於 60% 時以語音與橫幅提醒。",
+    "zh-Hans": "治愈星专用：队友 HP 低于 60% 时以语音与横幅提醒。"
+  }
+]

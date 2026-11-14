@@ -1,0 +1,44 @@
+/* The callout: big, bold, high-contrast text on a solid box; the countdown
+   in the same size. Colours come from the settings (--fg, --safe, --bg). */
+:root { --s: 60px; --fg: #ffff00; --safe: #66ff66; --bg: rgba(0, 0, 0, 0.85); }
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--s) * 0.12);
+  padding: 8px;
+}
+.box {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: calc(var(--s) * 0.12) calc(var(--s) * 0.35);
+  border-radius: calc(var(--s) * 0.16);
+  background: var(--bg);
+  color: var(--fg);
+  text-align: center;
+  font-family: "Bahnschrift", "Segoe UI", "Noto Sans", system-ui, sans-serif;
+  font-weight: 700;
+  /* An outline, so the text holds on any background left showing through. */
+  text-shadow: 0 0 3px #000, 0 0 3px #000, 0 2px 4px #000;
+}
+.box.safe { color: var(--safe); }
+.box.second { opacity: 0.9; }
+.big { font-size: var(--s); line-height: 1.1; overflow-wrap: anywhere; }
+.second .big { font-size: calc(var(--s) * 0.6); }
+.secs { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sub {
+  margin-top: calc(var(--s) * 0.06);
+  font-size: calc(var(--s) * 0.4);
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.second .sub { display: none; }
+.box.preview { color: #fff; outline: 2px dashed rgba(255, 255, 255, 0.6); cursor: grab; }

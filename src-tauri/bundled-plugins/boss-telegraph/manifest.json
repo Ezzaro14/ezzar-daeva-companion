@@ -1,0 +1,66 @@
+{
+  "id": "boss-telegraph",
+  "name": "Boss Callouts",
+  "version": "0.1.9-daeva.1",
+  "apiVersion": 2,
+  "author": "A2 Tools",
+  "description": "Accessibility: a boss's on-screen lines and mechanics spoken aloud and shown in large, high-contrast text, with a countdown while the boss's buff lasts and \"Safe to attack\" when it ends.",
+  "permissions": [
+    "storage",
+    "window",
+    "widgets",
+    "decoder:boss-cast",
+    "decoder:boss-skill",
+    "decoder:boss-wave",
+    "decoder:boss-buff-added",
+    "decoder:boss-buff-removed"
+  ],
+  "decoders": [
+    {
+      "name": "boss-cast",
+      "opcode": "09 38",
+      "immediate": true,
+      "fields": [ { "name": "caster", "type": "varint" }, { "type": "skip:1" }, { "name": "skill", "type": "u32" } ]
+    },
+    {
+      "name": "boss-skill",
+      "opcode": "02 38",
+      "immediate": true,
+      "fields": [ { "name": "caster", "type": "varint" }, { "type": "skip:1" }, { "name": "skill", "type": "u32" } ]
+    },
+    {
+      "name": "boss-wave",
+      "opcode": "03 38",
+      "immediate": true,
+      "fields": [
+        { "name": "caster", "type": "varint" }, { "type": "skip:1" }, { "name": "source", "type": "varint" },
+        { "name": "skill", "type": "u32" }
+      ]
+    },
+    {
+      "name": "boss-buff-added",
+      "opcode": "2A 38",
+      "immediate": true,
+      "fields": [
+        { "name": "entity", "type": "varint" }, { "type": "skip:1" }, { "name": "flags", "type": "u8" },
+        { "name": "instance", "type": "varint" }, { "name": "abnormal", "type": "u32" },
+        { "name": "length", "type": "u64" }
+      ]
+    },
+    {
+      "name": "boss-buff-removed",
+      "opcode": "2C 38",
+      "immediate": true,
+      "fields": [
+        { "name": "entity", "type": "varint" }, { "name": "count", "type": "u8" },
+        { "name": "kind", "type": "u8" }, { "name": "instance", "type": "varint" }
+      ]
+    }
+  ],
+  "ui": {
+    "panel": {
+      "width": 420,
+      "height": 600
+    }
+  }
+}

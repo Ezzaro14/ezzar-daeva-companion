@@ -1,0 +1,221 @@
+/* The settings. The page stays transparent: the window paints the panel at
+   the opacity the player picks. */
+html, body {
+  margin: 0;
+  background: transparent;
+  color: #e9f0f8;
+  font: 15.5px/1.45 "Segoe UI", system-ui, sans-serif;
+}
+body { padding: 10px 12px 14px; }
+.top {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.switch, .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 36px;
+}
+.tabs {
+  display: flex;
+  gap: 2px;
+  margin: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.tab {
+  padding: 5px 10px 6px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: rgba(233, 240, 248, 0.6);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tab:hover { color: #fff; }
+.tab.isActive { color: #fff; border-bottom-color: var(--a2-accent, #8fc2ff); }
+.tab:focus-visible, .btn:focus-visible, summary:focus-visible { outline: 2px solid var(--a2-accent, #8fc2ff); outline-offset: 1px; }
+.pane[hidden] { display: none; }
+.note {
+  margin: 6px 0;
+  font-size: 14px;
+  color: rgba(233, 240, 248, 0.7);
+}
+.note.sub { margin: -4px 0 2px; }
+.note a { color: var(--a2-accent, #8fc2ff); }
+.inline { display: flex; gap: 6px; align-items: center; }
+.inline.wide .filter { flex: 1; min-width: 0; }
+input[type="search"] {
+  box-sizing: border-box;
+  font: inherit;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+input[type="color"] {
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--a2-accent, #8fc2ff); }
+input[type="range"] { width: 150px; accent-color: var(--a2-accent, #8fc2ff); }
+/* Dropdowns drawn by the page, as the meter's Settings draws them.
+   color-scheme only here: on the whole page the frame gets an opaque backdrop. */
+select {
+  color-scheme: dark;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  min-height: 30px;
+  max-width: 62%;
+  padding: 4px 28px 4px 9px;
+  font: inherit;
+  color: inherit;
+  text-overflow: ellipsis;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='white' stroke-opacity='.7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 9px center / 10px 6px;
+  cursor: pointer;
+}
+select:hover { border-color: rgba(255, 255, 255, 0.3); background-color: rgba(255, 255, 255, 0.09); }
+select:focus-visible { outline: 2px solid var(--a2-accent, #8fc2ff); outline-offset: 1px; }
+select option { background: var(--a2-panel, #0e1420); color: #fff; }
+.btn {
+  justify-self: start;
+  font: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.btn:hover { background: rgba(255, 255, 255, 0.14); }
+
+/* The bosses, by dungeon. */
+.groups { margin-top: 6px; }
+.group { border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.group > summary {
+  padding: 8px 2px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.group > summary:hover { color: #fff; }
+.boss { margin: 2px 0 6px 10px; }
+.bossHead { display: flex; align-items: center; gap: 9px; min-height: 32px; font-size: 16px; font-weight: 600; cursor: pointer; }
+/* Each call a card: its tick, the short call over the boss's line, what sets
+   it off as tags, and ✎ for the player's own words. */
+.calls { list-style: none; margin: 2px 0 0 24px; padding: 0; display: grid; gap: 5px; }
+.callCard {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 6px 6px 6px 8px;
+}
+.callCard:hover { border-color: rgba(255, 255, 255, 0.14); }
+.callCard.hasOwn { border-color: color-mix(in srgb, var(--a2-accent, #8fc2ff) 45%, transparent); }
+.call { display: grid; grid-template-columns: auto 1fr auto; gap: 3px 9px; align-items: start; cursor: pointer; }
+.call input { margin-top: 3px; }
+.call .what { display: grid; gap: 1px; min-width: 0; overflow-wrap: anywhere; }
+.call .act { color: var(--a2-accent, #8fc2ff); font-weight: 650; }
+.call .said { font-weight: 500; }
+.call .line { font-size: 14px; font-style: italic; color: rgba(233, 240, 248, 0.72); }
+.call .mine { font-size: 14px; font-weight: 600; color: #fff; }
+.call .mine[hidden] { display: none; }
+/* Replaced by the player's own words: the default stays readable, dimmed. */
+.callCard.hasOwn .act, .callCard.hasOwn .said { color: rgba(233, 240, 248, 0.72); font-weight: 600; }
+.call .tags { grid-column: 2 / 4; display: flex; flex-wrap: wrap; gap: 4px; }
+.tag {
+  font-size: 12.5px;
+  line-height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(233, 240, 248, 0.7);
+}
+.tag[hidden] { display: none; }
+.tag.isOffTag { background: rgba(255, 140, 120, 0.18); color: #ffb4a6; font-weight: 600; }
+.tag.isCall { background: color-mix(in srgb, var(--a2-accent, #8fc2ff) 20%, transparent); color: var(--a2-accent, #8fc2ff); }
+.pen {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(233, 240, 248, 0.8);
+  border-color: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+.call .buttons { display: flex; gap: 6px; }
+.pen.play { color: var(--a2-accent, #8fc2ff); }
+.pen:hover, .pen.isOpen { color: #fff; background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.16); }
+.pen.isSet { color: var(--a2-accent, #8fc2ff); border-color: color-mix(in srgb, var(--a2-accent, #8fc2ff) 55%, transparent); }
+.pen:focus-visible, .ownBox .clear:focus-visible { outline: 2px solid var(--a2-accent, #8fc2ff); outline-offset: 1px; }
+/* The player's own words for the call: a labelled field under it. */
+/* Label on its own line, so the field keeps the card's width at any
+   menu size. */
+.ownBox {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 8px 0 2px 27px;
+  padding-top: 7px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+}
+.ownBox[hidden] { display: none; }
+.ownLabel { grid-column: 1 / 3; font-size: 14px; font-weight: 600; color: rgba(233, 240, 248, 0.8); }
+.ownBox input[type="text"] {
+  box-sizing: border-box;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  padding: 6px 9px;
+}
+.ownBox input[type="text"]:focus { border-color: var(--a2-accent, #8fc2ff); }
+.ownBox .clear {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
+.ownBox .clear:hover { background: rgba(255, 255, 255, 0.14); }
+.ownHint { grid-column: 1 / 3; margin: 0; font-size: 13.5px; color: rgba(233, 240, 248, 0.6); }
+.waves { display: flex; gap: 8px; align-items: center; margin: 6px 0 0 27px; font-size: 14px; cursor: pointer; }
+/* Off: the Off tag and a dashed edge say it; its words dim a little, still past 4.5:1. */
+.callCard.isOff .what { opacity: 0.8; }
+.callCard.isOff { border-style: dashed; }
+.boss.isOff .calls { opacity: 0.7; }
+/* Notes that say what a setting does, not to be missed. */
+.note.info {
+  margin: 8px 0;
+  padding: 7px 10px;
+  border-left: 3px solid var(--a2-accent, #8fc2ff);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--a2-accent, #8fc2ff) 9%, transparent);
+  color: rgba(233, 240, 248, 0.85);
+}
+/* Keyboard focus, on everything, thick enough to find at a glance. */
+:focus-visible { outline: 3px solid var(--a2-accent, #8fc2ff); outline-offset: 2px; border-radius: 4px; }
+input[type="checkbox"]:focus-visible { outline-offset: 3px; }

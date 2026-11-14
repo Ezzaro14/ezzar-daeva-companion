@@ -1,0 +1,67 @@
+[
+  {
+    "version": "1.4.10",
+    "en": "The folded view shows each character's charged Odyle energy too, next to the basic energy.",
+    "ko": "접은 보기에서도 기본 에너지 옆에 각 캐릭터의 충전된 오드 에너지가 표시됩니다.",
+    "ja": "折りたたみ表示でも、基本エネルギーの横に各キャラクターのチャージ済みオードエネルギーが表示されます。",
+    "de": "Die eingeklappte Ansicht zeigt neben der Grundenergie auch die geladene Odyle-Energie jedes Charakters.",
+    "fr": "La vue repliée affiche aussi l'énergie d'Odyle chargée de chaque personnage, à côté de l'énergie de base.",
+    "es": "La vista plegada también muestra la energía de Odyle cargada de cada personaje, junto a la energía básica.",
+    "pt": "A visualização recolhida também mostra a energia de Odyle carregada de cada personagem, ao lado da energia básica.",
+    "ru": "В свёрнутом виде теперь видна и заряженная энергия Одиль каждого персонажа, рядом с базовой.",
+    "zh-Hant": "摺疊檢視也會在基本能量旁顯示每個角色的已充能奧德能量。",
+    "zh-Hans": "折叠视图也会在基本能量旁显示每个角色的已充能奥德能量。"
+  },
+  {
+    "version": "1.4.9",
+    "en": "An alert over the game, with a chime, when a character's Odyle energy nears the cap: when the next refill would be wasted, up to 3 refills sooner, or when full; for every character or the ones you tick.",
+    "ko": "캐릭터의 오드 에너지가 한도에 가까워지면 게임 위에 알림과 알림음이 나옵니다: 다음 충전이 낭비될 때, 최대 충전 3회 전, 또는 가득 찼을 때; 모든 캐릭터 또는 선택한 캐릭터에 대해.",
+    "ja": "キャラクターのオードエネルギーが上限に近づくと、ゲームの上に通知とチャイム：次の回復が無駄になるとき、最大で回復3回前、または満タンのとき。全キャラクターかチェックしたキャラクターで。",
+    "de": "Ein Hinweis über dem Spiel mit Ton, wenn die Odyle-Energie eines Charakters fast voll ist: wenn die nächste Aufladung verfällt, bis zu 3 Aufladungen früher oder wenn voll; für alle oder markierte Charaktere.",
+    "fr": "Une alerte au-dessus du jeu, avec un carillon, quand l'énergie d'Odyle d'un personnage approche du plafond : quand la prochaine recharge serait perdue, jusqu'à 3 recharges plus tôt, ou quand c'est plein ; pour tous ou les personnages cochés.",
+    "es": "Un aviso sobre el juego, con sonido, cuando la energía de Odyle de un personaje se acerca al límite: cuando la próxima recarga se perdería, hasta 3 recargas antes o cuando esté lleno; para todos o los personajes marcados.",
+    "pt": "Um alerta sobre o jogo, com som, quando a energia de Odyle de um personagem chega perto do limite: quando a próxima recarga seria desperdiçada, até 3 recargas antes ou quando estiver cheio; para todos ou os personagens marcados.",
+    "ru": "Оповещение поверх игры со звуком, когда энергия Одила персонажа близка к пределу: когда следующее пополнение пропадёт, до 3 пополнений раньше или когда полная; для всех или отмеченных персонажей.",
+    "zh-Hant": "角色的奧德能量接近上限時，在遊戲上方顯示提醒並發出提示音：下次補充會被浪費時、最多提前 3 次補充，或已滿時；適用於所有角色或勾選的角色。",
+    "zh-Hans": "角色的奥德能量接近上限时，在游戏上方显示提醒并发出提示音：下次补充会被浪费时、最多提前 3 次补充，或已满时；适用于所有角色或勾选的角色。"
+  },
+  {
+    "version": "1.4.8",
+    "en": "Basic energy turns amber when the next refill would be wasted, and its tooltip says when to use some by.",
+    "ko": "다음 충전이 낭비될 때 기본 에너지가 주황색으로 바뀌고, 툴팁에 언제까지 사용해야 하는지 표시됩니다.",
+    "ja": "次の回復が無駄になるとき基本エネルギーが琥珀色になり、ツールチップにいつまでに使えばよいか表示されます。",
+    "de": "Grundenergie wird bernsteinfarben, wenn die nächste Aufladung verfallen würde; der Tooltip sagt, bis wann du sie nutzen solltest.",
+    "fr": "L'énergie de base passe en ambre quand la prochaine recharge serait perdue, et l'infobulle indique avant quand l'utiliser.",
+    "es": "La energía básica se vuelve ámbar cuando la próxima recarga se perdería, y su descripción indica antes de cuándo usarla.",
+    "pt": "A energia básica fica âmbar quando a próxima recarga seria desperdiçada, e a dica diz até quando usá-la.",
+    "ru": "Базовая энергия становится янтарной, когда следующее пополнение пропадёт, а подсказка говорит, до какого времени её потратить.",
+    "zh-Hant": "下次補充會被浪費時，基本能量會變成琥珀色，提示會說明要在何時前使用。",
+    "zh-Hans": "下次补充会被浪费时，基本能量会变成琥珀色，提示会说明要在何时前使用。"
+  },
+  {
+    "version": "1.4.7",
+    "en": "Choose to show all characters or only the current faction, server or character. Saved characters, shared totals and full-energy warnings are kept.",
+    "ko": "모든 캐릭터를 보거나 현재 진영, 서버, 캐릭터만 볼 수 있습니다. 저장된 캐릭터, 공유 합계, 에너지 가득 참 경고는 그대로 유지됩니다.",
+    "ja": "すべてのキャラクター、または現在の陣営・サーバー・キャラクターだけを表示できます。保存したキャラクター、共有の合計、エネルギー満タンの警告はそのままです。",
+    "de": "Wähle, ob alle Charaktere oder nur die aktuelle Fraktion, der Server oder der Charakter angezeigt werden. Gespeicherte Charaktere, gemeinsame Summen und Warnungen bei voller Energie bleiben erhalten.",
+    "fr": "Choisissez d'afficher tous les personnages, ou seulement la faction, le serveur ou le personnage actuel. Les personnages enregistrés, les totaux partagés et les alertes d'énergie pleine sont conservés.",
+    "es": "Elige mostrar todos los personajes o solo la facción, el servidor o el personaje actual. Los personajes guardados, los totales compartidos y los avisos de energía llena se mantienen.",
+    "pt": "Escolha mostrar todos os personagens ou só a facção, o servidor ou o personagem atual. Personagens salvos, totais compartilhados e avisos de energia cheia são mantidos.",
+    "ru": "Можно показывать всех персонажей или только текущую фракцию, сервер или персонажа. Сохранённые персонажи, общие итоги и предупреждения о полной энергии сохраняются.",
+    "zh-Hant": "可選擇顯示所有角色，或只顯示目前的陣營、伺服器或角色。已儲存的角色、共用總計與能量已滿提醒都會保留。",
+    "zh-Hans": "可选择显示所有角色，或只显示当前的阵营、服务器或角色。已保存的角色、共享总计与能量已满提醒都会保留。"
+  },
+  {
+    "version": "1.4.6",
+    "en": "Buy Odyle Energy follows the shop again: 4 per character and 16 per server a week. Buy Rift Stones is gone from the shop, so from the list too.",
+    "ko": "오드 에너지 구매가 다시 상점과 같아졌습니다: 주간 캐릭터당 4개, 서버당 16개. 균열석 구매는 상점에서 빠져 목록에서도 빠졌습니다.",
+    "ja": "オードエネルギー購入がショップに合わせて戻りました：週にキャラクターごと4個、サーバーごと16個。亀裂石購入はショップからなくなったため、一覧からも外しました。",
+    "de": "Odyle-Energie kaufen folgt wieder dem Shop: 4 pro Charakter und 16 pro Server pro Woche. Risssteine kaufen gibt es im Shop nicht mehr, daher auch nicht in der Liste.",
+    "fr": "L'achat d'énergie d'Odyle suit de nouveau la boutique : 4 par personnage et 16 par serveur chaque semaine. L'achat de pierres de faille a quitté la boutique, donc la liste aussi.",
+    "es": "Comprar energía de Odyle vuelve a seguir la tienda: 4 por personaje y 16 por servidor a la semana. Comprar piedras de grieta ya no está en la tienda, así que tampoco en la lista.",
+    "pt": "Comprar energia de Odyle volta a seguir a loja: 4 por personagem e 16 por servidor por semana. Comprar pedras de fenda saiu da loja, então saiu da lista também.",
+    "ru": "Покупка энергии Одила снова как в магазине: 4 на персонажа и 16 на сервер в неделю. Покупки камней разлома больше нет в магазине, поэтому и в списке.",
+    "zh-Hant": "購買奧德能量再次與商店一致：每週每個角色 4 個、每個伺服器 16 個。購買裂縫石已從商店移除，因此也從列表移除。",
+    "zh-Hans": "购买奥德能量再次与商店一致：每周每个角色 4 个、每个服务器 16 个。购买裂缝石已从商店移除，因此也从列表移除。"
+  }
+]

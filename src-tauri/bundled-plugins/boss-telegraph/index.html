@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Boss Callouts</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <label class="switch"><span data-t="enabled">Callouts on</span><input type="checkbox" class="enabled" /></label>
+      <label class="switch"><span data-t="showWidget">Big text on screen</span><input type="checkbox" class="widget" /></label>
+      <p class="note sub" data-t="showWidgetNote">Off: spoken only.</p>
+      <label class="switch"><span data-t="lock">Lock in place</span><input type="checkbox" class="lock" /></label>
+      <div class="row">
+        <span data-t="style" id="styleLabel">Call style</span>
+        <select class="style" aria-labelledby="styleLabel">
+          <option value="both" data-t="styleBoth">Short call and the boss's line</option>
+          <option value="act" data-t="styleAct">Short call</option>
+          <option value="line" data-t="styleLine">The boss's line</option>
+        </select>
+      </div>
+      <p class="note info" data-t="styleNote">Short call: the colour or what to do, with its countdown, without the boss's line.</p>
+      <button type="button" class="btn test" data-t="test">Test</button>
+    </header>
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab isActive" role="tab" aria-selected="true" aria-controls="pane-bosses" id="tab-bosses" data-tab="bosses" data-t="bosses">Bosses</button>
+      <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="pane-look" id="tab-look" data-tab="look" data-t="look">Look</button>
+      <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="pane-voice" id="tab-voice" data-tab="voice" data-t="voice">Voice</button>
+    </nav>
+
+    <section class="pane" data-pane="bosses" id="pane-bosses" role="tabpanel" aria-labelledby="tab-bosses">
+      <div class="inline wide">
+        <input type="search" class="filter" data-tp="filter" placeholder="Filter" />
+        <button type="button" class="btn allOn" data-t="allOn">All on</button>
+        <button type="button" class="btn allOff" data-t="allOff">All off</button>
+      </div>
+      <p class="note info" data-t="callOffNote">Unticking a call turns it off completely, countdown too.</p>
+      <div class="groups"></div>
+      <p class="note" data-t="boundary">Only what the game shows a sighted player.</p>
+      <p class="note"><a href="https://github.com/Ezzaro14/ezzar-daeva-companion/issues" data-t="report">A mechanic missing or wrong? Report it here.</a></p>
+    </section>
+
+    <section class="pane" data-pane="look" id="pane-look" role="tabpanel" aria-labelledby="tab-look" hidden>
+      <label class="row"><span data-t="menuSize">Text size in this window</span>
+        <select class="menuSize">
+          <option value="1" data-t="menuNormal">Normal</option>
+          <option value="1.25" data-t="large">Large</option>
+          <option value="1.5" data-t="menuLarger">Larger</option>
+          <option value="1.75" data-t="menuLargest">Largest</option>
+        </select>
+      </label>
+      <label class="row"><span data-t="size">Text size</span>
+        <select class="size">
+          <option value="32" data-t="small">Small</option>
+          <option value="44" data-t="medium">Medium</option>
+          <option value="60" data-t="large">Large</option>
+          <option value="80" data-t="huge">Huge</option>
+        </select>
+      </label>
+      <label class="row"><span data-t="fg">Text colour</span><input type="color" class="fg" /></label>
+      <label class="row"><span data-t="safeColour">"Safe" colour</span><input type="color" class="safe" /></label>
+      <label class="row"><span data-t="bg">Background</span><input type="color" class="bg" /></label>
+      <label class="row"><span data-t="bgOpacity">Background opacity</span><input type="range" class="bgOpacity" min="0" max="100" step="5" /></label>
+      <button type="button" class="btn contrast" data-t="contrast">High contrast colours</button>
+      <p class="note" data-t="help">Unlocked, drag the text anywhere. Double-click it to open this window.</p>
+    </section>
+
+    <section class="pane" data-pane="voice" id="pane-voice" role="tabpanel" aria-labelledby="tab-voice" hidden>
+      <label class="row"><span data-t="volume">Volume</span><input type="range" class="volume" min="0" max="100" step="5" /></label>
+      <label class="row"><span data-t="voicePick">Voice</span><select class="voiceName"></select></label>
+      <label class="row"><span data-t="rate">Speech speed</span>
+        <select class="rate">
+          <option value="0.8">0.8×</option>
+          <option value="1">1×</option>
+          <option value="1.2">1.2×</option>
+          <option value="1.5">1.5×</option>
+          <option value="1.8">1.8×</option>
+        </select>
+      </label>
+      <p class="note voiceNote" data-t="voiceNote">Uses your computer's voices, in the meter's language when it has one.</p>
+    </section>
+
+    <script src="/_sdk/a2.js"></script>
+    <script src="bosses.js"></script>
+    <script src="i18n.js"></script>
+    <script src="logic.js"></script>
+    <script src="voice.js"></script>
+    <script src="plugin.js"></script>
+  </body>
+</html>

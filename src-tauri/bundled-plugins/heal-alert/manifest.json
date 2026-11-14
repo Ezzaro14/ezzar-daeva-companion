@@ -1,0 +1,33 @@
+{
+  "id": "heal-alert",
+  "name": "Heal Alert",
+  "version": "1.2.4-daeva.1",
+  "apiVersion": 2,
+  "author": "Nullception",
+  "description": "For Clerics: a sound and a red banner over the game the moment a party member's HP drops under 60% (or the level you pick), with each member's HP as a bar.",
+  "permissions": [
+    "storage",
+    "events:character",
+    "window",
+    "widgets",
+    "decoder:party-hp"
+  ],
+  "decoders": [
+    {
+      "name": "party-hp",
+      "opcode": "1B 92",
+      "immediate": true,
+      "fields": [
+        { "name": "member", "type": "varint" },
+        { "name": "hp", "type": "varint" },
+        { "name": "max", "type": "varint" }
+      ]
+    }
+  ],
+  "ui": {
+    "panel": {
+      "width": 220,
+      "height": 130
+    }
+  }
+}

@@ -1,0 +1,68 @@
+/* Transparent: the window paints the panel at the opacity the user picks. */
+[hidden] { display: none !important; }
+html, body { margin: 0; background: transparent; overflow: hidden; }
+body {
+  padding: 6px 10px;
+  color: rgba(255, 255, 255, 0.88);
+  font: 13px/1.35 "Segoe UI", system-ui, sans-serif;
+  user-select: none;
+}
+button, select {
+  font: inherit; font-size: 12px; color: inherit; cursor: pointer;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 3px;
+}
+button { padding: 0 6px; }
+/* Dropdowns drawn by the page, as the meter's Settings draws them: the
+   webview's own was a grey (or, under a GTK theme, white) box. color-scheme
+   only here: on the whole page the frame gets an opaque backdrop. */
+select {
+  color-scheme: dark;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  min-height: 22px;
+  padding: 1px 24px 1px 6px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='white' stroke-opacity='.7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 9px center / 10px 6px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+select:hover { border-color: rgba(255, 255, 255, 0.3); background-color: rgba(255, 255, 255, 0.09); }
+select:focus-visible { outline: 2px solid var(--a2-accent, #8fc2ff); outline-offset: 1px; }
+select:disabled { opacity: 0.5; cursor: default; }
+select option, select optgroup { background: var(--a2-panel, #0e1420); color: #fff; }
+
+.members { margin: 0; padding: 0; list-style: none; }
+.members li { display: flex; align-items: center; gap: 6px; padding: 1px 0; font-size: 12px; }
+.members .n { flex: none; width: 10px; color: rgba(255, 255, 255, 0.5); }
+.members .bar { flex: 1; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.members .fill { display: block; height: 100%; background: #4caf50; transition: width 0.3s; }
+.members .pct { flex: none; width: 34px; text-align: right; }
+.members li.mid .fill { background: #e0b030; }
+.members li.low .fill { background: #ff4d4d; }
+.members li.low .pct { color: #ff6b6b; font-weight: 600; }
+.members li.down { color: rgba(255, 255, 255, 0.4); }
+
+.foot { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+.status { flex: 1; min-width: 0; font-size: 12px; color: rgba(255, 255, 255, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gear { border: 0; background: none; padding: 0 2px; color: rgba(255, 255, 255, 0.5); }
+
+.settings { margin-top: 4px; display: grid; gap: 3px; font-size: 12px; }
+.settings label { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.settings input[type="range"] { width: 110px; margin: 0; accent-color: var(--a2-accent, #8fc2ff); }
+
+/* Someone to heal: hard to miss. */
+.banner {
+  margin: 0 0 4px; padding: 4px 8px; border-radius: 4px; text-align: center;
+  font-weight: 700; color: #fff; background: rgba(220, 50, 50, 0.85);
+  animation: pulse 0.8s ease-in-out infinite alternate;
+}
+@keyframes pulse { to { background: rgba(160, 20, 20, 0.85); } }
+
+body.compact .foot, body.compact .settings { display: none; }
+.ownName { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255, 255, 255, 0.6); }
