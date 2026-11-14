@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Pet Soul Tracker map</title>
+    <link rel="stylesheet" href="widget.css" />
+  </head>
+  <body>
+    <!-- The map pictures, as page images: on Linux the meter puts a page's
+         images into it, and WebKitGTK refuses any file the page asks for later. -->
+    <div class="mapPictures" hidden><!-- map pictures -->
+      <img class="mapPic" data-map="20" src="maps/20.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="22" src="maps/22.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="23" src="maps/23.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="1000" src="maps/1000.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="1010" src="maps/1010.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="1011" src="maps/1011.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="1100" src="maps/1100.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="1110" src="maps/1110.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="1111" src="maps/1111.webp" alt="" loading="lazy" />
+      <!-- /map pictures --></div>
+    <div class="pop">
+      <div class="bar" title="Drag to move">
+        <span class="title">Around you</span>
+        <span class="where"></span>
+        <span class="count"></span>
+        <button type="button" class="size" title="Bigger (then back to the smallest)" aria-label="Size">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
+        </button>
+        <button type="button" class="dock" title="Back into the Pet Soul Tracker window" aria-label="Close">×</button>
+      </div>
+      <div class="mapBox">
+        <canvas class="minimap" role="img" aria-label="Map of where the monsters you need spawn, north up" title="Drag to move the map, wheel to zoom, double-click to follow you again"></canvas>
+        <div class="mapButtons">
+          <button type="button" class="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+          <button type="button" class="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+          <button type="button" class="follow" title="Back to you" aria-label="Back to you" hidden>⌖</button>
+        </div>
+        <p class="mapNote" hidden></p>
+        <a class="mapCredit" href="https://www.aion2timers.com/" title="Open the live map on aion2timers.com"><img class="creditLogo" src="a2t-logo.webp" alt="Aion 2 Timers" /><span class="creditText"><span class="creditLive">Live map ↗</span><span class="creditBy">by Aion 2 Timers</span></span></a>
+      </div>
+    </div>
+    <script src="/_sdk/a2.js"></script>
+    <script src="maps.js"></script>
+    <script src="minimap.js"></script>
+    <script src="widget.js"></script>
+  </body>
+</html>

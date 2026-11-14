@@ -7,20 +7,83 @@
   </head>
   <body>
     <div class="controls">
-      <div class="status"></div>
-      <div class="summary"></div>
-      <div class="chips genus" role="group" aria-label="Genus"></div>
-      <div class="chips levels" role="group" aria-label="Level"></div>
-      <div class="chips regions" role="group" aria-label="Regions" title="Regions: the pets whose souls drop in the ones turned on, and their spawns there. Click to turn one off or on"></div>
-      <label class="option"><input type="checkbox" class="hideMax" checked /> Hide pets at level 3</label>
-      <label class="option sizeRow"><span class="scaleLabel">Text size</span> <select class="scaleSelect"></select></label>
-      <input type="search" class="search" placeholder="Search pets" aria-label="Search pets" spellcheck="false" />
+      <div class="totals">
+        <div class="summary"></div>
+        <div class="overall" aria-hidden="true"><span></span></div>
+        <div class="status"></div>
+      </div>
+      <div class="toolbar">
+        <input type="search" class="search" placeholder="Search pets" aria-label="Search pets" spellcheck="false" />
+        <button type="button" class="toFarm" hidden title="Only the pets you are farming">Farming</button>
+        <button type="button" class="filtersButton" aria-expanded="false" title="Genus, level, where the souls come from, regions and text size">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
+          <span class="filtersLabel">Filters</span> <span class="filterCount"></span>
+        </button>
+      </div>
+      <div class="filters" hidden>
+        <div class="chips genus" role="group" aria-label="Genus"></div>
+        <div class="chips levels" role="group" aria-label="Level"></div>
+        <div class="chips source" role="group" aria-label="Souls from" title="Where the souls come from. From monsters: pets a monster drops souls for (their pet soul chests too). Chests &amp; merchant only: pets no monster drops; their souls come only from pet soul chests (the Battle Pass's) and the Black Cloud Merchants, who sell every pet now and then. Special pets take no souls and are never listed"></div>
+        <div class="chips regions" role="group" aria-label="Regions" title="Regions: the pets whose souls drop in the ones turned on, and their spawns there. Click to turn one off or on"></div>
+        <div class="optionRow">
+          <label class="option"><input type="checkbox" class="hideMax" checked /> Hide pets at level 3</label>
+          <label class="option" title="A map of where the monsters that drop a soul for a pet below level 3 spawn, with you on it"><input type="checkbox" class="nearbyOn" /> Show the map</label>
+          <label class="option farmOption" title="When you pick up a soul for a pet below level 3, the window shows just the pets you are farming, then hides itself. Open it from Settings for the whole list"><input type="checkbox" class="farmPopup" /> Pop up while farming</label>
+          <label class="option sizeRow farmAfter">Hide after <select class="hideAfterSelect"></select></label>
+          <label class="option sizeRow">Layout <select class="layoutSelect"></select></label>
+          <label class="option sizeRow"><span class="scaleLabel">Text size</span> <select class="scaleSelect"></select></label>
+        </div>
+      </div>
+    </div>
+    <section class="nearby" hidden>
+      <div class="nearbyHead">
+        <span class="nearbyTitle">Around you</span>
+        <span class="nearbyWhere"></span>
+        <label class="option allNpcs" title="Every other monster in range too, as grey dots"><input type="checkbox" class="allNpcsBox" /> All monsters</label>
+        <button type="button" class="popOut" title="Pop the map out into a window of its own" aria-label="Pop out" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-8 8M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></svg>
+        </button>
+      </div>
+      <div class="nearbyCount"></div>
+      <div class="mapBox">
+        <canvas class="minimap" role="img" aria-label="Map of where the monsters you need spawn, north up" title="Drag to move, wheel to zoom, double-click to follow you again"></canvas>
+        <div class="mapButtons">
+          <button type="button" class="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+          <button type="button" class="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+          <button type="button" class="follow" title="Back to you" aria-label="Back to you" hidden>⌖</button>
+        </div>
+        <p class="mapNote" hidden></p>
+        <a class="mapCredit" href="https://www.aion2timers.com/" title="Open the live map on aion2timers.com"><img class="creditLogo" src="a2t-logo.webp" alt="Aion 2 Timers" /><span class="creditText"><span class="creditLive">Live map ↗</span><span class="creditBy">by Aion 2 Timers</span></span></a>
+        <div class="mapPictures" hidden><!-- map pictures -->
+      <img class="mapPic" data-map="20" src="maps/20.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="22" src="maps/22.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="23" src="maps/23.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="1000" src="maps/1000.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="1010" src="maps/1010.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="1011" src="maps/1011.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="1100" src="maps/1100.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="1110" src="maps/1110.webp" alt="" loading="lazy" />
+      <img class="mapPic" data-map="1111" src="maps/1111.webp" alt="" loading="lazy" />
+      <!-- /map pictures --></div>
+      </div>
+      <p class="poppedNote" hidden>The map is in its own window. <button type="button" class="popIn">Put it back</button></p>
+      <ol class="nearbyList"></ol>
+    </section>
+    <div class="farm">
+      <div class="farmHead">
+        <span class="farmTitle">Farming</span>
+        <span class="farmLeft"></span>
+        <button type="button" class="toFull" title="The whole list">All pets</button>
+        <button type="button" class="farmHide" title="Hide until the next soul" aria-label="Hide">×</button>
+      </div>
+      <ol class="pets farmList"></ol>
     </div>
     <div class="head" role="row">
+      <button type="button" data-sort="left">To Lv 3</button>
+      <button type="button" data-sort="progress">Souls</button>
       <button type="button" data-sort="level">Lv</button>
       <button type="button" data-sort="name">Pet</button>
-      <button type="button" data-sort="progress">Souls</button>
-      <button type="button" data-sort="left">To Lv 3</button>
+      <button type="button" data-sort="near" class="sortNear" title="Pets whose souls drop closest to you on this map first" hidden>Nearest</button>
     </div>
     <ol class="pets"></ol>
     <p class="empty" hidden>No pets match.</p>
@@ -28,6 +91,9 @@
     <script src="/_sdk/a2.js"></script>
     <script src="pets.js"></script>
     <script src="sources.js"></script>
+    <script src="maps.js"></script>
+    <script src="minimap.js"></script>
+    <script src="nearby.js"></script>
     <script src="plugin.js"></script>
   </body>
 </html>

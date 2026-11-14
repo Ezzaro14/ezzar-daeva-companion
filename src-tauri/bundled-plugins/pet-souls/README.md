@@ -1,6 +1,28 @@
 # Pet Soul Tracker
 
-Shows how many souls each of your pets still needs to reach level 3 (Special pets are left out: they come at their highest level). Filter by genus and level, or search by name: the bar shows the current level's progress, and **To Lv 3** the total still to collect.
+Shows how many souls each of your pets still needs to reach level 3 (Special pets are left out: they come at their highest level). At the top: the souls still needed for every pet, how many pets are left, and a bar of how far along you are. Search by name, or open **Filters** for genus, level, where the souls come from, regions, "Hide pets at level 3", the layout and the text size (the button shows how many filters are on).
+
+**Souls from** (Ezzar's Daeva Companion's addition): **From monsters** (the default) lists the pets a monster drops souls for; **Chests & merchant only** lists only the pets no monster drops, whose souls come only from pet soul chests (the Battle Pass's) and the Black Cloud Merchants, who sell every pet now and then; **All** lists both. It replaces the "Show pets only from chests" checkbox, which only added those pets to the list (on, it becomes **All**). Special pets take no souls and are never listed.
+
+## Layouts
+
+Filters → **Layout** draws the list one of four ways. In each, a pet's genus (Cogni, Fera, Natura, Varian) shows beside its name, in its colour.
+
+
+- **Cards** (the default): each pet's level in a ring of its genus colour, the ring filling with the souls toward the next level; the souls left to level 3 in the card's corner; and under its name the way to level 3 as three steps (5, 25 and 75 souls), the steps done full and the current one by its souls. The card's edge is its genus colour, green for the pet being farmed, gold at level 3.
+- **Filled cards**: the genus icon, the card filling with the souls toward the next level, the level as dots and the souls left large.
+- **Rows**: one line per pet, with the ring and the three steps: the most pets on screen.
+- **Classic**: the table as before 0.4.7, its columns Lv, Pet, Souls and To Lv 3.
+
+## Farming pop-up
+
+Tick **Pop up while farming** under Filters, and you don't need the window open while you farm. When you pick up a soul for a pet below level 3, the window comes up with only the pets you are farming (those you picked up a soul for in the last 30 minutes, the last first), fitted to them, and hides itself again once nothing has happened for the time under **Hide after** (10 s to 1 min, or Never). Moving the mouse over it keeps it up. A pet that reaches level 3 stays a minute, then leaves the list.
+
+**All pets** shows the whole list; **×** hides the window until the next soul. Open from Settings, the window shows the whole list, and a soul doesn't swap it for the farming list while you are using it (a click, a key or the wheel in the last 10 seconds; the mouse only passing over it doesn't count); otherwise **Farming** beside the search box goes back to it. The pop-up comes up where the window is, at its width: move and size the whole list where you want it. It needs meter 2.0.65 or later.
+
+## Pets only from chests
+
+A pet no monster drops can only be raised with Pet Soul Chests (the battle pass's), so it can't be farmed: it is hidden unless **Show pets only from chests** is ticked under Filters. A pinned pet always shows. The totals at the top count the pets shown.
 
 It reads three things the game sends: every pet's level and soul points when you log in, each soul as you pick it up, and each level a pet reaches. Counts are kept per server, as the game keeps a pet collection for all your characters on a server, so the list survives restarts and switching characters; logging in again resyncs it from the game.
 
@@ -8,11 +30,25 @@ A soul shows the moment you pick it up on a meter that sends a plugin's records 
 
 Souls per level: 5 (level 0 → 1, inferred), 25 (1 → 2) and 75 (2 → 3).
 
-Pets show by their in-game names, in the meter's language (all ten; `pets.js`, built from the game's `String_str_veh_*` texts). Double-click a name to give it your own; clear it to go back. Search filters by name (shown or English) or id, and each column header sorts the list; pressing it again reverses the order.
+Pets show by their in-game names, in the meter's language (all ten; `pets.js`, built from the game's `String_str_veh_*` texts). Double-click a name to give it your own; clear it to go back. Search filters by name (shown or English) or id, and the sort buttons (To Lv 3, Souls, Lv, Pet) sort the list; pressing one again reverses the order.
 
 A pet levels up as soon as its souls reach what its level needs, and its count starts again from 0, as the game's does. The game's own level-up record doesn't come for every step (a pet at level 0 showed 24 souls in 0.2.0), so the counts level themselves; the next login's pet list corrects them either way. Counts saved by 0.2.0 are corrected the same way when they're loaded.
 
 **☆** pins a pet to the top of the list (★). The pet you last picked up a soul for comes next, marked "farming", for 30 minutes after that soul.
+
+## Around you
+
+Tick **Show the map** under Filters (it is off until you do) for a map at the top of where the souls you still need are: the game's world map of the map you're on, north up, with every spawn of the monsters that drop a soul for a pet below level 3 as small dots in that pet's genus colour, and you on it. The monsters in range, as the game sends them, show larger and ringed on their spawns, and under the map the nearest kinds (up to four): name, level, how many, how far and which way, and the pets they drop souls for with the souls each still needs. **All monsters** adds every other monster in range as grey dots. The header names the map and counts the spawns you need on it and how many are in range.
+
+Drag the map to look around (⌖ or a double-click goes back to you); the wheel or **+** / **−** zooms, from 0.5 to 16 m a pixel. With the map on, it comes along in the farming pop-up, above the pets being farmed. Its words follow the meter's language.
+
+**Pop out** (the arrow-out button in the map's header) puts the map in a small window of its own, always on top, which you can drag anywhere by its bar and lock with the plugin's other widgets (meter 2.0.68 or later). Locked, only its buttons take the mouse: clicks on the map go through to the game. Its own zoom, drag and follow work as in the window; the size button steps it through five sizes, from 300 × 270 to 760 × 660, and **×** puts the map back in the Pet Soul Tracker window. It stays popped out across restarts, and keeps going while the tracker's window is hidden. Turning **Show the map** off closes it.
+
+The game sends each monster as it comes into range and as it goes, after a kill or as it leaves your range, so those are placed exactly. Your own position is exact when you fight, dodge, mount, glide or use a skill on yourself, every second under a Chanter's mantra, at a teleport and as a map loads. Running alone sends none: then the monsters coming into view place you within about 20 to 30 m (**≈ position estimated**, a dashed circle) until the next exact one, and with nothing coming into view the header says how old your position is. Only your own position is read, never another player's: the meter passes on only yours, once it knows which character is you (from the game's record about you, a few seconds after each map load; started mid-session, a while after it starts). Until then the monsters in range place you. Started mid-session, before a map has loaded, the map is the one whose spawns match the monsters in range, else the one you were last on.
+
+Only the picture of the map you're on is loaded.
+
+The map pictures and spawn points come from [Aion 2 Timers](https://www.aion2timers.com/map/)' interactive map, with their permission, credited in the map's corner (`tools/pet-maps/build.py` builds `maps/` and `maps.js` from it): the open-world maps and Reshanta, 2048 px each. Their positions are the game's world units, the same as the game sends; spawns seen in game sit within a few metres of theirs.
 
 ## Where souls drop
 
@@ -33,8 +69,17 @@ Every name in a pet's sources (monsters, zones, maps, Kibelisks, chests) shows i
 
 - `decoder:pet-list`, `decoder:soul-gained`, `decoder:level-up`: read your own pets' levels and soul gains.
 - `events:character`: keep a separate list per server.
-- `storage`: save the counts (with the last 200 changes per server, to trace a count that drifts from the game's), your pet names, the sort order, pins and region choice on this computer.
+- `window`: show the window when you pick up a soul for a pet you are farming, fitted to that list, and hide it again (only with **Pop up while farming** on).
+- `decoder:npc-spawn`, `decoder:npc-gone`: the monsters coming into and leaving your range, for the map.
+- `decoder:map-load`, `decoder:teleport`: the map you're on and where it or a teleport puts you.
+- `decoder:own-position`, `decoder:mantra-tick`: your own position, from your effects landing on you and your mantras (filtered to you by the meter).
+- `widgets`: the popped-out map.
+- `storage`: save the counts (with the last 200 changes per server, to trace a count that drifts from the game's), your pet names, the sort order, pins, region choice, filters, layout and the pets you are farming on this computer.
 
 ## Try it (developer mode)
 
 Settings → Plugins: turn on **Plugin developer mode**, choose **Load plugin folder…**, pick this folder, then **Open**. Log in (or relog) to sync. After editing the files, **Check for updates** reloads them.
+
+## Pets newer than this tracker's data (Ezzar's Daeva Companion)
+
+The tracker's pets and their soul sources come from the game's own files, as of when they were built. A pet added to the game since shows up from [aion2pets.net](https://aion2pets.net/), which the app reads at most once a day: at level 0, with its genus, where its souls are and the monsters that drop them (no map spots or drop chances: the site has none). The site names pets but has no game ids, so when the game reports a pet the tracker can't name ("Pet #1300"), click it and choose which new pet it is; from then on it has its name.

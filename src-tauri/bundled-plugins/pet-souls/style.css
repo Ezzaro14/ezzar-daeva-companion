@@ -7,33 +7,151 @@ html, body {
 }
 body {
   padding: 10px 12px;
+  --accent: var(--a2-accent, #8fc2ff);
+  --gold: #f5c542;
+  --line: rgba(255, 255, 255, 0.08);
 }
 body.compact .controls,
 body.compact .foot {
   display: none;
 }
-.status {
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 12px;
+
+/* Each genus's colour: its icon, its card's fill. */
+.pets li[data-genus="cogni"] { --g: #b99bff; }
+.pets li[data-genus="fera"] { --g: #ff9f66; }
+.pets li[data-genus="natura"] { --g: #74d99a; }
+.pets li[data-genus="varian"] { --g: #5cc9e6; }
+
+/* ---- The souls to go, and how far along every pet is -------------------- */
+.totals {
+  margin-bottom: 10px;
 }
 .summary {
-  margin: 4px 0 8px;
-  font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+}
+.summary b {
+  color: #fff;
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.petsLeft {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.overall {
+  height: 4px;
+  margin: 6px 0 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.overall span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6aa8f0, var(--accent));
+}
+.status {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+}
+
+/* ---- Search and the filters button -------------------------------------- */
+.toolbar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.search {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 5px 9px;
+  font: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  outline: none;
+}
+.search:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.search::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+.filtersButton {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.filtersButton:hover,
+.filtersButton[aria-expanded="true"] {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.09);
+}
+.filtersButton svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.filterCount:empty {
+  display: none;
+}
+.filterCount {
+  min-width: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 10px;
+  line-height: 16px;
+  color: #0a0e16;
+  background: var(--accent);
+}
+
+/* ---- The filters, folded away until asked for ---------------------------- */
+.filters {
+  margin-bottom: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.filters[hidden] {
+  display: none;
 }
 .chips {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .chips button {
-  padding: 2px 6px;
+  padding: 2px 7px;
   font: inherit;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: rgba(255, 255, 255, 0.65);
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   cursor: pointer;
 }
@@ -50,98 +168,52 @@ body.compact .foot {
 }
 .chips button[aria-pressed="true"] {
   color: #0a0e16;
-  background: #8fc2ff;
-  border-color: #8fc2ff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.optionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-top: 2px;
 }
 .option {
-  display: block;
-  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   color: rgba(255, 255, 255, 0.7);
   font-size: 12px;
 }
-/* Text size, beside the other options. color-scheme only on the dropdown:
-   on the page it would make the browser paint the frame opaque. */
-.sizeRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.scaleSelect {
-  color-scheme: dark;
-  font: inherit;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.88);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 4px;
-  padding: 2px 5px;
-  outline: none;
-}
-.scaleSelect:focus {
-  border-color: rgba(143, 194, 255, 0.6);
-}
-.scaleSelect option {
-  color: rgba(255, 255, 255, 0.9);
-  background: #161b26;
-}
-.pets {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.search {
-  box-sizing: border-box;
-  width: 100%;
-  margin-bottom: 8px;
-  padding: 5px 8px;
-  font: inherit;
-  color: inherit;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 4px;
-  outline: none;
-}
-.search:focus {
-  border-color: rgba(143, 194, 255, 0.6);
-}
-.search::placeholder {
-  color: rgba(255, 255, 255, 0.4);
-}
-.head,
-.pets li {
-  display: grid;
-  grid-template-columns: 34px 1fr 52px 50px;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
+/* ---- Sort: one segmented row --------------------------------------------- */
 .head {
-  padding-bottom: 3px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  display: flex;
+  gap: 2px;
+  margin-bottom: 6px;
+  padding: 2px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
 }
 .head button {
-  padding: 2px 0;
+  flex: 1;
+  padding: 3px 0;
   font: inherit;
   font-size: 11px;
-  text-align: left;
   color: rgba(255, 255, 255, 0.5);
   background: none;
   border: 0;
+  border-radius: 5px;
   cursor: pointer;
   white-space: nowrap;
 }
-.head button:nth-child(3) {
-  text-align: center;
-}
-.head button:last-child {
-  text-align: right;
-}
 .head button:hover,
-.head button:focus-visible,
-.head button.active {
+.head button:focus-visible {
   color: rgba(255, 255, 255, 0.9);
+}
+.head button.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
 }
 .head button[data-dir="asc"]::after {
   content: " ▴";
@@ -149,52 +221,425 @@ body.compact .foot {
 .head button[data-dir="desc"]::after {
   content: " ▾";
 }
-.empty {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 12px;
+
+/* ---- The pet list. Shared: the level ring and the three steps ---------- */
+.pets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-.level {
-  font-size: 11px;
-  color: #8fc2ff;
+.pets li {
+  --g: #9aa6b8;
+  position: relative;
+}
+.pets li.hasWhere {
+  cursor: pointer;
 }
 .name {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+.nameText {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   cursor: text;
 }
-.bar {
+/* The pet's genus beside its name, in its colour. */
+.genusTag {
+  flex: none;
+  margin-left: 6px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--g) 85%, white);
+  opacity: 0.85;
+}
+.layout-classic .genusTag {
+  color: rgba(255, 255, 255, 0.4);
+}
+.count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.6);
+}
+.left {
+  font-variant-numeric: tabular-nums;
+}
+.ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+}
+.ring svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.ring circle {
+  fill: none;
+  stroke-width: 3.2;
+}
+.ring .track {
+  stroke: rgba(255, 255, 255, 0.1);
+}
+.ring .arc {
+  stroke: var(--g);
+  stroke-linecap: round;
+}
+.max .ring .arc {
+  stroke: var(--gold);
+  stroke-dasharray: 100 100;
+}
+.ring b {
+  position: relative;
+  font-size: 13px;
+  font-weight: 650;
+  color: #fff;
+}
+.max .ring b {
+  color: var(--gold);
+}
+.souls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.steps {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+}
+.steps i {
+  flex: 1;
+  height: 6px;
+  border-radius: 1px;
+  background:
+    linear-gradient(90deg, var(--g) var(--f, 0%), transparent var(--f, 0%)),
+    rgba(255, 255, 255, 0.1);
+}
+.max .steps i {
+  background: var(--gold);
+  opacity: 0.6;
+}
+.souls .count {
+  min-width: 36px;
+  text-align: right;
+}
+.max .count {
+  color: var(--gold);
+}
+.pets li.max {
+  opacity: 0.65;
+}
+
+/* ---- Cards: the ring with a glow of its genus colour, a coloured edge, the
+   souls left in the corner and the three steps under the name ------------- */
+.layout-cards .pets {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.layout-cards .pets li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px 7px 9px;
+  border: 1px solid var(--line);
+  border-left: 3px solid color-mix(in srgb, var(--g) 70%, transparent);
+  border-radius: 4px 9px 9px 4px;
+  background:
+    radial-gradient(circle at 26px 50%, color-mix(in srgb, var(--g) 20%, transparent), transparent 46px),
+    rgba(255, 255, 255, 0.03);
+}
+.layout-cards .pets li.hasWhere:hover {
+  border-top-color: rgba(255, 255, 255, 0.16);
+  border-right-color: rgba(255, 255, 255, 0.16);
+  border-bottom-color: rgba(255, 255, 255, 0.16);
+}
+.layout-cards .pets li.max {
+  border-left-color: var(--gold);
+}
+.layout-cards .pets li.farmed {
+  border-left-color: #6ee07a;
+}
+.layout-cards .pets li.open {
+  background:
+    radial-gradient(circle at 26px 24px, color-mix(in srgb, var(--g) 20%, transparent), transparent 46px),
+    rgba(255, 255, 255, 0.05);
+}
+.layout-cards .main {
+  min-width: 0;
+}
+.layout-cards .line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.layout-cards .nameText {
+  font-weight: 600;
+  color: #fff;
+}
+.layout-cards .souls {
+  margin-top: 5px;
+}
+.layout-cards .left {
+  flex: none;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+.layout-cards .left b {
+  font-size: 13px;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ---- Filled cards: the genus icon, the card filling with the souls toward
+   the next level, the level as dots, the souls left large ----------------- */
+.layout-filled .pets {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.layout-filled .pets li {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 10px 5px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--g) 13%, transparent) var(--p, 0%), transparent var(--p, 0%)),
+    rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+.layout-filled .pets li::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--p, 0%);
+  height: 2px;
+  background: var(--g);
+  opacity: 0.8;
+}
+.layout-filled .pets li.max {
+  --p: 0%;
+}
+.layout-filled .pets li.hasWhere:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.layout-filled .pets li.farmed {
+  border-color: rgba(110, 224, 122, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(110, 224, 122, 0.2);
+}
+.layout-filled .pets li.open {
+  border-color: color-mix(in srgb, var(--g) 50%, transparent);
+  background: color-mix(in srgb, var(--g) 7%, rgba(255, 255, 255, 0.03));
+}
+.layout-filled .pets li.open::after {
+  display: none;
+}
+.icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  color: var(--g);
+  background: color-mix(in srgb, var(--g) 15%, rgba(0, 0, 0, 0.25));
+}
+.icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.layout-filled .main {
+  min-width: 0;
+}
+.layout-filled .line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.layout-filled .nameText {
+  font-weight: 600;
+  color: #fff;
+}
+.layout-filled .sub {
+  gap: 7px;
+  margin-top: 1px;
+  font-size: 11px;
+}
+.pips {
+  display: flex;
+  gap: 3px;
+}
+.pips i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+}
+.pips i.on {
+  background: var(--g);
+}
+.max .pips i.on {
+  background: var(--gold);
+}
+.layout-filled .count {
+  color: rgba(255, 255, 255, 0.8);
+}
+.genusName {
+  color: rgba(255, 255, 255, 0.38);
+}
+.layout-filled .left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.05;
+}
+.layout-filled .left b {
+  font-size: 17px;
+  font-weight: 650;
+  color: #fff;
+}
+.layout-filled .left small {
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ---- Rows: one line each, the ring, the name, the steps, the souls left - */
+.layout-rows .pets li {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 84px 30px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+}
+.layout-rows .pets li:nth-child(even) {
+  background: rgba(255, 255, 255, 0.018);
+}
+.layout-rows .pets li.hasWhere:hover,
+.layout-rows .pets li.open {
+  background: rgba(255, 255, 255, 0.05);
+}
+.layout-rows .pets li.farmed {
+  box-shadow: inset 2px 0 0 #6ee07a;
+}
+.layout-rows .ring {
+  width: 26px;
+  height: 26px;
+}
+.layout-rows .ring b {
+  font-size: 11px;
+}
+.layout-rows .nameText {
+  color: rgba(255, 255, 255, 0.92);
+}
+.layout-rows .souls {
+  gap: 5px;
+}
+.layout-rows .souls .count {
+  min-width: 30px;
+}
+.layout-rows .left {
+  text-align: right;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ---- Classic: the table as it was, its column headers above it ---------- */
+.layout-classic .head {
+  display: grid;
+  grid-template-columns: 34px 1fr 52px 50px;
+  gap: 8px;
+  padding: 0 0 3px;
+  margin-bottom: 0;
+  border-radius: 0;
+  background: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+.layout-classic .head button {
+  padding: 2px 0;
+  text-align: left;
+  border-radius: 0;
+}
+.layout-classic .head button.active {
+  background: none;
+}
+.layout-classic .head [data-sort="level"] { order: 1; }
+.layout-classic .head [data-sort="name"] { order: 2; }
+.layout-classic .head [data-sort="progress"] { order: 3; text-align: center; }
+.layout-classic .head [data-sort="left"] { order: 4; text-align: right; }
+.layout-classic .pets li {
+  display: grid;
+  grid-template-columns: 34px 1fr 52px 50px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.layout-classic .pets li.max {
+  opacity: 1;
+}
+.layout-classic .pets li.open {
+  background: rgba(255, 255, 255, 0.05);
+}
+.layout-classic .level {
+  font-size: 11px;
+  color: var(--accent);
+}
+.layout-classic .bar {
   position: relative;
   height: 16px;
   border-radius: 3px;
   background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
 }
-.bar span:first-child {
+.layout-classic .bar span:first-child {
   display: block;
   height: 100%;
   background: rgba(226, 195, 122, 0.55);
 }
-.count {
+.layout-classic .bar .count {
   position: absolute;
   inset: 0;
   text-align: center;
   line-height: 16px;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.88);
   text-shadow: 0 0 2px rgb(10, 14, 22);
 }
-.left {
+.layout-classic .left {
   text-align: right;
-  font-variant-numeric: tabular-nums;
   font-size: 12px;
-}
-.left {
   color: rgba(255, 255, 255, 0.6);
+}
+.layout-classic .where {
+  margin: 4px 0 6px 34px;
+}
+
+.empty {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
 }
 .foot {
   margin-top: 10px;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.35);
   font-size: 11px;
 }
 .rename {
@@ -227,30 +672,75 @@ body.compact .foot {
   background-color: rgba(255, 255, 255, 0.35);
 }
 
-/* Where a pet's souls drop, under its row. */
-.pets li.hasWhere { cursor: pointer; }
-.pets li.open { background: rgba(255, 255, 255, 0.05); }
+/* ---- Where a pet's souls drop, inside its card -------------------------- */
 .where {
   grid-column: 1 / -1;
-  margin: 4px 0 6px 34px;
+  margin: 4px 0 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
   font-size: 12px;
   cursor: default;
 }
-.where .who { color: rgba(255, 255, 255, 0.9); margin-top: 3px; }
-.where .at { color: rgba(255, 255, 255, 0.55); }
-.where a { color: #8fc2ff; text-decoration: none; }
-.where a:hover { text-decoration: underline; }
+.where .who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 600;
+}
+.where .who:first-child {
+  margin-top: 0;
+}
+.where .tag {
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.08);
+}
+.where .tag.chance {
+  color: var(--g);
+  background: color-mix(in srgb, var(--g) 14%, transparent);
+}
+.where .at {
+  color: rgba(255, 255, 255, 0.55);
+}
+.where a {
+  white-space: nowrap;
+  color: var(--accent);
+  text-decoration: none;
+}
+.where a:hover {
+  text-decoration: underline;
+}
 
 /* Pin to the top, and the pet being farmed. */
 .pin {
-  margin-right: 4px; padding: 0; border: 0; background: none; cursor: pointer;
-  font: inherit; color: rgba(255, 255, 255, 0.35);
+  flex: none;
+  margin-right: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: rgba(255, 255, 255, 0.3);
 }
-.pin[aria-pressed="true"] { color: #f5c542; }
-.pin:hover { color: #f5c542; }
+.pin[aria-pressed="true"],
+.pin:hover {
+  color: var(--gold);
+}
 .farming {
-  margin-left: 6px; padding: 0 5px; border-radius: 999px; font-size: 10px;
-  color: #0a0e16; background: #6ee07a; vertical-align: 1px;
+  flex: none;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #0a0e16;
+  background: #6ee07a;
 }
 
 /* The Map link's folded-map icon. */
@@ -263,4 +753,355 @@ body.compact .foot {
   stroke: currentColor;
   stroke-width: 2;
   stroke-linejoin: round;
+}
+
+/* ---- The farming pop-up: only the pets being farmed ---------------------- */
+.farm {
+  display: none;
+}
+body.farmOnly {
+  padding: 0;
+}
+body.farmOnly .farm {
+  display: block;
+  /* The window is fitted to it with no panel around it, so it draws its own. */
+  padding: 6px 8px 4px;
+  border-radius: 8px;
+  background: rgba(14, 18, 27, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+body.farmOnly .controls,
+body.farmOnly .head,
+body.farmOnly .pets:not(.farmList),
+body.farmOnly .empty,
+body.farmOnly .foot {
+  display: none;
+}
+.farmHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.farmTitle {
+  font-weight: 650;
+  color: #7ee0a0;
+}
+.farmLeft {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+}
+.farmHead button,
+.toFarm {
+  font: inherit;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 5px;
+  padding: 1px 7px;
+  cursor: pointer;
+}
+.farmHead button:hover,
+.toFarm:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+.farmHead .farmHide {
+  padding: 0 6px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+.toFarm {
+  color: #7ee0a0;
+  border-color: rgba(126, 224, 160, 0.4);
+}
+.toFarm[hidden],
+.farmAfter[hidden] {
+  display: none;
+}
+.farmList {
+  margin-bottom: 0;
+}
+
+/* Dropdowns drawn by the page, as the meter's Settings draws them: the
+   webview's own was a grey (or, under a GTK theme, white) box. color-scheme
+   only here: on the whole page the frame gets an opaque backdrop. */
+select {
+  color-scheme: dark;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  min-height: 26px;
+  padding: 3px 26px 3px 8px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='white' stroke-opacity='.7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 9px center / 10px 6px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+select:hover { border-color: rgba(255, 255, 255, 0.3); background-color: rgba(255, 255, 255, 0.09); }
+select:focus-visible { outline: 2px solid var(--a2-accent, #8fc2ff); outline-offset: 1px; }
+select:disabled { opacity: 0.5; cursor: default; }
+select option, select optgroup { background: var(--a2-panel, #0e1420); color: #fff; }
+
+/* ---- Around you: the monsters in range that drop a soul you need ---------- */
+.nearby {
+  margin: 0 0 10px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.nearbyHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.nearbyTitle {
+  font-weight: 650;
+}
+.nearbyWhere {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.55);
+}
+.nearbyWhere.stale {
+  color: #ff7a6a;
+}
+.nearbyWhere.estimated {
+  color: #ffe066;
+}
+.nearbyWhere.stale::before {
+  content: "● ";
+}
+.nearby .allNpcs {
+  margin-left: auto;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.nearbyHead .popOut {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  align-self: center;
+}
+.nearbyHead .popOut:hover {
+  border-color: var(--accent);
+  color: #fff;
+}
+.nearbyHead .popOut[hidden] {
+  display: none;
+}
+.nearbyHead .popOut svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.poppedNote {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.poppedNote button {
+  margin-left: 4px;
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.mapBox[hidden],
+.poppedNote[hidden] {
+  display: none;
+}
+.nearbyCount {
+  margin: -3px 0 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+}
+.mapBox {
+  position: relative;
+  margin-bottom: 4px;
+}
+.minimap {
+  display: block;
+  width: 100%;
+  height: 240px;
+  border-radius: 6px;
+  cursor: grab;
+  touch-action: none;
+}
+.minimap:active {
+  cursor: grabbing;
+}
+.mapButtons {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mapButtons button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  background: rgba(20, 22, 30, 0.8);
+  color: #e8e2d0;
+  font: 600 14px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.mapButtons button:hover {
+  border-color: var(--accent);
+}
+.mapButtons button[hidden] {
+  display: none;
+}
+/* Where the pictures and spawns come from, next to the map. */
+.mapCredit {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 7px 3px 5px;
+  border-radius: 6px;
+  background: rgba(12, 16, 26, 0.6);
+  text-decoration: none;
+  opacity: 0.88;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+.mapCredit:hover {
+  opacity: 1;
+  background: rgba(12, 16, 26, 0.8);
+}
+.mapCredit .creditLogo {
+  display: block;
+  height: 24px;
+  width: auto;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+.mapCredit .creditText {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.mapCredit .creditLive {
+  font-weight: 600;
+  color: #dfe9f5;
+}
+.mapCredit .creditBy {
+  font-size: 9.5px;
+  color: rgba(223, 233, 245, 0.7);
+}
+.mapCredit:hover .creditLive {
+  text-decoration: underline;
+}
+.mapNote {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  pointer-events: none;
+}
+.mapNote[hidden] {
+  display: none;
+}
+.nearbyList {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.nearbyList li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 6px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+.nearbyList li:last-child {
+  border-bottom: 0;
+}
+.nearbyList .who {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nearbyList .who small {
+  margin-left: 4px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.nearbyList .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--g);
+  vertical-align: 1px;
+}
+.nearbyList .dist {
+  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+.nearbyList .for {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--g) 80%, white);
+  font-size: 11px;
+}
+.nearbyList .none {
+  display: block;
+  color: rgba(255, 255, 255, 0.55);
+}
+/* In the farming pop-up: under its head, without a box of its own. */
+body.farmOnly .nearby {
+  margin: 0 0 6px;
+  padding: 0 0 6px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
 }

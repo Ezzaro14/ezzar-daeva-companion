@@ -1,0 +1,54 @@
+[
+  {
+    "version": "0.5.3",
+    "en": "The pet you're farming stays at the top of the list with a pet type or level filter picked.",
+    "ko": "펫 종류나 레벨 필터를 선택해도 파밍 중인 펫이 목록 맨 위에 유지됩니다.",
+    "ja": "ペットの種類やレベルで絞り込んでいても、育成中のペットがリストの一番上に表示されます。",
+    "de": "Das Haustier, das du gerade farmst, bleibt auch mit einem Typ- oder Stufenfilter oben in der Liste.",
+    "fr": "Le familier que vous farmez reste en haut de la liste, même avec un filtre de type ou de niveau.",
+    "es": "La mascota que estás farmeando se queda arriba de la lista aunque filtres por tipo o nivel.",
+    "pt": "O mascote que você está farmando fica no topo da lista mesmo com um filtro de tipo ou nível.",
+    "ru": "Питомец, которого вы фармите, остаётся вверху списка даже с фильтром по типу или уровню.",
+    "zh-Hant": "即使選了寵物種類或等級篩選，正在刷的寵物仍會留在列表最上方。",
+    "zh-Hans": "即使选了宠物种类或等级筛选，正在刷的宠物仍会留在列表最上方。"
+  },
+  {
+    "version": "0.5.2",
+    "en": "Uses less memory: with Show the map off, the map pictures are let go of, and loaded again when it is turned back on.",
+    "ko": "메모리를 덜 사용합니다. 지도 표시를 끄면 지도 이미지를 메모리에서 해제하고, 다시 켜면 불러옵니다.",
+    "ja": "メモリ使用量が減りました。「地図を表示」をオフにすると地図画像を解放し、オンに戻すと再び読み込みます。",
+    "de": "Braucht weniger Speicher: Ist „Karte zeigen“ aus, werden die Kartenbilder freigegeben und beim Einschalten neu geladen.",
+    "fr": "Utilise moins de mémoire : avec « Afficher la carte » désactivé, les images de carte sont libérées, puis rechargées à la réactivation.",
+    "es": "Usa menos memoria: con «Mostrar el mapa» desactivado, las imágenes del mapa se liberan y se vuelven a cargar al activarlo.",
+    "pt": "Usa menos memória: com \"Mostrar o mapa\" desligado, as imagens do mapa são liberadas e carregadas de novo ao religar.",
+    "ru": "Меньше расход памяти: при выключенной «Показывать карту» изображения карт выгружаются и загружаются снова при включении.",
+    "zh-Hant": "佔用更少記憶體：關閉「顯示地圖」時會釋放地圖圖片，重新開啟時再載入。",
+    "zh-Hans": "占用更少内存：关闭「显示地图」时会释放地图图片，重新开启时再加载。"
+  },
+  {
+    "version": "0.5.1",
+    "en": "Other players' summons are left off the map.",
+    "ko": "다른 플레이어의 소환수는 지도에 표시되지 않습니다.",
+    "ja": "他のプレイヤーの召喚物はマップに表示されません。",
+    "de": "Beschwörungen anderer Spieler erscheinen nicht mehr auf der Karte.",
+    "fr": "Les invocations des autres joueurs ne figurent plus sur la carte.",
+    "es": "Las invocaciones de otros jugadores ya no aparecen en el mapa.",
+    "pt": "As invocações de outros jogadores não aparecem mais no mapa.",
+    "ru": "Призванные существа других игроков больше не отображаются на карте.",
+    "zh-Hant": "其他玩家的召喚物不再顯示在地圖上。",
+    "zh-Hans": "其他玩家的召唤物不再显示在地图上。"
+  },
+  {
+    "version": "0.5.0",
+    "en": "A map of where to farm souls, with the monsters around you, sorted by nearest.",
+    "ko": "영혼을 모을 장소와 주변 몬스터를 보여 주는 지도, 가까운 순 정렬이 추가되었습니다.",
+    "ja": "魂を集める場所と周囲のモンスターを表示するマップと、近い順の並べ替えを追加しました。",
+    "de": "Eine Karte, wo man Seelen farmt, mit den Monstern um dich, nach Nähe sortiert.",
+    "fr": "Une carte des lieux où récolter des âmes, avec les monstres autour de vous, triés par proximité.",
+    "es": "Un mapa de dónde conseguir almas, con los monstruos cercanos, ordenados por cercanía.",
+    "pt": "Um mapa de onde coletar almas, com os monstros ao redor, ordenados pelo mais próximo.",
+    "ru": "Карта мест для сбора душ с монстрами вокруг вас, по близости.",
+    "zh-Hant": "新增可收集靈魂的地點地圖與周圍怪物，可依距離排序。",
+    "zh-Hans": "新增可收集灵魂的地点地图与周围怪物，可按距离排序。"
+  }
+]

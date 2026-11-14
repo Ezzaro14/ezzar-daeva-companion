@@ -1,0 +1,182 @@
+/* The widget's window is transparent and fitted to it: the panel is drawn here. */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  font: 12px/1.3 "Segoe UI", system-ui, sans-serif;
+  --accent: var(--a2-accent, #8fc2ff);
+}
+.pop {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 5px 6px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: var(--a2-panel, rgba(14, 18, 27, 0.94));
+}
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  cursor: move;
+  user-select: none;
+}
+body.locked .bar {
+  cursor: default;
+}
+.title {
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.where {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.55);
+}
+.where.stale {
+  color: #ff7a6a;
+}
+.where.stale::before {
+  content: "● ";
+}
+.where.estimated {
+  color: #ffe066;
+}
+.count {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bar button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.8);
+  font: 600 14px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.bar button:hover {
+  border-color: var(--accent);
+  color: #fff;
+}
+.bar svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.mapBox {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.minimap {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  cursor: grab;
+  touch-action: none;
+}
+.minimap:active {
+  cursor: grabbing;
+}
+.mapButtons {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mapButtons button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  background: rgba(20, 22, 30, 0.8);
+  color: #e8e2d0;
+  font: 600 14px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.mapButtons button:hover {
+  border-color: var(--accent);
+}
+.mapButtons button[hidden],
+.mapNote[hidden] {
+  display: none;
+}
+/* Where the pictures and spawns come from, next to the map. */
+.mapCredit {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 7px 3px 5px;
+  border-radius: 6px;
+  background: rgba(12, 16, 26, 0.6);
+  text-decoration: none;
+  opacity: 0.88;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+.mapCredit:hover {
+  opacity: 1;
+  background: rgba(12, 16, 26, 0.8);
+}
+.mapCredit .creditLogo {
+  display: block;
+  height: 24px;
+  width: auto;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+.mapCredit .creditText {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.mapCredit .creditLive {
+  font-weight: 600;
+  color: #dfe9f5;
+}
+.mapCredit .creditBy {
+  font-size: 9.5px;
+  color: rgba(223, 233, 245, 0.7);
+}
+.mapCredit:hover .creditLive {
+  text-decoration: underline;
+}
+.mapNote {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
