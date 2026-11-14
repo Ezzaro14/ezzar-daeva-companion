@@ -30,7 +30,7 @@ test('other windows keep their markup', () => {
   }
 });
 
-test('settings drops unused combat markup before localization while retaining its form and support dialog', () => {
+test('settings drops unused combat markup before localization while retaining its form', () => {
   let parsed;
   const removed = [];
   const child = name => ({ classList: { contains: value => value === name }, remove: () => removed.push(name) });
@@ -39,12 +39,12 @@ test('settings drops unused combat markup before localization while retaining it
     addEventListener: (event, callback) => { assert.equal(event, 'DOMContentLoaded'); parsed = callback; },
     querySelector: () => ({ children: [child('header'), child('detailsPanel'), form, child('historyPanel')] }),
     querySelectorAll: selector => {
-      assert.equal(selector, '.updateModal, .discordPromo');
-      return [child('updateModal'), child('discordPromo')];
+      assert.equal(selector, '.updateModal');
+      return [child('updateModal')];
     },
   } });
   parsed();
-  assert.deepEqual(removed, ['header', 'detailsPanel', 'historyPanel', 'updateModal', 'discordPromo']);
+  assert.deepEqual(removed, ['header', 'detailsPanel', 'historyPanel', 'updateModal']);
 });
 
 const core = readFileSync(new URL('../public/src/js/core.js', import.meta.url), 'utf8');
@@ -227,131 +227,6 @@ test('the full bridge preserves visible startup and never resizes a tool window'
   }
 });
 
-function attachAccountPanel(fixture) {
-  fixture.window.i18n = { t: (key, fallback) => fallback, format: (key, values, fallback) => fallback };
-  if (!fixture.window.dpsApp) vm.runInContext(core, fixture.context);
-  const app = fixture.window.dpsApp;
-  app.accountStateEl = { textContent: 'Waiting for approval', classList: { toggle() {} } };
-  app.accountCodeBox = { style: { display: 'block' } };
-  app.accountConnectBtn = { disabled: true, style: { display: '' } };
-  app.accountSignOutBtn = { style: { display: 'none' } };
-  app.syncSettingsForm = app.refreshSettingsStatus = () => {};
-  fixture.window._dpsApp = app;
-  return app;
-}
-
-for (const error of ['the code expired before it was approved', 'the request was declined',
-  'signed in, but the token could not be stored securely: keyring is locked']) {
-  test(`a hidden account outcome is retained and allows retry: ${error}`, async () => {
-    const fixture = setupBridge();
-    const app = attachAccountPanel(fixture);
-    await fixture.window.javaBridge.notifyUiReady();
-    fixture.listeners.get('settings-hidden')();
-    fixture.listeners.get('account-changed')({ payload: { connected: false, error } });
-    await settle();
-    assert.equal(app.accountConnectBtn.disabled, true);
-    assert.equal(app.accountCodeBox.style.display, 'block');
-    assert.ok(!fixture.calls.some(call => call.command === 'account_status'));
-    fixture.listeners.get('settings-shown')();
-    await settle();
-    assert.equal(app.accountConnectBtn.disabled, false);
-    assert.equal(app.accountCodeBox.style.display, 'none');
-    assert.equal(app.accountStateEl.textContent, `Sign-in failed: ${error}`);
-  });
-}
-
-test('a successful hidden account outcome refreshes the actual signed-in controls on reopen', async () => {
-  const fixture = setupBridge({ nativeInvoke: command => command === 'account_status' ? { displayName: 'Player' } : undefined });
-  const app = attachAccountPanel(fixture);
-  await fixture.window.javaBridge.notifyUiReady();
-  fixture.listeners.get('settings-hidden')();
-  fixture.listeners.get('account-changed')({ payload: { connected: true } });
-  await settle();
-  assert.equal(app.accountCodeBox.style.display, 'block');
-  assert.ok(!fixture.calls.some(call => call.command === 'account_status'));
-  fixture.listeners.get('settings-shown')();
-  await settle();
-  assert.equal(app.accountCodeBox.style.display, 'none');
-  assert.equal(app.accountConnectBtn.disabled, false);
-  assert.equal(app.accountConnectBtn.style.display, 'none');
-  assert.equal(app.accountSignOutBtn.style.display, '');
-  assert.equal(app.accountStateEl.textContent, 'Signed in as Player');
-});
-
-test('a terminal result received before core installation is replayed by initial readiness', async () => {
-  const fixture = setupBridge();
-  const error = 'the request was declined';
-  fixture.listeners.get('account-changed')({ payload: { connected: false, error } });
-  const app = attachAccountPanel(fixture);
-  await fixture.window.javaBridge.notifyUiReady();
-  assert.equal(app.accountConnectBtn.disabled, false);
-  assert.equal(app.accountCodeBox.style.display, 'none');
-  assert.equal(app.accountStateEl.textContent, `Sign-in failed: ${error}`);
-});
-
-for (const startup of ['visible Windows startup', 'native Linux fallback']) {
-  test(`early account outcomes are replayed after ${startup}`, async () => {
-    const fixture = setupBridge({ linux: startup !== 'visible Windows startup' });
-    if (startup === 'native Linux fallback') fixture.listeners.get('settings-shown')();
-    fixture.listeners.get('account-changed')({ payload: { connected: false, error: 'the request was declined' } });
-    const app = attachAccountPanel(fixture);
-    await fixture.window.javaBridge.notifyUiReady();
-    assert.equal(app.accountConnectBtn.disabled, false);
-    assert.equal(app.accountCodeBox.style.display, 'none');
-    assert.equal(app.accountStateEl.textContent, 'Sign-in failed: the request was declined');
-  });
-}
-
-test('a native fallback retains an outcome until the installed core has created the account form', async () => {
-  const fixture = setupBridge();
-  vm.runInContext(core, fixture.context);
-  fixture.window._dpsApp = fixture.window.dpsApp;
-  fixture.listeners.get('settings-shown')();
-  fixture.listeners.get('account-changed')({ payload: { connected: false, error: 'the request was declined' } });
-  fixture.listeners.get('settings-shown')();
-  const app = attachAccountPanel(fixture);
-  await fixture.window.javaBridge.notifyUiReady();
-  assert.equal(app.accountStateEl.textContent, 'Sign-in failed: the request was declined');
-  assert.equal(app.accountConnectBtn.disabled, false);
-  assert.equal(app.accountCodeBox.style.display, 'none');
-});
-
-test('the latest hidden account outcome replaces an earlier one and is consumed once', async () => {
-  const fixture = setupBridge({ nativeInvoke: command => command === 'account_status' ? { displayName: 'Player' } : undefined });
-  const app = attachAccountPanel(fixture);
-  await fixture.window.javaBridge.notifyUiReady();
-  fixture.listeners.get('settings-hidden')();
-  fixture.listeners.get('account-changed')({ payload: { connected: false, error: 'the request was declined' } });
-  fixture.listeners.get('account-changed')({ payload: { connected: true } });
-  fixture.listeners.get('settings-shown')();
-  await settle();
-  assert.equal(app.accountStateEl.textContent, 'Signed in as Player');
-  assert.equal(fixture.calls.filter(call => call.command === 'account_status').length, 1);
-  fixture.listeners.get('settings-hidden')();
-  fixture.listeners.get('settings-shown')();
-  await settle();
-  assert.ok(fixture.calls.some(call => call.command === 'account_status_cached'));
-  assert.equal(fixture.calls.filter(call => call.command === 'account_status').length, 2);
-});
-
-test('an older account status reply cannot replace a retained terminal error after reopen', async () => {
-  const status = deferred();
-  const fixture = setupBridge({ nativeInvoke: command => command === 'account_status' ? status.promise : undefined });
-  const app = attachAccountPanel(fixture);
-  await fixture.window.javaBridge.notifyUiReady();
-  const old = app.refreshAccountPanel();
-  await settle();
-  fixture.listeners.get('settings-hidden')();
-  fixture.listeners.get('account-changed')({ payload: { connected: false, error: 'the code expired before it was approved' } });
-  fixture.listeners.get('settings-shown')();
-  status.resolve(null);
-  await old;
-  await settle();
-  assert.equal(app.accountStateEl.textContent, 'Sign-in failed: the code expired before it was approved');
-  assert.equal(app.accountConnectBtn.disabled, false);
-  assert.equal(app.accountCodeBox.style.display, 'none');
-});
-
 const nativeApp = readFileSync(new URL('../src-tauri/src/app.rs', import.meta.url), 'utf8');
 const nativeSettingsScript = nativeApp.match(/const SETTINGS_WINDOW_SCRIPT: &str = r#"([\s\S]*?)"#;/)[1];
 
@@ -434,12 +309,14 @@ test('native startup policy controls lifecycle even when the browser platform di
 test('a close before bridge installation pauses polling and the next opening re-reads settings', async () => {
   let values = { 'dpsMeter.playerLimit': '6' };
   const app = setupBridge({ shown: false, getSettings: () => values });
-  let formSyncs = 0, modalCloses = 0;
-  app.window._dpsApp = { syncSettingsForm: () => formSyncs++, closeSupportModal: () => modalCloses++ };
+  let formSyncs = 0, pauses = 0;
+  app.window._dpsApp = { syncSettingsForm: () => formSyncs++ };
+  // The pause lets go of the focused control: once per close.
+  app.document.activeElement = { blur: () => pauses++ };
   await app.window.javaBridge.notifyUiReady();
   await settle();
   assert.equal(app.timers.size, 0);
-  assert.equal(modalCloses, 1);
+  assert.equal(pauses, 1);
   assert.ok(!app.calls.some(call => call.command === 'get_capture_status'));
   values = { 'dpsMeter.playerLimit': '12' };
   app.listeners.get('settings-shown')();
@@ -611,23 +488,18 @@ test('hidden settings stops status polling; showing it again resumes one timer a
   assert.equal(app.timers.size, 1);
   assert.ok(!app.listeners.has('dps-update'));
   assert.ok(!app.listeners.has('ping-update'));
-  let accountRefreshes = 0;
   let formSyncs = 0;
   app.window._dpsApp = {
-    refreshAccountPanel: () => accountRefreshes++,
     syncSettingsForm: () => formSyncs++,
   };
   const settingsReads = () => app.calls.filter(call => call.command === 'get_settings').length;
-  // Asked to open while already shown: check the account, nothing else.
+  // Asked to open while already shown: nothing to read again.
   app.listeners.get('settings-shown')();
   await settle();
-  assert.equal(accountRefreshes, 1);
   assert.equal(settingsReads(), 1);
   assert.equal(formSyncs, 0);
   app.listeners.get('settings-hidden')();
   assert.equal(app.timers.size, 0);
-  app.listeners.get('account-changed')({ payload: {} });
-  assert.equal(accountRefreshes, 1);
   const reads = () => app.calls.filter(call => call.command === 'get_capture_status').length;
   const before = reads();
   app.listeners.get('settings-shown')();
@@ -636,7 +508,6 @@ test('hidden settings stops status polling; showing it again resumes one timer a
   app.listeners.get('settings-shown')();
   assert.equal(app.timers.size, 1);
   assert.equal(reads(), before + 1);
-  assert.equal(accountRefreshes, 3);
   await settle();
   assert.equal(settingsReads(), 2);
   assert.equal(formSyncs, 1);
@@ -787,15 +658,16 @@ test('an unnamed tutorial character does not erase the last saved real name', ()
 
 test('hiding settings runs its pause once per close, and only the settings window listens', () => {
   const app = setupBridge();
-  let modalCloses = 0;
-  app.window._dpsApp = { closeSupportModal: () => modalCloses++ };
+  // The pause lets go of the focused control: once per close.
+  let pauses = 0;
+  app.document.activeElement = { blur: () => pauses++ };
   // Close dispatches from the page, then the native close event follows.
   app.window.dispatchEvent(new Event('settings-hidden'));
   app.listeners.get('settings-hidden')();
-  assert.equal(modalCloses, 1);
+  assert.equal(pauses, 1);
   app.listeners.get('settings-shown')();
   app.listeners.get('settings-hidden')();
-  assert.equal(modalCloses, 2);
+  assert.equal(pauses, 2);
   const main = setupBridge({ view: 'main' });
   assert.ok(!main.listeners.has('settings-hidden'));
 });
@@ -902,14 +774,12 @@ test('Linux settings is revealed by notifyUiReady, and a Close before then stays
 
 test('other platforms reveal settings from the page and never resync it', async () => {
   const app = setupBridge({ linux: false });
-  let accountRefreshes = 0;
-  app.window._dpsApp = { refreshAccountPanel: () => accountRefreshes++, syncSettingsForm: () => { throw new Error('resync'); } };
+  app.window._dpsApp = { syncSettingsForm: () => { throw new Error('resync'); } };
   await app.window.javaBridge.toolWindowReady('settings');
   assert.deepEqual(app.calls.slice(-2).map(call => call.command), ['show', 'tool_window_ready']);
   app.listeners.get('settings-shown')();
   await app.window.javaBridge.notifyUiReady();
   await settle();
-  assert.equal(accountRefreshes, 1);
   assert.equal(app.calls.filter(call => call.command === 'get_settings').length, 1);
 });
 

@@ -1,6 +1,6 @@
 // The dashboard (plugins/bundled.rs): every plugin as a page of one window
-// (the bundled ones, and any installed or developer copy, which runs instead
-// of a bundled one of its id), and one set of controls for everything on
+// (the bundled ones, and any developer folder's, which runs instead of a
+// bundled one of its id), and one set of controls for everything on
 // screen. Each plugin runs in a sandboxed frame of its own: it asks for
 // things by message, and this page passes on what its manifest permits,
 // naming the plugin to the backend (`plugin`), since every frame shares this
@@ -12,9 +12,9 @@
 
   // Where each module sits in the sidebar, and its icon (lucide).
   const LAYOUT = [
-    ["Combat", [["combat-assist", "swords"], ["combat-alerts", "siren"], ["pvp-overlay", "crosshair"], ["fight-records", "trophy"], ["dungeon-runs", "castle"]]],
+    ["Combat", [["combat-assist", "swords"], ["combat-alerts", "siren"], ["pvp-overlay", "crosshair"], ["fight-records", "trophy"], ["dungeon-runs", "castle"], ["boss-telegraph", "megaphone"], ["heal-alert", "heart-pulse"]]],
     ["World", [["event-timers", "alarm-clock"], ["world-map", "map"], ["pet-souls", "paw-print"]]],
-    ["Character", [["progression-guide", "graduation-cap"], ["daily-planner", "calendar-check"]]],
+    ["Character", [["progression-guide", "graduation-cap"], ["daily-planner", "calendar-check"], ["alt-roster", "users"]]],
     ["Tools", [["notices", "bell"], ["ping", "wifi"]]],
   ];
   const ICONS = Object.fromEntries(LAYOUT.flatMap(([, items]) => items));
@@ -81,6 +81,7 @@
       "storage.set": ([key, value]) => call("plugin_storage_set", { key: String(key), value: String(value) }),
       bossTimers: ([server]) => (need("feed:boss-timers"), call("plugin_boss_timers", { server: Number(server) })),
       abyssSiege: ([server]) => (need("feed:boss-timers"), call("plugin_abyss_siege", { server: Number(server) })),
+      petCatalog: () => (need("feed:pets"), call("plugin_pet_catalog", {})),
       "bossTimers.follow": ([server, bosses]) => (
         need("feed:boss-timers"),
         call("plugin_boss_follow", { server: Number(server), bosses: (Array.isArray(bosses) ? bosses : []).map(String) })
@@ -134,14 +135,26 @@
       "map.saveImage": ([map, data]) => (need("maps"), call("plugin_map_save_image", { map: Number(map) || 0, data: String(data) })),
       "map.pickMarkers": () => (need("maps"), call("plugin_map_pick_markers")),
       "map.minimap": () => (need("maps"), call("plugin_map_minimap")),
+      // The World Map's maps, where its map links go (see openUrl).
+      "map.places": ([maps]) => {
+        need("maps");
+        if (id !== WORLD_MAP) throw new Error("only the World Map shows places");
+        placeMaps = new Set((Array.isArray(maps) ? maps : []).map(Number).filter(Number.isFinite).slice(0, 500));
+        return true;
+      },
       "clipboard.write": ([text]) => (need("feed:combat"), call("plugin_copy_text", { text: String(text) })),
       "notify.system": ([title, body]) => (need("notify:system"), call("plugin_system_notify", { title: String(title), body: String(body) })),
-      // Only for the plugins that come with the app: no plugin had it in a
-      // window of its own.
+      // A link clicked in its page (a2.js): in the browser, but an Aion 2
+      // Timers map link (Pet Soul Tracker's "Map", the bundled copy's and
+      // A2Tools' own) on the World Map, while it runs.
       openUrl: ([raw]) => {
-        if (!mod.bundled) throw new Error("unknown call openUrl");
         const url = new URL(String(raw));
         if (url.protocol !== "https:" || url.username || url.password || url.href.length > 2048) throw new Error("only https links open");
+        const place = mapPlace(url);
+        if (place && hosts.has(WORLD_MAP) && placeMaps.has(place.map)) {
+          showPlace(place);
+          return true;
+        }
         if (Date.now() - lastLinkAt < 1000) throw new Error("one link a second");
         lastLinkAt = Date.now();
         return invoke("open_url", { url: url.href });
@@ -211,6 +224,30 @@
       },
     };
     return host;
+  }
+
+  // ── places on the World Map ───────────────────────────────────────────────
+
+  const WORLD_MAP = "world-map";
+  // The maps the World Map can show a place on, as it said when it started.
+  let placeMaps = new Set();
+
+  // What an Aion 2 Timers map link points at (Pet Soul Tracker's links, made
+  // to homelessguynabox/a2tools-integration's reference/map-links.md): its
+  // map, the monster (`pet`, its npc id) and its name, and the spawn the list
+  // measured from (`x`, `y`, game units). Null for any other link.
+  function mapPlace(url) {
+    if (!/^(www\.)?aion2timers\.com$/i.test(url.hostname) || !/^\/map\/?$/.test(url.pathname)) return null;
+    const q = url.searchParams;
+    const num = (key) => (q.has(key) && Number.isFinite(Number(q.get(key))) ? Number(q.get(key)) : null);
+    const place = { map: num("map"), npc: num("pet"), name: (q.get("petName") || "").slice(0, 80), x: num("x"), y: num("y") };
+    return place.map !== null ? place : null;
+  }
+
+  // The World Map's page, showing a place.
+  function showPlace(place) {
+    show(WORLD_MAP);
+    hosts.get(WORLD_MAP)?.hear({ event: "place", data: place });
   }
 
   // ── pages ─────────────────────────────────────────────────────────────────
@@ -298,6 +335,8 @@
         ${card("pvp-overlay", "Opponents, damage both ways, kills and sessions.")}
         ${card("fight-records", "Personal bests, recent fights, training runs and comparisons.")}
         ${card("dungeon-runs", "Clear times, deaths and everyone's numbers per run.")}
+        ${card("boss-telegraph", "A boss's lines and mechanics spoken aloud and shown in large text.")}
+        ${card("heal-alert", "For Clerics: a sound and a red banner when a party member's HP drops low.")}
       </div>
       <h2>World</h2>
       <div class="cards">
@@ -306,7 +345,7 @@
         ${card("pet-souls", "Souls still needed per pet, and where they drop.")}
       </div>
       <h2>Character</h2>
-      <div class="cards">${card("progression-guide", "Your gear, Daevanion boards and skills against the strongest of your class: what to improve first.")}${card("daily-planner", "What to do each day and week, with a reminder before a reset.")}</div>
+      <div class="cards">${card("progression-guide", "Your gear, Daevanion boards and skills against the strongest of your class: what to improve first.")}${card("daily-planner", "What to do each day and week, with a reminder before a reset.")}${card("alt-roster", "Every character you play: energy, dungeon entries left, the week's limits.")}</div>
       <p class="note">The meter is part of the overlay over the game, with the widgets; its fight history and settings open from the sidebar. Everything here keeps running with this window closed.</p>`;
     window.lucide?.createIcons?.({ root: home });
     for (const el of home.querySelectorAll("[data-go]")) el.addEventListener("click", () => show(el.dataset.go));
@@ -316,8 +355,7 @@
   // Where a module comes from, unless it comes with the app.
   const origin = (m) =>
     m.bundled ? ""
-    : m.replaces ? `Your installed copy, version ${m.version}: it runs instead of the one that comes with the app.`
-    : m.reviewed ? `Installed plugin, version ${m.version}.`
+    : m.replaces ? `From a folder (developer mode), version ${m.version}: it runs instead of the one that comes with the app.`
     : `From a folder (developer mode), version ${m.version}.`;
 
   function renderOverlay() {
@@ -464,7 +502,7 @@
     if (current === "home") renderHome();
   });
   listen("dashboard-show", (event) => show(String(event.payload || "home")));
-  // A plugin installed, removed, updated, or turned on or off (Settings).
+  // A plugin loaded, removed, reloaded, or turned on or off (Settings).
   listen("dashboard-modules", (event) => {
     const restart = Array.isArray(event.payload?.restart) ? event.payload.restart.map(String) : [];
     loadModules(restart)

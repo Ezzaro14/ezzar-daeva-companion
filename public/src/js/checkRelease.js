@@ -42,20 +42,20 @@
 
     const rawCurrent = String(window.dpsData.getVersion() || "").trim();
     const current = rawCurrent.startsWith("v") ? rawCurrent : "v" + rawCurrent;
-    console.log("[A2Tools] Update check: current =", current);
+    console.log("[Daeva] Update check: current =", current);
 
     let result;
     try {
       const raw = await window.__TAURI__.core.invoke("fetch_url", { url: CDN_MANIFEST });
       const m = JSON.parse(raw);
-      console.log("[A2Tools] Update manifest:", JSON.stringify(m));
+      console.log("[Daeva] Update manifest:", JSON.stringify(m));
       const v = m.version?.startsWith("v") ? m.version : "v" + m.version;
       // One package per platform; the backend picks the one it can install.
       result = { latest: v, msi: m.msiUrl || "", arch: m.archUrl || "", deb: m.debUrl || "", rpm: m.rpmUrl || "" };
       // SHA-256 of each package: the backend installs a download only when it matches.
       result.hashes = { msi: m.msiSha256 || "", arch: m.archSha256 || "", deb: m.debSha256 || "", rpm: m.rpmSha256 || "" };
     } catch (e) {
-      console.error("[A2Tools] Update check failed:", e);
+      console.error("[Daeva] Update check failed:", e);
       return { state: "failed" };
     }
 
@@ -70,7 +70,7 @@
 
     if (!hasUpdate) return { state: "current", latest };
 
-    console.log("[A2Tools] Update available:", current, "->", latest);
+    console.log("[Daeva] Update available:", current, "->", latest);
     const accepted = await window.__TAURI__.core.invoke("show_update_window", {
       current,
       latest,
@@ -95,14 +95,14 @@
         once = true;
         await check();
       } catch (e) {
-        console.error("[A2Tools] Update check error:", e);
+        console.error("[Daeva] Update check error:", e);
       }
     }, START_DELAY);
 
   // Settings' check: whenever asked, with what it found.
   const checkNow = () =>
     check().catch((e) => {
-      console.error("[A2Tools] Update check error:", e);
+      console.error("[Daeva] Update check error:", e);
       return { state: "failed" };
     });
 

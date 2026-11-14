@@ -1,10 +1,8 @@
 //! Plugins that ship with the meter, and the feed only they are given.
 //!
-//! Fork addition. The bundled plugins live in `bundled-plugins/` (a resource
-//! of the build) and load like reviewed ones: one installed from the
-//! catalog under the same id wins, so a newer upstream version replaces the
-//! bundled copy. Kept in this file, with a few calls from `mod.rs`, so
-//! upstream changes to the plugin host merge cleanly.
+//! The bundled plugins live in `bundled-plugins/` (a resource of the build)
+//! and are the app's modules: always loaded, unless a developer folder
+//! (developer mode) has the same id.
 //!
 //! The `feed:combat` permission gives a plugin what the bundled overlays are
 //! made of (`combat::combat_feed`):
@@ -275,11 +273,9 @@ pub fn dashboard_open(app: tauri::AppHandle, module: Option<String>) -> Result<(
 }
 
 /// The modules the dashboard shows and runs: every plugin that loads, on or
-/// off. The bundled ones, and any installed or developer copy, which runs
-/// instead of a bundled one of its id (`replaces`); such a copy of the Pet
-/// Soul Tracker was left out of the dashboard, so it seemed gone
-/// (2026-11-12). `path` and `version` tell the dashboard when a page is to
-/// run other files.
+/// off. The bundled ones, and any developer folder's, which runs instead of
+/// a bundled one of its id (`replaces`). `path` and `version` tell the
+/// dashboard when a page is to run other files.
 #[tauri::command]
 pub fn dashboard_modules(app: tauri::AppHandle) -> Result<Value, String> {
     let shipped: Vec<String> = dirs(&app)
@@ -309,7 +305,7 @@ pub fn dashboard_modules(app: tauri::AppHandle) -> Result<Value, String> {
     Ok(serde_json::json!({ "modules": modules }))
 }
 
-/// The plugins changed (installed, removed, updated, turned on or off): the
+/// The plugins changed (loaded, removed, reloaded, turned on or off): the
 /// dashboard reads its modules again, starting and stopping pages to match,
 /// and runs `restart`'s anew.
 pub fn modules_changed(app: &tauri::AppHandle, restart: &[String]) {
@@ -418,7 +414,8 @@ fn show_all(app: &tauri::AppHandle, shown: bool) {
 /// Where a bundled plugin's widget goes the first time, as fractions of the
 /// overlay (its centre's x, its top's y), so a first Edit layout does not
 /// stack them all in one place: notices at the top, a stun just above the
-/// character, bars at the bottom, timers down the left.
+/// character, bars at the bottom, timers down the left, boss callouts above
+/// the bars, Heal Alert's banner on the left, Roster's energy pop-up top right.
 pub fn default_place(id: &str, name: &str) -> Option<(f64, f64)> {
     Some(match (id, name) {
         ("notices", _) => (0.5, 0.06),
@@ -429,6 +426,9 @@ pub fn default_place(id: &str, name: &str) -> Option<(f64, f64)> {
         ("pvp-overlay", _) => (0.86, 0.3),
         ("combat-assist", _) => (0.5, 0.74),
         ("ping", _) => (0.95, 0.015),
+        ("boss-telegraph", _) => (0.5, 0.6),
+        ("heal-alert", _) => (0.2, 0.55),
+        ("alt-roster", _) => (0.86, 0.12),
         ("event-timers", "bosses") => (0.9, 0.5),
         ("event-timers", _) => (0.06, 0.2),
         _ => return None,

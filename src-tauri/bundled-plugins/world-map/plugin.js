@@ -224,7 +224,7 @@ function markersNow() {
   for (const k of m.kibelisks || []) add("kibelisk", k, "kibelisk", k.name, { kind: "Kibelisk (teleport)" });
   // The map's own pet soul monsters, with every spot, replace these.
   for (const mon of pack?.kinds.pet ? [] : m.monsters || []) {
-    add("monster", mon, "monster", mon.name, { kind: `Pet soul monster · level ${mon.level ?? "?"}`, more: `Souls for ${mon.pets.join(", ")} · ${mon.spawns ?? "?"} spawns · near ${mon.kibelisk}` });
+    add("monster", mon, "monster", mon.name, { kind: `Pet soul monster · level ${mon.level ?? "?"}`, more: `Souls for ${mon.pets.join(", ")} · ${mon.spawns ?? "?"} spawns · near ${mon.kibelisk}`, npc: mon.npcId });
   }
   for (const b of m.bosses || []) {
     const spot = data.bossSpots[b.name] || packBosses[b.name];
@@ -1594,6 +1594,74 @@ a2.on("bossMap", (m) => {
   if (m?.bosses) Object.assign(bossTimers, m.bosses);
   renderBosses();
 });
+
+// A place another module asks to show: Pet Soul Tracker's map links, which
+// the dashboard brings here instead of opening Aion 2 Timers' map in the
+// browser. `map`, the monster (`npc`, its npc id) and its `name`, and the
+// spawn the list measured from (`x`, `y`): that monster's spot nearest the
+// spawn is centered close in and picked, its layer turned on; with no such
+// spot, the spawn itself.
+a2.on("place", (p) => {
+  showPlace(p || {}).catch((e) => console.warn("[world-map] place", e));
+});
+async function showPlace(p) {
+  await started;
+  const id = baseMap(Number(p.map) || 0);
+  if (!MAPS[id]) return;
+  if (id !== mapId) await openMap(id);
+  if (follow) {
+    follow = prefs.follow = false;
+    $(".follow").setAttribute("aria-pressed", "false");
+  }
+  $(".search").value = "";
+  const hasSpawn = Number.isFinite(p.x) && Number.isFinite(p.y);
+  const away = (x, y) => (hasSpawn ? (x - p.x) ** 2 + (y - p.y) ** 2 : 0);
+  let spot = null;
+  const petLayer = PACK_LAYERS.find((l) => l.key === "pet");
+  if (pack?.kinds.pet && petLayer) {
+    // The map file's pet soul monsters, every spawn of each.
+    let best = null;
+    for (const e of pack.entries) {
+      if (e.k !== "pet" || e.id !== p.npc) continue;
+      for (let j = 0; j < e.xy.length; j += 2) {
+        const d = away(e.xy[j], e.xy[j + 1]);
+        if (!best || d < best.d) best = { d, e, x: e.xy[j], y: e.xy[j + 1] };
+      }
+    }
+    if (best) {
+      if (!kindOn(petLayer, best.e.n)) prefs.packKind = { ...(prefs.packKind || {}), [kindKey("pet", best.e.n)]: true };
+      spot = dotSelection({ e: best.e, l: petLayer, x: best.x, y: best.y });
+    }
+  } else if (p.npc !== null && p.npc !== undefined) {
+    prefs.layers.monster = true;
+    spot = markersNow()
+      .filter((mk) => mk.info?.npc === p.npc)
+      .sort((a, b) => away(a.x, a.y) - away(b.x, b.y))[0] || null;
+  }
+  if (!spot && hasSpawn) {
+    spot = { x: p.x, y: p.y, label: p.name || "Pet soul monster", info: { kind: "Pet soul monster", more: "From Pet Soul Tracker's map link" } };
+  }
+  store("prefs", prefs);
+  renderSide();
+  await viewSized();
+  if (!spot) return void fitView();
+  closeIn();
+  centerView(spot.x, spot.y);
+  select(spot);
+}
+
+// The view laid out at its size: the dashboard shows this page as it asks
+// for a place, and until then the hidden page's view measures 0, which
+// centered the place in its top-left corner.
+async function viewSized() {
+  for (let i = 0; i < 60 && !(vp.getBoundingClientRect().width > 0); i++) await new Promise((r) => setTimeout(r, 16));
+}
+
+// Close enough in to tell one spawn from the next, if the map is farther out.
+function closeIn() {
+  if (followZoom() || calibrated() || image) return;
+  view.zoom = Math.min(8, Math.max(view.zoom, GRID_SCALE / 60));
+}
 setInterval(readTimers, 60_000);
 setInterval(() => {
   if (!$(".bossList")?.hidden) renderBosses();
@@ -1649,10 +1717,13 @@ function setAllLayers(on) {
 $(".allOn").addEventListener("click", () => setAllLayers(true));
 $(".allOff").addEventListener("click", () => setAllLayers(false));
 
-(async () => {
+// Started (the map last shown is open): a place asked for waits for it.
+const started = (async () => {
   const stored = await a2.storage.get("prefs").catch(() => null);
   if (stored) prefs = { ...prefs, ...stored, layers: { ...prefs.layers, ...(stored.layers || {}) } };
   a2.ready();
+  // Pet Soul Tracker's map links to these maps come here (a2.on("place")).
+  a2.map.places?.(Object.keys(MAPS).map(Number)).catch(() => {});
   await openMap(prefs.map ?? 1010);
   applySide();
   applyNames();

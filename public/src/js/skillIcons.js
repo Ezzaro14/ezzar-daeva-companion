@@ -298,7 +298,7 @@
           unavailable.add(url);
           logFailure(`not found (${err.status}); using fallback: ${url}`);
         } else {
-          console.debug(`[A2Tools] Skill icon: cache download failed (${err?.message || err}); trying direct image: ${url}`);
+          console.debug(`[Daeva] Skill icon: cache download failed (${err?.message || err}); trying direct image: ${url}`);
         }
         return null;
       })

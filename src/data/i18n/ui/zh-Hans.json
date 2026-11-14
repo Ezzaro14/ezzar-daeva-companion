@@ -219,15 +219,6 @@
     "viewGrouped": "按首领分组",
     "fightCount": "{n} 场",
     "fightCountOne": "1 场",
-    "previewUpload": "预览上传内容",
-    "previewUploadTip": "把分享这场战斗时会上传的内容写成文件。不会发送。",
-    "previewWorking": "正在生成预览…",
-    "previewDone": "已写入 {slice} KB（压缩后 {sent} KB，即实际上传大小）。在 {seen} 个数据包中保留 {kept} 个，已遮蔽 {blinded} 个名称。没有上传任何内容。保存于 {dir}",
-    "uploadTip": "将这场战斗上传到 a2tools.app 并获取分享链接",
-    "uploadOpen": "在 a2tools.app 打开这场战斗的记录",
-    "uploadWorking": "上传中…",
-    "uploadDonePublic": "已上传。链接已复制：{url}",
-    "uploadDonePrivate": "已以私密方式上传。链接已复制：{url}",
     "openWorld": "野外"
   },
   "settings": {
@@ -288,17 +279,8 @@
     "playerLimit": {
       "label": "最大显示人数"
     },
-    "partyPresence": "显示队伍中的 A2Tools 用户",
-    "shareBossTimers": "分享野外首领计时",
     "debugLogging": "调试日志",
     "quit": "退出",
-    "discord": {
-      "title": "Discord",
-      "activity": "在 Discord 显示我正在玩的内容",
-      "activityHint": "AION2 打开时，你的 Discord 状态会显示角色名、职业、等级、服务器，以及正在对战的首领。通过这台电脑上的 Discord 应用显示，不需要账号。选择 Discord 中显示的数值后，还会显示战斗力或装备分数。",
-      "stat": "Discord 中显示的数值",
-      "statHint": "Discord 状态中显示在等级后面的数值。"
-    },
     "streamOverlay": {
       "title": "直播",
       "enable": "直播叠加层（另一台电脑上的 OBS）",
@@ -350,7 +332,6 @@
     "textureOffset": "错开纹理",
     "barTexture": {
       "label": "条形纹理",
-      "supportersOnly": "支持者专属：在上方的 A2 Tools 账号中登录即可使用。",
       "options": {
         "none": "无",
         "flames": "烈焰",
@@ -418,7 +399,7 @@
       "toggle": "显示/隐藏窗口",
       "pressKeys": "请按下按键...",
       "tooManyKeys": "最多 3 个键",
-      "plugins": "找回插件窗口",
+      "plugins": "显示或隐藏仪表板",
       "notSet": "未设置",
       "restoreDefaults": "恢复默认",
       "hint": "点击一个快捷键，然后按下 1 到 3 个键。按 Esc 取消。",
@@ -443,31 +424,6 @@
         "all": "全部",
         "highestDamage": "最高伤害"
       }
-    },
-    "showSupporterColors": "显示赞助者颜色",
-    "showSupporterColorsHint": "赞助者的名字显示为金色。仅为外观，不会改变任何数值。",
-    "account": {
-      "title": "A2 Tools 账号",
-      "signedOut": "未登录",
-      "signedIn": "已登录：{name}",
-      "hint": "登录后可将角色与设置同步到 a2tools.app。",
-      "connect": "登录",
-      "signOut": "退出登录",
-      "codePrompt": "请在浏览器中确认此代码：",
-      "codeHint": "页面应该已经打开。代码将在 10 分钟后失效。",
-      "working": "等待确认…",
-      "failed": "登录失败：{error}",
-      "supporter": "赞助者",
-      "autoUpload": "自动上传首领战",
-      "autoUploadHint": "首领战结束时会以你在 a2tools.app 选择的公开设置上传到你的账号。其他玩家的名称会被遮蔽。木桩战斗不会上传。"
-    },
-    "sendLogs": {
-      "hint": "将最新的 3 个数据包日志发送给开发者，用于反馈问题。",
-      "button": "发送日志给开发者",
-      "confirm": "要将最新的 3 个数据包日志发送给 A2 Tools 开发者吗？\n\n数据包日志是开启数据包记录期间录下的原始游戏通信，包含角色名称。只有开发者能打开，并会在 30 天后删除。",
-      "sending": "发送中...",
-      "sent": "已发送。你的反馈代码是 {code}，请在 Discord 上告诉开发者。",
-      "failed": "无法发送：{error}"
     },
     "barGap": {
       "label": "条形间距"
@@ -495,18 +451,16 @@
       "meterSaturation": "条形颜色的浓淡：调低更柔和，调高更鲜艳。",
       "bossNameSize": "条形上方首领或目标名称的大小。",
       "partyStat": "在计量器和详情中显示在每位玩家名称旁的数字。只有你自己队伍的成员才有。",
-      "barTexture": "为计量条加上纹理，感谢您对 A2 Tools 的支持。",
+      "barTexture": "为计量条加上纹理。",
       "textureOffset": "每条的纹理从不同位置开始，让各条看起来不一样。",
       "trainingMode": "训练模式下详情窗口显示哪些木桩：全部一起，或只显示你打得最多的那个。",
       "allTargetsWindow": "全部目标模式下，计量器汇总最后一次命中前这段时间内命中的所有目标。",
       "updateRate": "统计数字多久刷新一次。越快越早显示伤害，但占用更多 CPU。",
-      "partyPresence": "同样使用 A2Tools 的队友会在你的名字旁看到小小的 A2 标记，你也会看到他们的。队伍中任何使用 A2Tools 的人都看得到，因此会知道你使用第三方计量器。只会发送角色名称与服务器的哈希值。",
-      "shareBossTimers": "通过 a2tools.app（及合作伙伴 Aion 2 Timers）与其他玩家分享野外首领计时：打开地图时图上的首领，以及你看到被击杀的野外首领，以及战斗中首领的 HP。只会发送服务器、首领、时间与 HP。",
       "debugLogging": "写入开发者用于排查问题的诊断日志。",
       "saveRawPackets": "记录原始游戏流量以便提交错误报告。调试日志会随之开启。",
       "globalHotkeys": "下面的按键在游戏处于前台时也能使用。关闭后，这些按键会释放给其他程序。在 Linux 上由桌面注册这些按键，桌面可能会请你批准。",
       "pluginDevMode": "从这台电脑上的文件夹加载插件，用于开发和测试。这些插件未经审核，请只加载你信任的插件。",
-      "showMeter": "关闭：只显示插件。统计仍在后台记录战斗并上传。可在此处、用显示/隐藏快捷键，或插件窗口上的统计按钮重新显示。",
+      "showMeter": "关闭：只显示插件。统计仍在后台记录战斗。可在此处、用显示/隐藏快捷键，或仪表板上的 Meter 按钮重新显示。",
       "clearOnZone": "切换区域后，何时从统计中清除上一场战斗。所有战斗都会保留在历史记录中。",
       "hideWhenGameClosed": "游戏未运行时隐藏计量器，游戏启动后再次显示。"
     },
@@ -527,43 +481,18 @@
       "devMode": "插件开发者模式",
       "hint": "此处加载的插件未经审核。请只加载你信任的插件。",
       "add": "加载插件文件夹…",
+      "reload": "重新加载文件夹",
       "open": "打开",
       "remove": "移除",
-      "checkUpdates": "检查更新",
+      "modules": "模块",
       "checking": "正在检查…",
       "upToDate": "所有插件均为最新。",
       "updated": "已更新：{list}",
       "updatedFrom": "已从 {version} 更新",
       "added": "新加载",
-      "intro": "经过审核的插件可在计量器旁添加功能。每个插件只能获得安装时请求的内容。",
-      "installed": "已安装",
+      "intro": "应用自带的模块。关闭的模块不会运行。",
       "none": "尚未安装插件。",
-      "available": "可用",
-      "catalogLoading": "正在加载插件列表…",
-      "catalogEmpty": "所有经过审核的插件均已安装。",
-      "catalogError": "无法加载插件列表：{error}",
-      "offline": "离线版不会下载插件。",
-      "install": "安装",
-      "update": "更新",
-      "updateTo": "更新到 {version}",
-      "installing": "正在安装…",
-      "installDone": "{name} {version} 已安装。",
-      "updatesAvailable": "有可用更新：{list}",
       "unreviewed": "开发",
-      "by": "作者：{author}",
-      "consentTitle": "安装 {name}？",
-      "consentUpdateTitle": "更新 {name}？",
-      "consentIntro": "它将能够：",
-      "consentNew": "新版本还请求：",
-      "consentCancel": "取消",
-      "permStorage": "在此电脑上保存自己的数据",
-      "permNotify": "在自己的窗口中显示简短消息",
-      "permWindow": "显示和隐藏自己的窗口，不会抢走游戏的焦点",
-      "permWidgets": "显示可随意移动并锁定位置的小窗口",
-      "permBossTimers": "读取玩家通过 a2tools.app 分享的野外首领计时",
-      "permCharacter": "查看你角色的名称、服务器、职业和等级",
-      "permDecoder": "读取你自己的游戏数据：{name}",
-      "permNone": "除显示窗口外不做其他事",
       "enabled": "启用",
       "enabledTip": "开启：随计量器启动。关闭：保持安装，但不运行。",
       "showMeter": "显示 DPS 统计",
@@ -579,32 +508,6 @@
       }
     }
   },
-  "support": {
-    "button": "支持我一下",
-    "title": "在爱发电支持作者",
-    "linksHint": "Ko-fi、Patreon、爱发电和 PayPal 会在浏览器中打开其网站；加密货币按钮会复制地址。",
-    "perks": "每赞助 $5 可获得 12 个月的赞助者福利，单笔最多 2 年。请在 Ko-fi 留言中填入 A2 Tools 账号页面上的代码，或在 Patreon 使用相同的电子邮件。",
-    "titleWechat": "在微信支持作者",
-    "label": {
-      "wechat": "微信"
-    },
-    "copy": {
-      "btc": "已复制 BTC 地址",
-      "eth": "已复制 ETH 地址",
-      "usdc": "已复制 USDC 地址"
-    },
-    "aria": {
-      "afdian": "打开爱发电",
-      "kofi": "打开 Ko-fi",
-      "patreon": "打开 Patreon",
-      "close": "关闭支持弹窗",
-      "wechat": "显示微信二维码",
-      "paypal": "打开 PayPal",
-      "btc": "复制 BTC 地址",
-      "eth": "复制 ETH 地址",
-      "usdc": "复制 USDC 地址"
-    }
-  },
   "battleTime": {
     "analysing": "监控中",
     "ttkTooltip": "根据首领剩余生命值和队伍伤害估算的整场战斗时长",
@@ -615,7 +518,6 @@
   },
   "meter": {
     "identifyingPlayer": "#{id}",
-    "a2toolsUser": "使用 A2Tools",
     "dpsSuffix": "/秒",
     "others": "其他"
   },
@@ -663,51 +565,9 @@
       "level": "第 {n} 阶"
     }
   },
-  "presence": {
-    "level": "Lv {level}",
-    "combatPower": "战斗力 {cp}",
-    "gearScore": "装备分数 {gs}",
-    "fighting": "正在挑战 {boss}",
-    "inGame": "游戏中",
-    "elyos": "天族",
-    "asmodian": "魔族",
-    "korea": "韩国",
-    "taiwan": "台湾",
-    "tierExpedition": "远征",
-    "tierConquestNormal": "征服（普通）",
-    "tierConquestHard": "征服（困难）"
-  },
-  "partyPromo": {
-    "title": "新功能：看见队伍中的 A2Tools 用户",
-    "text": "同样使用 A2Tools 的队友名字旁会出现小小的 A2 标记，他们的计量器上你的名字旁也会有。",
-    "hint": "队伍中任何使用 A2Tools 的人都能看出你使用第三方计量器。只会发送角色名称与服务器的哈希值。可随时在设置中更改。"
-  },
-  "discordPromo": {
-    "title": "新功能：Discord 状态显示",
-    "text": "在 Discord 状态中向好友显示你的角色、职业、等级、服务器，以及所在的首领战或副本。",
-    "hint": "通过这台电脑上的 Discord 应用显示，不需要账号。可随时在设置中更改。",
-    "done": "完成",
-    "close": "关闭"
-  },
-  "accountPromo": {
-    "title": "把首领战记录保存在 a2tools.app",
-    "text": "创建免费账号或登录，每场首领战都会保存在线上：每场都有可分享的链接，任何设备都能查看记录，还能登上排行榜。",
-    "hint": "其他玩家的名称会被遮蔽，训练假人的战斗不会上传。可随时在设置中更改。",
-    "signIn": "登录",
-    "later": "以后再说",
-    "close": "关闭"
-  },
   "npcapPrompt": {
     "ask": "Ezzar's Daeva Companion 需要 Npcap 来读取游戏的网络流量，但 Npcap 未安装或无法使用。\n\n现在安装吗？本工具会从 npcap.com 下载 Npcap 安装程序并打开它。Npcap 安装完成后，本工具会自动开始捕获。\n\n选择“否”可自行从 https://npcap.com/#download 安装。",
     "downloadFailed": "无法下载 Npcap 安装程序（{error}）。\n\n请自行从 https://npcap.com/#download 安装，然后重新打开本工具。",
     "stillMissing": "Npcap 仍然无法使用。如果安装程序在完成前被关闭，请从 https://npcap.com/#download 安装 Npcap，然后重新打开本工具。"
-  },
-  "pluginUpdatePrompt": {
-    "title": "A2Tools - 插件更新",
-    "one": "有一个插件更新可用：",
-    "many": "有插件更新可用：",
-    "alsoAsks": "新版本还要求：",
-    "updateNow": "现在更新吗？",
-    "failed": "无法更新："
   }
 }

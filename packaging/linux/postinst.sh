@@ -3,8 +3,8 @@
 # src-tauri/tauri.conf.json, bundle.linux.deb). Packet capture needs
 # CAP_NET_RAW; grant it to the installed binary so the meter never has to run
 # as root. A new binary (every upgrade) needs it again. The Arch package does
-# the same in packaging/arch/a2tools-dps-meter.install; the .rpm declares it in
-# the package instead (packaging/linux/a2-tools-dps-meter.spec).
+# the same in packaging/arch/daeva-companion/daeva-companion.install; the .rpm
+# declares it in the package instead (packaging/linux/daeva-companion.spec).
 
 BIN=/usr/bin/daeva-companion
 

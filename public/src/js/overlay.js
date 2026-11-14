@@ -185,7 +185,7 @@
       if (r.width > 0 && r.height > 0) rects.push([r.left, r.top, r.width, r.height]);
     };
     document.querySelectorAll(
-      ".updateModal.isOpen .updateModalCard, .discordPromo.isOpen .discordPromoCard, .supportModal.isOpen .supportModalCard",
+      ".updateModal.isOpen .updateModalCard",
     ).forEach(take);
     if (!meter.box || meterHidden()) return rects;
     const m = meterEl();
@@ -570,7 +570,7 @@
   // back the mouse there at once.
   if (typeof MutationObserver === "function") {
     const cards = new MutationObserver(() => meterChanged());
-    document.querySelectorAll(".updateModal, .discordPromo, .supportModal")
+    document.querySelectorAll(".updateModal")
       .forEach((card) => cards.observe(card, { attributes: true, attributeFilter: ["class"] }));
   }
 

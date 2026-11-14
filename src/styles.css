@@ -4,12 +4,6 @@
   100% { transform: scale(1); opacity: 1; }
 }
 
-@keyframes a2toolsShimmer {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
 :root {
   /* Bars */
   --row-fill: #5fbf87;
@@ -870,7 +864,7 @@ html:not(.hoverStale) .list .item:hover { background: rgba(255, 255, 255, 0.075)
 .list .item.warning .fill { --bar: var(--warning-fill); }
 .list .item.error .fill { --bar: var(--error-fill); }
 
-/* Bar textures, a supporter's perk (core.js applyBarTexture sets
+/* Bar textures (core.js applyBarTexture sets
    data-bar-texture). Generated: each is a painted SVG tile drawn at its own
    size (40px tall), repeating along the bar from its left end, so a longer
    bar shows more of it rather than a stretched copy. The greyscale ones are
@@ -1855,22 +1849,6 @@ body.mainPlayerDpsBold :is(.meter, .barPreviewPanel) .item .content .dps > p {
   line-height: 1.2;
   color: var(--hud-sub);
 }
-/* Send Logs to Dev: what it sends, then the button, centred under the
-   logging switches. The line also reports the result (core.js
-   initSendLogs), which the hidden-by-default hint never showed. */
-.settingsPanel .sendLogsRow {
-  flex-direction: column;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 0 6px;
-  text-align: center;
-}
-.settingsPanel .sendLogsRow .settingsInfo { align-items: center; }
-.settingsPanel .sendLogsRow .sendLogsStatus {
-  display: block;
-  max-width: 46ch;
-  text-wrap: balance;
-}
 /* Debug logging while packet logging holds it on (core.js syncLoggingLock). */
 .settingsPanel .settingsToggle.isLocked {
   opacity: 0.55;
@@ -1985,16 +1963,6 @@ body.mainPlayerDpsBold :is(.meter, .barPreviewPanel) .item .content .dps > p {
   flex: 0 0 68px;
   width: 68px;
 }
-.settingsPanel .accountRow .accountState {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.settingsPanel .accountRow .accountState.isLong {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
 /* ---------- readouts ---------- */
 
 .settingsPanel .settingsValue {
@@ -2507,11 +2475,7 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   cursor: pointer;
 }
 
-/* One geometry for the three outbound links; only the fill tells them
-   apart, and none of them is louder than the panel it sits in. */
-.settingsPanel .discordButton,
-.settingsPanel .supportButton,
-.settingsPanel .a2toolsButton,
+/* The footer's button. */
 .settingsPanel .quitButton {
   height: 28px;
   box-sizing: border-box;
@@ -2530,40 +2494,6 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   cursor: pointer;
   transition: filter 120ms ease, background 120ms ease, border-color 120ms ease;
 }
-.settingsPanel .discordButton {
-  background: #5865f2;
-}
-.settingsPanel .supportButton {
-  background: linear-gradient(90deg, #7f5fe8, #6f4cd8);
-}
-.settingsPanel .a2toolsButton {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899, #6366f1);
-  background-size: 300% 300%;
-  animation: a2toolsShimmer 6s ease infinite;
-}
-.settingsPanel .discordButton:hover,
-.settingsPanel .supportButton:hover,
-.settingsPanel .a2toolsButton:hover {
-  filter: brightness(1.12);
-}
-.settingsPanel .discordButton .discordIcon,
-.settingsPanel .supportButton .supportIcon {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  width: 15px;
-  height: 15px;
-}
-.settingsPanel .discordButton .discordIcon svg {
-  width: 100%;
-  height: 100%;
-  fill: currentColor;
-}
-.settingsPanel .supportButton .supportIcon svg {
-  width: 100%;
-  height: 100%;
-}
-
 /* Quit is destructive, so it is outlined rather than filled — present,
    but never the brightest thing in the footer. */
 .settingsPanel .quitButton {
@@ -2579,7 +2509,6 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .settingsPanel .a2toolsButton { animation: none; }
   .settingsPanel .keybindBtn.recording { animation: none; }
   .settingsPanel .settingsToggleTrack::after { transition: none; }
 }
@@ -2840,277 +2769,6 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 .historyList {
   max-height: 540px;
   overflow-y: auto;
-}
-/* The dry-run button. Unlike the delete button it is always visible: previewing
-   what an upload contains is a thing you should be able to do without first
-   entering a mode that exists to make deletion deliberate. */
-/* Supporter names. Cosmetic only: never the bar, never the ordering, never a
-   number — a meter that flatters whoever paid is not one anyone should trust.
-   One rule per layout because Standard and Slim are one DOM under the
-   .meter.slim switch, and each sets its own name colour.
-
-   Two layers, and the split is deliberate. The base rule is a plain gold with
-   the standard name shadow, which is what keeps the text readable over whatever
-   the game happens to be drawing underneath. The sweep is added on top only
-   where the browser can clip a gradient to text — if that ever fails, the name
-   is still gold and still legible rather than turning invisible. */
-.meter .item .content .name.isSupporter,
-.detailsPanel .detailsPartyBarName.isSupporter,
-.hoverDetailsTooltipHeader .isSupporter {
-  /* !important for the details party bars, which set colour inline from
-     jobColorMap and would otherwise win. Their selector carries .detailsPanel
-     because `.detailsPanel .detailsPartyBarName` comes later with the same
-     weight: its name shadow then showed through the transparent glyphs of
-     the sweep and the name turned dark instead of gold. */
-  color: var(--supporter-name, #ffcf5c) !important;
-  text-shadow:
-    0 0 1px rgba(0, 0, 0, 1),
-    0 1px 1.5px rgba(0, 0, 0, 1),
-    0 0 6px rgba(255, 191, 60, 0.45),
-    var(--player-name-shadow, var(--text-shadow));
-}
-
-/* A party member who runs A2Tools too (party_presence.rs): a small "A2" tag
-   after the name, in the meter's cyan, quieter than the supporter crown. */
-.a2toolsBadge {
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  margin-left: -3px;
-  padding: 0 3px;
-  height: 12px;
-  border-radius: 3px;
-  border: 1px solid rgba(110, 215, 255, 0.75);
-  background: rgba(10, 30, 45, 0.55);
-  color: #8fe3ff;
-  font: 700 8.5px/1 var(--hud-tech, sans-serif);
-  letter-spacing: 0.02em;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
-}
-.meter.slim .a2toolsBadge {
-  height: 10px;
-  font-size: 7.5px;
-}
-
-/* The supporter badge — a gold crown beside the name, outlined dark so it
-   stays clear on a bar texture.
-   Deliberately an icon and not a "PATRON" pill: the slim layouts run an 11.5px
-   name in a 398px window, and a word here would push real numbers off the row.
-   It shares the sweep so badge and name read as one mark rather than two. */
-.supporterBadge {
-  align-items: center;
-  justify-content: center;
-  /* Tucked in against the name: the row's own gap is wider than a mark wants. */
-  margin-left: -3px;
-  flex: 0 0 auto;
-  color: #ffe08a;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 4px rgba(255, 205, 90, 0.75));
-  line-height: 0;
-}
-
-.meter.slim .supporterBadge svg {
-  width: 12px;
-  height: 12px;
-}
-
-/* A supporter's row carries a gold hairline along its foot, fading out to the
-   right: visible at a glance in every layout, and still. The left edge is
-   your own row's rail. Nothing here loops: the meter is a transparent window
-   over the game, and anything that never stops animating has it redrawn every
-   frame (an endless sweep and glow cost about 5% CPU, 2026-10-07). */
-.list .item.isSupporterRow::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 1px;
-  z-index: 2;
-  pointer-events: none;
-  background: linear-gradient(90deg, rgba(255, 214, 110, 0.95) 0%, rgba(255, 214, 110, 0.35) 45%, rgba(255, 214, 110, 0) 80%);
-}
-
-/* A narrow bright band travelling across a warm gold base. The band is only a
-   few percent of the gradient, so most of the time most of the name is plain
-   gold — it reads as an occasional glint rather than a flashing element sitting
-   on top of someone's game.
-
-   The range is 100%→0% and not something wider, and that is load bearing rather
-   than arbitrary. With `background-size` above 100% the image is wider than the
-   text, and percentage positioning maps 0%/100% to "flush left"/"flush right",
-   so anywhere in that range the gradient still covers every glyph. Positions
-   outside it scroll the image clear of the text, and since the fill is
-   transparent and clipped to the gradient, the name simply disappears for part
-   of every cycle — which is exactly what the first version of this did.
-   The metal underneath is its own layer at 100%, so the name stays gold
-   wherever the shine is. */
-@keyframes a2toolsGoldSweep {
-  from { background-position: 100% 50%, 0 0; }
-  to   { background-position: 0% 50%, 0 0; }
-}
-
-@supports ((background-clip: text) or (-webkit-background-clip: text)) {
-  .meter .item .content .name.isSupporter,
-  .detailsPanel .detailsPartyBarName.isSupporter,
-  .hoverDetailsTooltipHeader .isSupporter {
-    /* Two highlight bands, not one. The element only ever shows about a third of
-       the gradient at a time, so with a single band most of the cycle is flat
-       gold and the effect reads as a rare glint. A second band roughly opposite
-       it means one is nearly always crossing the name. Both ends are the same
-       gold so the wrap stays invisible. */
-    /* Two layers, clipped to the glyphs. Underneath, polished metal: light
-       along the top of the letters, deep amber at the foot, a little bounce
-       light at the very bottom. On top, a narrow white shine that sweeps
-       across once (a2toolsGoldSweep) and comes to rest past the end. */
-    background-image:
-      linear-gradient(
-        /* Steeper than the usual near-horizontal sweep so the band reads as a
-           diagonal shine crossing the glyphs rather than a bar sliding sideways. */
-        115deg,
-        rgba(255, 255, 255, 0) 0%,
-        rgba(255, 255, 255, 0) 40%,
-        rgba(255, 252, 235, 0.95) 48%,
-        rgba(255, 255, 255, 1) 50%,
-        rgba(255, 252, 235, 0.95) 52%,
-        rgba(255, 255, 255, 0) 60%,
-        rgba(255, 255, 255, 0) 100%
-      ),
-      linear-gradient(
-        180deg,
-        #fffdf0 0%,
-        #fff0b0 18%,
-        #ffd34f 42%,
-        #f0a92c 62%,
-        #c27a16 82%,
-        #ffd977 100%
-      );
-    background-size: 300% 100%, 100% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    /* text-shadow paints *behind* the glyph, so with a transparent fill it
-       shows through the letters and turns them muddy. drop-shadow works on the
-       composited result instead, which is what keeps the name readable once the
-       gradient is doing the colouring. */
-    text-shadow: none;
-    /* One crisp bronze edge and a short shadow, so the gold reads over bright
-       and gold bars without a heavy black halo; then a warm glow. */
-    filter:
-      drop-shadow(0 0 0.7px rgba(50, 25, 0, 1))
-      drop-shadow(0 1px 1px rgba(20, 10, 0, 0.8))
-      drop-shadow(0 0 6px rgba(255, 210, 100, 0.45));
-    /* Once, when the name turns gold (a supporter joins the meter), then it
-       holds with the shine past the end of the name. */
-    animation: a2toolsGoldSweep 2.4s ease-out 1 both;
-  }
-  /* Still gold in Details. Each frame of the sweep repainted the page around
-     the name, ~150 ms of every 250 for its 2.4 s, and a fight's window would
-     not move until it ended (2026-10-18). A layer of its own made it worse. */
-  .detailsPanel .detailsPartyBarName.isSupporter {
-    animation: none;
-    background-position: 0% 50%, 0 0;
-  }
-}
-
-/* On a bright bar (gold, yellow, pale: meter.js isBrightColor) the gold has
-   little to stand against: a firmer bronze edge, still no black halo. */
-@supports ((background-clip: text) or (-webkit-background-clip: text)) {
-  .meter .item .content .name.isSupporter.onBright {
-    filter:
-      drop-shadow(0 0 0.7px rgba(45, 20, 0, 1))
-      drop-shadow(0 0 0.7px rgba(45, 20, 0, 0.9))
-      drop-shadow(0 1px 1.2px rgba(20, 8, 0, 0.9))
-      drop-shadow(0 0 5px rgba(255, 210, 100, 0.35));
-  }
-}
-
-/* Someone who has asked their OS for less motion should not get a name that
-   never stops moving. Keep the gradient — it still looks gold — and stop it. */
-@media (prefers-reduced-motion: reduce) {
-  .meter .item .content .name.isSupporter,
-  .detailsPanel .detailsPartyBarName.isSupporter,
-  .hoverDetailsTooltipHeader .isSupporter {
-    animation: none;
-    background-position: 0% 50%, 0 0;
-  }
-}
-
-/* The device-grant code. Shown rather than hidden behind the browser: opening
-   the page can fail — a default browser that is not set, a popup blocker, a
-   locked-down machine — and when it does the code is the only way back into the
-   flow. Monospaced and spaced out because people read it aloud and retype it. */
-.accountCodeBox {
-  margin-top: 8px;
-  padding: 9px 11px;
-  border-radius: 6px;
-  background: rgba(127, 196, 255, 0.08);
-  border: 1px solid rgba(127, 196, 255, 0.22);
-}
-
-.accountCodeLabel,
-.accountCodeHint {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.accountCode {
-  font-family: Consolas, "SF Mono", ui-monospace, monospace;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  color: #cfe6ff;
-  margin: 5px 0;
-  user-select: text;
-}
-
-.accountCodeHint {
-  margin-top: 2px;
-  opacity: 0.8;
-}
-
-.historyPreviewBtn {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.45);
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  &:hover {
-    color: #7fc4ff;
-    background: rgba(127, 196, 255, 0.12);
-  }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-}
-
-.historyUploadBtn.isUploaded {
-  color: #6ee7a8;
-}
-
-.historyPreviewNote {
-  display: none;
-  margin: 0 12px 8px;
-  padding: 7px 10px;
-  border-radius: 5px;
-  font-size: 11px;
-  line-height: 1.45;
-  color: rgba(255, 255, 255, 0.72);
-  background: rgba(127, 196, 255, 0.09);
-  border: 1px solid rgba(127, 196, 255, 0.22);
-  word-break: break-word;
-
-  &.isError {
-    color: #ffb4b4;
-    background: rgba(224, 107, 107, 0.1);
-    border-color: rgba(224, 107, 107, 0.3);
-  }
 }
 
 .historyDeleteBtn {
@@ -4898,307 +4556,6 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   text-align: center;
   font-size: 14px;
 }
-/* One-time Discord activity popup (core.js maybeShowDiscordPromo). */
-.discordPromo {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  z-index: 9;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-}
-.discordPromo.isOpen {
-  display: flex;
-}
-.discordPromo .discordPromoCard {
-  width: min(360px, 95vw);
-  border-radius: 18px;
-  background: rgb(12, 22, 40);
-  padding: 20px;
-  color: white;
-  position: relative;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  text-align: center;
-}
-.discordPromo .discordPromoTitle {
-  font-size: 18px;
-  font-weight: 700;
-  padding: 0 28px;
-}
-.discordPromo .discordPromoText,
-.discordPromo .discordPromoHint {
-  font-size: 13px;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.85);
-}
-.discordPromo .discordPromoHint {
-  font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.6);
-}
-.discordPromo .discordPromoPreview {
-  width: 100%;
-  max-width: 304px;
-  border-radius: 10px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
-}
-.discordPromo .discordPromoToggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.discordPromo .discordPromoToggle input {
-  width: 16px;
-  height: 16px;
-  accent-color: #5865f2;
-  cursor: pointer;
-}
-.discordPromo .discordPromoDone {
-  border: none;
-  border-radius: 8px;
-  padding: 8px 28px;
-  font-size: 15px;
-  font-weight: 700;
-  color: white;
-  background: #5865f2;
-  cursor: pointer;
-}
-.discordPromo .discordPromoDone:hover {
-  background: #4752c4;
-}
-.discordPromo .discordPromoClose {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  border: none;
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
-  border-radius: 999px;
-  width: 28px;
-  height: 28px;
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-}
-/* The account offer borrows the Discord card, in the site's own blue. */
-.accountPromo .accountPromoActions {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-.accountPromo .accountPromoSignIn {
-  background: #2f7cf6;
-}
-.accountPromo .accountPromoSignIn:hover {
-  background: #1f66d6;
-}
-.accountPromo .accountPromoSignIn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-.accountPromo .discordPromoToggle input {
-  accent-color: #2f7cf6;
-}
-.accountPromo .accountPromoLater {
-  border: none;
-  border-radius: 8px;
-  padding: 8px 18px;
-  font-size: 15px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.12);
-  cursor: pointer;
-}
-.accountPromo .accountPromoLater:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-.accountPromo .accountPromoCode {
-  font-family: Consolas, "SF Mono", ui-monospace, monospace;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  color: #cfe6ff;
-  margin-top: 4px;
-  user-select: text;
-}
-.accountPromo .accountPromoState:empty {
-  display: none;
-}
-
-.supportModal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  z-index: 8;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-.supportModal.isOpen {
-  display: flex;
-}
-.supportModal .supportModalCard {
-  width: min(360px, 95vw);
-  border-radius: 18px;
-  background: rgb(12, 22, 40);
-  padding: 20px;
-  color: white;
-  position: relative;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-.supportModal .supportModalTitle {
-  font-size: 18px;
-  font-weight: 700;
-  text-align: center;
-}
-.supportModal .supportModalClose {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  border: none;
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
-  border-radius: 999px;
-  width: 28px;
-  height: 28px;
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-}
-.supportModal .supportQrContainer {
-  background: white;
-  border-radius: 16px;
-  padding: 12px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
-}
-.supportModal .supportQrImage {
-  width: 220px;
-  height: 220px;
-  object-fit: contain;
-  border-radius: 12px;
-  background: white;
-}
-.supportModal .supportActions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  width: 100%;
-}
-.supportModal .supportIconButton {
-  border: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: white;
-  border-radius: 10px;
-  padding: 10px 8px;
-  cursor: pointer;
-  font-size: 17px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: transform 0.15s ease, background 0.15s ease;
-}
-.supportModal .supportIconButton:hover {
-  transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.16);
-}
-.supportModal .supportIconButton.isActive {
-  background: rgba(143, 106, 243, 0.35);
-  box-shadow: 0 0 0 1px rgba(143, 106, 243, 0.45);
-}
-.supportModal .supportIcon {
-  width: 18px;
-  height: 18px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-}
-.supportModal .supportIcon svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-.supportModal .supportLabel {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-.supportModal .supportIconButton[data-support="afdian"] {
-  background: linear-gradient(90deg, #7f5fe8, #6f4cd8);
-  color: #ffffff;
-}
-.supportModal .supportIconButton[data-support="wechat"] {
-  background: rgba(16, 187, 89, 0.2);
-  color: #8df0b6;
-}
-.supportModal .supportIconButton[data-support="paypal"] {
-  background: rgba(0, 112, 186, 0.2);
-  color: #8fc9ff;
-}
-.supportModal .supportIconButton[data-support="patreon"] {
-  background: rgba(249, 104, 84, 0.2);
-  color: #ffb3a8;
-}
-.supportModal .supportIconButton[data-support="kofi"] {
-  background: linear-gradient(90deg, #7f5fe8, #6f4cd8);
-  color: #ffffff;
-}
-.supportModal .supportIconButton[data-support="btc"] {
-  background: rgba(247, 147, 26, 0.22);
-  color: #ffd0a1;
-}
-.supportModal .supportIconButton[data-support="eth"] {
-  background: rgba(98, 126, 234, 0.22);
-  color: #c2d2ff;
-}
-.supportModal .supportIconButton[data-support="usdc"] {
-  background: rgba(39, 117, 202, 0.22);
-  color: #bcd8ff;
-}
-/* What the buttons below do: a site opens in the browser, crypto copies. */
-.supportModal .supportQrImage.isLink {
-  cursor: pointer;
-}
-.supportModal .supportPerks {
-  margin: 0 0 6px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: rgba(255, 255, 255, 0.86);
-  text-align: center;
-}
-.supportModal .supportLinksHint {
-  margin: 0 0 8px;
-  font-size: 11.5px;
-  line-height: 1.45;
-  color: rgba(255, 255, 255, 0.62);
-  text-align: center;
-}
-.supportModal .supportCopyStatus {
-  min-height: 18px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
-  text-align: center;
-}
-
 .windowDragFreeze {
   -webkit-user-select: none !important;
   user-select: none !important;
@@ -7200,17 +6557,9 @@ body:not(.isSettingsWindow):not(.isHistoryWindow) :is(input, textarea, [contente
 
 /* The private build: compiled without online features (app.rs build_features,
    tauriBridge.js sets html.a2-offline). What would reach a service is hidden:
-   the account and uploads, Streaming, Send Logs to Dev, the A2Tools.app link,
-   the account and Discord offers, and sharing field boss timers. */
-html.a2-offline .settingsNavItem[data-section="account"],
+   Streaming. */
 html.a2-offline .settingsNavItem[data-section="streaming"],
-html.a2-offline #settingsSection-account,
-html.a2-offline #settingsSection-streaming,
-html.a2-offline .settingsPanel .sendLogsRow,
-html.a2-offline .settingsPanel .a2toolsButton,
-html.a2-offline .discordPromo,
-html.a2-offline .shareBossTimersRow,
-html.a2-offline .historyUploadBtn {
+html.a2-offline #settingsSection-streaming {
   display: none !important;
 }
 
@@ -8339,7 +7688,7 @@ html.a2-offline .historyUploadBtn {
     color-mix(in srgb, var(--class-fill, var(--row-fill)) 60%, transparent),
     color-mix(in srgb, var(--class-fill, var(--row-fill)) 92%, transparent));
 }
-:root[data-theme^="aion2-classes"] .detailsPanel .detailsPartyBar.isSelected .detailsPartyBarName:not(.isSupporter) {
+:root[data-theme^="aion2-classes"] .detailsPanel .detailsPartyBar.isSelected .detailsPartyBarName {
   color: #fff !important;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }

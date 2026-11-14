@@ -25,11 +25,6 @@ html.a2overlay.meterLocked .container .meter .resizeHandle { display: none; }
 /* Click-through: only the title bar's buttons take clicks, and say so. */
 html.a2overlay.meterClickThrough .container .meter { cursor: default; }
 
-/* Cards (an update, a one-time offer) sit over the screen's middle without
-   dimming the game: only the card takes the mouse. */
-html.a2overlay .discordPromo,
-html.a2overlay .supportModal { background: transparent; }
-
 .ovLayer { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 .ovWidget { position: absolute; left: 0; top: 0; pointer-events: auto; will-change: transform; }
 .ovWidget.hidden { visibility: hidden; }

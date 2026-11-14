@@ -7,9 +7,9 @@
 //! passes on what its manifest's permissions allow. Game data reaches it
 //! through its own decoders (`decoder`), as numbers.
 //!
-//! Two kinds load: reviewed plugins, installed from the signed catalog
-//! (`catalog`) into `app_data/plugins/<id>/`, always; and in developer mode,
-//! plugins from local folders, for authors to build and test them.
+//! Two kinds load: the modules that come with the app (`bundled`), always;
+//! and in developer mode, plugins from local folders, for authors to build
+//! and test them. A folder with a module's id runs in that module's place.
 
 #[cfg(feature = "online")]
 pub mod armory;
@@ -29,10 +29,9 @@ pub mod armory {
     }
 }
 pub mod bundled;
-#[cfg(feature = "online")]
-pub mod catalog;
 pub mod decoder;
 pub mod overlay;
+pub mod pet_catalog;
 pub mod widgets;
 #[cfg(feature = "online")]
 pub mod boss_live;
@@ -151,7 +150,7 @@ struct Loaded {
     manifest: Manifest,
     dir: PathBuf,
     decoders: Vec<Decoder>,
-    /// Installed from the signed catalog, not a developer folder.
+    /// Comes with the app (the same as `bundled`), not a developer folder.
     reviewed: bool,
     /// Shipped with the meter (`bundled`).
     bundled: bool,
@@ -167,7 +166,7 @@ pub struct PluginInfo {
     pub description: String,
     pub path: String,
     pub permissions: Vec<String>,
-    /// Installed from the signed catalog (otherwise a developer folder).
+    /// Comes with the app (otherwise a developer folder).
     pub reviewed: bool,
     /// Shipped with the meter: it can be turned off, not removed.
     pub bundled: bool,
@@ -180,8 +179,6 @@ pub struct PluginInfo {
 #[serde(rename_all = "camelCase")]
 pub struct PluginsView {
     pub dev_mode: bool,
-    /// Whether this build can reach the catalog (not the offline build).
-    pub online: bool,
     pub plugins: Vec<PluginInfo>,
     /// Ids of the plugins turned off.
     pub disabled: Vec<String>,
@@ -197,7 +194,6 @@ fn view(app: &tauri::AppHandle, host: &PluginHost) -> PluginsView {
         .is_some_and(|s| s.settings.get(DEV_MODE_KEY).as_deref() == Some("true"));
     PluginsView {
         dev_mode,
-        online: cfg!(feature = "online"),
         plugins: host.list(),
         disabled: disabled(app),
         hide_closed: hide_closed(app),
@@ -271,12 +267,6 @@ pub fn plugin_set_hide(app: tauri::AppHandle, id: String, when: String, hide: bo
     sync_game_hiding(&app);
     let host = host(&app)?;
     Ok(view(&app, &host))
-}
-
-/// Where reviewed plugins are installed.
-fn plugins_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let state = app.try_state::<AppState>().ok_or("no app state")?;
-    Ok(state.app_data_dir.join("plugins"))
 }
 
 /// A decoded event waiting out `SETTLE`.
@@ -367,11 +357,47 @@ fn boss_map_event(map: &crate::capture::boss_map::BossMap) -> Value {
 fn character(app: &tauri::AppHandle) -> Option<Value> {
     app.try_state::<AppState>().map(|s| {
         let p = s.data_storage.local_profile();
+        // Owner, energy, counts, times, shop limits, crafts, Kinah and Abyss
+        // Points from one moment: a login's list replaces them all at once.
+        let list = s.data_storage.entry_list();
+        let theirs = matches!((list.owner.as_deref(), p.name.as_deref()), (Some(o), Some(n)) if o.trim() == n.trim());
+        let odyle = list
+            .odyle_energy
+            .filter(|_| theirs)
+            .map(|(basic, charged)| serde_json::json!({ "basic": basic, "charged": charged }));
+        // The game's entry counts by id, as `[first, second]`, theirs the same
+        // way (they come in Odyle energy's list). Known ids: 1 Shugo
+        // Festival keys, 4 Nightmare, 8 Dimensional Invasion, 101 Daily
+        // Dungeon, 60000001 Odyle energy, 80000001 Ascension Trial; 0 the
+        // character's Daily Duty today, [completed, taken] (data_storage).
+        // Started mid-session, the app has only the entries that changed
+        // since, until the next login or transfer.
+        let content = (theirs && !list.counts.is_empty()).then(|| serde_json::json!(list.counts));
+        // The shop's weekly purchase limits by item id, `[bought, next reset
+        // ms]` (100134 Buy Odyle Energy, 100135 Buy Rift Stones), and the
+        // crafts made by recipe (32070001 Odyle Energy, server-wide; 32070002
+        // the character's). Past its reset a limit is `[0, null]`.
+        let shop = (theirs && !list.shop_limits.is_empty()).then(|| serde_json::json!(list.shop_limits));
+        let crafts = (theirs && !list.crafts.is_empty()).then(|| serde_json::json!(list.crafts));
         serde_json::json!({
             "name": p.name,
             "serverId": p.server_id,
             "level": p.level,
             "class": p.class.map(|c| c.class_name().to_string()),
+            "combatPower": p.combat_power,
+            "gearScore": p.gear_score,
+            "odyleEnergy": odyle,
+            "contentCounts": content,
+            "shopLimits": shop,
+            "crafts": crafts,
+            // Kinah gained today, and the Abyss Points this week with the
+            // week's limit: 0 once their reset has passed.
+            "kinahToday": list.kinah_today.filter(|_| theirs),
+            "abyssPoints": list.abyss_points.filter(|_| theirs).map(|(p, l)| [p, l]),
+            // The entry list's time entries by id, `[time, seen at ms]`: the
+            // Abyss passages 10000001-10000003 each with its usage time left
+            // (ms) while it can still be run.
+            "contentTimes": Some(list.times).filter(|t| theirs && !t.is_empty()),
         })
     })
 }
@@ -425,9 +451,9 @@ fn load_folder(dir: &Path) -> Result<Loaded, String> {
 }
 
 impl PluginHost {
-    /// Load the installed plugins, and in developer mode the folders the
-    /// settings list. A developer folder wins over an installed copy of the
-    /// same plugin, so its author tests their own files.
+    /// Load the modules that come with the app, and in developer mode the
+    /// folders the settings list. A developer folder wins over the module of
+    /// the same id, so its author tests their own files.
     pub fn reload(self: &Arc<Self>, app: &tauri::AppHandle) {
         let Some(state) = app.try_state::<AppState>() else { return };
         let dev = state.settings.get(DEV_MODE_KEY).as_deref() == Some("true");
@@ -458,25 +484,7 @@ impl PluginHost {
                 }),
             }
         }
-        let installed = plugins_dir(app)
-            .ok()
-            .and_then(|dir| std::fs::read_dir(dir).ok())
-            .into_iter()
-            .flatten()
-            .flatten()
-            .map(|entry| entry.path())
-            .filter(|path| path.is_dir() && path.file_name().is_some_and(|n| !n.to_string_lossy().starts_with('.')));
-        for dir in installed {
-            match load_folder(&dir) {
-                Ok(l) if loaded.iter().any(|x: &Loaded| x.manifest.id == l.manifest.id) => {
-                    tracing::info!("Plugins: {} runs from its developer folder, not the installed copy", l.manifest.id);
-                }
-                Ok(l) => loaded.push(Loaded { reviewed: true, ..l }),
-                Err(e) => tracing::warn!("Plugins: installed {} does not load: {e}", dir.display()),
-            }
-        }
-        // The bundled ones, where neither a developer folder nor an installed
-        // copy has the id.
+        // The bundled ones, where no developer folder has the id.
         for dir in bundled::dirs(app) {
             match load_folder(&dir) {
                 Ok(l) if loaded.iter().any(|x: &Loaded| x.manifest.id == l.manifest.id) => {}
@@ -783,8 +791,8 @@ fn ids(host: &PluginHost) -> Vec<(String, String)> {
 }
 
 /// After the plugins were read again (`before`: those loaded until then):
-/// the widgets of each one gone, or now run from another folder (an
-/// installed copy removed, and the bundled one back), leave the screen, and
+/// the widgets of each one gone, or now run from another folder (a
+/// developer folder removed, and the bundled one back), leave the screen, and
 /// the dashboard starts, stops and restarts its pages to match. `restart`
 /// run their files anew, which may have changed on disk.
 fn reloaded(app: &tauri::AppHandle, host: &PluginHost, before: &[(String, String)], restart: &[String]) {
@@ -828,72 +836,17 @@ pub struct PluginUpdate {
     pub to: String,
 }
 
-/// A newer reviewed version in the catalog, for an installed plugin.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PluginAvailable {
-    pub id: String,
-    pub name: String,
-    pub from: String,
-    pub to: String,
-    /// Permissions the new version asks for that the installed one did not.
-    pub new_permissions: Vec<String>,
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateCheck {
     pub view: PluginsView,
     /// Versions that changed on disk (developer folders), now loaded.
     pub updated: Vec<PluginUpdate>,
-    /// Newer reviewed versions waiting to be installed.
-    pub available: Vec<PluginAvailable>,
-    /// Why the catalog could not be checked, if it could not.
-    pub catalog_error: Option<String>,
-}
-
-/// The catalog's newer versions of installed plugins, each with the entry
-/// to install.
-///
-/// Not of the bundled ones: the catalog is A2Tools', and this fork's copies
-/// of its plugins carry the fork's changes (alerts as Notices, the hidden
-/// cube alert). Installing the catalog's version put it in the plugins
-/// folder, where it wins over the bundled copy and drops those changes: a
-/// player's Event Timers became A2Tools' 0.6.26 that way (2026-10-31).
-#[cfg(feature = "online")]
-fn newer_entries(catalog: catalog::Catalog, host: &PluginHost) -> Vec<(PluginAvailable, catalog::Entry)> {
-    let installed: Vec<PluginInfo> =
-        host.list().into_iter().filter(|p| p.reviewed && !p.bundled && p.error.is_none()).collect();
-    installed
-        .into_iter()
-        .filter_map(|p| {
-            let entry = catalog.plugins.iter().find(|e| e.id == p.id)?;
-            catalog::newer(&entry.version, &p.version).then(|| {
-                let available = PluginAvailable {
-                    id: p.id.clone(),
-                    name: entry.name.clone(),
-                    from: p.version.clone(),
-                    to: entry.version.clone(),
-                    new_permissions: entry.permissions.iter().filter(|x| !p.permissions.contains(x)).cloned().collect(),
-                };
-                (available, entry.clone())
-            })
-        })
-        .collect()
-}
-
-/// The catalog's newer versions of installed plugins.
-#[cfg(feature = "online")]
-async fn available_updates(app: &tauri::AppHandle, host: &PluginHost) -> Result<Vec<PluginAvailable>, String> {
-    let http = app.try_state::<AppState>().ok_or("no app state")?.http.clone();
-    let catalog = catalog::fetch(&http).await?;
-    Ok(newer_entries(catalog, host).into_iter().map(|(a, _)| a).collect())
 }
 
 /// Check for plugin updates: read every plugin folder again (a developer
 /// plugin's source is its folder) and restart the dashboard's pages of those
-/// not bundled so they run the new files, then ask the signed catalog for
-/// newer reviewed versions.
+/// not bundled so they run the new files.
 #[tauri::command]
 pub async fn plugin_check_updates(app: tauri::AppHandle) -> Result<UpdateCheck, String> {
     let host = host(&app)?;
@@ -910,292 +863,7 @@ pub async fn plugin_check_updates(app: tauri::AppHandle) -> Result<UpdateCheck, 
         .collect();
     let own: Vec<String> = host.list().into_iter().filter(|p| !p.bundled).map(|p| p.id).collect();
     reloaded(&app, &host, &paths, &own);
-    #[cfg(feature = "online")]
-    let (available, catalog_error) = match available_updates(&app, &host).await {
-        Ok(available) => (available, None),
-        Err(e) => (Vec::new(), Some(e)),
-    };
-    #[cfg(not(feature = "online"))]
-    let (available, catalog_error) = (Vec::new(), None);
-    Ok(UpdateCheck { view, updated, available, catalog_error })
-}
-
-/// Plugin updates the person said No to at start, a JSON object of id →
-/// version: that version is not offered again (a newer one is).
-pub const DECLINED_UPDATES_KEY: &str = "dpsMeter.pluginUpdatesDeclined";
-/// How long after start the catalog is asked, so the check stays out of the
-/// way of startup.
-#[cfg(feature = "online")]
-const UPDATE_ALERT_DELAY: Duration = Duration::from_secs(20);
-
-/// The languages the meter's pages come in.
-#[cfg_attr(not(feature = "online"), allow(dead_code))]
-const LANGUAGES: [&str; 10] = ["de", "en", "es", "fr", "ja", "ko", "pt", "ru", "zh-Hans", "zh-Hant"];
-
-/// The update prompt's words, in the meter's language
-/// (`pluginUpdatePrompt` in the UI translations; the permissions as Settings
-/// words them, `settings.plugins.perm*`).
-#[cfg_attr(not(feature = "online"), allow(dead_code))]
-struct PromptTexts {
-    title: String,
-    one: String,
-    many: String,
-    also_asks: String,
-    update_now: String,
-    failed: String,
-    perm_storage: String,
-    perm_notify: String,
-    perm_window: String,
-    perm_widgets: String,
-    perm_character: String,
-    perm_decoder: String,
-    perm_combat: String,
-    perm_system_notify: String,
-    perm_armory: String,
-    perm_maps: String,
-}
-
-#[cfg_attr(not(feature = "online"), allow(dead_code))]
-fn prompt_texts(data_dir: Option<&Path>, lang: &str) -> PromptTexts {
-    let load = |lang: &str| -> Option<Value> {
-        let path = data_dir?.join("i18n").join("ui").join(format!("{lang}.json"));
-        serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()
-    };
-    let lang = LANGUAGES.iter().find(|known| known.eq_ignore_ascii_case(lang)).copied().unwrap_or("en");
-    let (ui, en) = (load(lang), load("en"));
-    let text = |section: &[&str], key: &str, fallback: &str| -> String {
-        [ui.as_ref(), en.as_ref()]
-            .into_iter()
-            .flatten()
-            .find_map(|v| section.iter().fold(v, |v, s| &v[s])[key].as_str().map(str::to_string))
-            .unwrap_or_else(|| fallback.to_string())
-    };
-    let prompt = |key: &str, fallback: &str| text(&["pluginUpdatePrompt"], key, fallback);
-    let perm = |key: &str, fallback: &str| text(&["settings", "plugins"], key, fallback);
-    PromptTexts {
-        title: prompt("title", "A2Tools - Plugin Update"),
-        one: prompt("one", "A plugin update is available:"),
-        many: prompt("many", "Plugin updates are available:"),
-        also_asks: prompt("alsoAsks", "The new version also asks to:"),
-        update_now: prompt("updateNow", "Update now?"),
-        failed: prompt("failed", "Couldn't update:"),
-        perm_storage: perm("permStorage", "Save its own data on this computer"),
-        perm_notify: perm("permNotify", "Show short messages in its window"),
-        perm_window: perm("permWindow", "Open its page in the dashboard when you double-click its widget"),
-        perm_widgets: perm("permWidgets", "Show small windows of its own, which you can move anywhere and lock in place"),
-        perm_character: perm("permCharacter", "See your character's name, server, class and level"),
-        perm_decoder: perm("permDecoder", "Read your own game data: {name}"),
-        perm_combat: perm(
-            "permCombat",
-            "See your skills, the buffs and debuffs on you and your party, and the players you fight",
-        ),
-        perm_system_notify: perm("permSystemNotify", "Show desktop notifications while AION2 is closed"),
-        perm_maps: perm("permMaps", "Keep map images and marker files you pick"),
-        perm_armory: perm("permArmory", "Read characters' public profiles from the official AION 2 site, and a2tools.app's leaderboard"),
-    }
-}
-
-/// A permission, in plain words, as Settings words it.
-#[cfg_attr(not(feature = "online"), allow(dead_code))]
-fn describe_permission(t: &PromptTexts, permission: &str) -> String {
-    match permission {
-        "storage" => t.perm_storage.clone(),
-        "notify" => t.perm_notify.clone(),
-        "window" => t.perm_window.clone(),
-        "widgets" => t.perm_widgets.clone(),
-        "events:character" => t.perm_character.clone(),
-        bundled::COMBAT_FEED => t.perm_combat.clone(),
-        bundled::SYSTEM_NOTIFY => t.perm_system_notify.clone(),
-        armory::ARMORY => t.perm_armory.clone(),
-        bundled::MAPS => t.perm_maps.clone(),
-        p => match p.strip_prefix("decoder:") {
-            Some(name) => t.perm_decoder.replace("{name}", name),
-            None => p.to_string(),
-        },
-    }
-}
-
-/// The updates to offer at start: those not already declined at that version.
-#[cfg_attr(not(feature = "online"), allow(dead_code))]
-fn updates_to_offer<T>(available: Vec<(PluginAvailable, T)>, declined: &HashMap<String, String>) -> Vec<(PluginAvailable, T)> {
-    available.into_iter().filter(|(a, _)| declined.get(&a.id) != Some(&a.to)).collect()
-}
-
-/// The question asked at start: each update, with what it newly asks to do,
-/// since Yes installs it.
-#[cfg_attr(not(feature = "online"), allow(dead_code))]
-fn update_prompt(t: &PromptTexts, updates: &[&PluginAvailable]) -> String {
-    let mut text = format!("{}\n", if updates.len() == 1 { &t.one } else { &t.many });
-    for u in updates {
-        text.push_str(&format!("\n{} {} → {}", u.name, u.from, u.to));
-        if !u.new_permissions.is_empty() {
-            text.push_str(&format!("\n    {}", t.also_asks));
-            for p in &u.new_permissions {
-                text.push_str(&format!("\n    • {}", describe_permission(t, p)));
-            }
-        }
-    }
-    text.push_str(&format!("\n\n{}", t.update_now));
-    text
-}
-
-/// At start, ask the signed catalog for newer reviewed versions of the
-/// installed plugins and, if there are any not declined before, offer to
-/// install them: no need to open Settings and press Check for updates. Yes
-/// installs the very entries shown, not whatever the catalog says by then.
-#[cfg(feature = "online")]
-pub fn alert_updates_at_start(app: &tauri::AppHandle) {
-    let app = app.clone();
-    tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(UPDATE_ALERT_DELAY).await;
-        let Ok(host) = host(&app) else { return };
-        let Some(state) = app.try_state::<AppState>() else { return };
-        let catalog = match catalog::fetch(&state.http).await {
-            Ok(catalog) => catalog,
-            Err(e) => {
-                tracing::info!("Plugins: update check at start failed: {e}");
-                return;
-            }
-        };
-        let mut declined: HashMap<String, String> =
-            state.settings.get(DECLINED_UPDATES_KEY).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
-        let updates = updates_to_offer(newer_entries(catalog, &host), &declined);
-        if updates.is_empty() {
-            return;
-        }
-        let names = updates.iter().map(|(u, _)| format!("{} {} → {}", u.id, u.from, u.to)).collect::<Vec<_>>().join(", ");
-        tracing::info!("Plugins: updates available: {names}");
-        let lang = state.settings.get("dpsMeter.language").unwrap_or_else(|| "en".into());
-        let t = prompt_texts(state.i18n_data_dir.as_deref(), &lang);
-        let prompt = update_prompt(&t, &updates.iter().map(|(u, _)| u).collect::<Vec<_>>());
-        let title = t.title.clone();
-        let accepted = tokio::task::spawn_blocking(move || crate::platform::dialog::ask_yes_no(&title, &prompt))
-            .await
-            .unwrap_or(false);
-        if !accepted {
-            for (u, _) in &updates {
-                declined.insert(u.id.clone(), u.to.clone());
-            }
-            state.settings.set(DECLINED_UPDATES_KEY, &serde_json::to_string(&declined).unwrap_or_default());
-            return;
-        }
-        let mut failed = Vec::new();
-        for (u, entry) in &updates {
-            if let Err(e) = install_entry(&app, &host, entry).await {
-                failed.push(format!("{}: {e}", u.name));
-            }
-        }
-        // Settings, if open, shows the new versions.
-        let _ = app.emit_to("settings", "plugins-changed", ());
-        if !failed.is_empty() {
-            let message = format!("{}\n\n{}", t.failed, failed.join("\n"));
-            let _ = tokio::task::spawn_blocking(move || crate::platform::dialog::show_error(&t.title, &message)).await;
-        }
-    });
-}
-
-/// A catalog entry as Settings lists it.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CatalogItem {
-    pub id: String,
-    pub name: String,
-    pub version: String,
-    pub description: String,
-    pub author: String,
-    pub permissions: Vec<String>,
-    pub source: String,
-    /// The installed version, if any.
-    pub installed: Option<String>,
-}
-
-/// The reviewed plugins on offer, from the signed catalog.
-#[tauri::command]
-pub async fn plugin_catalog(app: tauri::AppHandle) -> Result<Vec<CatalogItem>, String> {
-    #[cfg(feature = "online")]
-    {
-        let host = host(&app)?;
-        let http = app.try_state::<AppState>().ok_or("no app state")?.http.clone();
-        // Settings asks on every open; a list from the last few minutes does.
-        let catalog = catalog::recent(&http, std::time::Duration::from_secs(300)).await?;
-        let installed: HashMap<String, String> =
-            host.list().into_iter().filter(|p| p.reviewed && p.error.is_none()).map(|p| (p.id, p.version)).collect();
-        Ok(catalog
-            .plugins
-            .into_iter()
-            .map(|e| CatalogItem {
-                installed: installed.get(&e.id).cloned(),
-                id: e.id,
-                name: e.name,
-                version: e.version,
-                description: e.description,
-                author: e.author,
-                permissions: e.permissions,
-                source: e.source,
-            })
-            .collect())
-    }
-    #[cfg(not(feature = "online"))]
-    {
-        let _ = app;
-        Err("The offline build does not download plugins.".into())
-    }
-}
-
-/// Install one catalog entry (its files checked against the signed
-/// catalog's hashes) and run it.
-#[cfg(feature = "online")]
-async fn install_entry(app: &tauri::AppHandle, host: &Arc<PluginHost>, entry: &catalog::Entry) -> Result<(), String> {
-    let http = app.try_state::<AppState>().ok_or("no app state")?.http.clone();
-    let dir = plugins_dir(app)?;
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    catalog::install(&http, entry, &dir).await?;
-    tracing::info!("Plugins: installed {} {}", entry.id, entry.version);
-    let before = ids(host);
-    host.reload(app);
-    reloaded(app, host, &before, std::slice::from_ref(&entry.id));
-    Ok(())
-}
-
-/// Install a reviewed plugin from the catalog, or update it to the catalog's
-/// version. Its saved data is kept.
-#[tauri::command]
-pub async fn plugin_install(app: tauri::AppHandle, id: String) -> Result<PluginsView, String> {
-    #[cfg(feature = "online")]
-    {
-        let host = host(&app)?;
-        let http = app.try_state::<AppState>().ok_or("no app state")?.http.clone();
-        let catalog = catalog::fetch(&http).await?;
-        let entry = catalog.plugins.iter().find(|e| e.id == id).ok_or("that plugin is not in the catalog")?;
-        install_entry(&app, &host, entry).await?;
-        Ok(view(&app, &host))
-    }
-    #[cfg(not(feature = "online"))]
-    {
-        let _ = (app, id);
-        Err("The offline build does not download plugins.".into())
-    }
-}
-
-/// Remove an installed plugin. Its saved data stays, for a later reinstall.
-#[tauri::command]
-pub fn plugin_uninstall(app: tauri::AppHandle, id: String) -> Result<PluginsView, String> {
-    if !valid_id(&id) {
-        return Err("not a plugin id".into());
-    }
-    if host(&app)?.with(&id, |l| l.bundled).unwrap_or(false) {
-        return Err("a plugin that comes with the meter can be turned off, not removed".into());
-    }
-    set_disabled(&app, &id, false);
-    let dir = plugins_dir(&app)?.join(&id);
-    if dir.is_dir() {
-        std::fs::remove_dir_all(&dir).map_err(|e| e.to_string())?;
-    }
-    let host = host(&app)?;
-    let before = ids(&host);
-    host.reload(&app);
-    reloaded(&app, &host, &before, &[]);
-    Ok(view(&app, &host))
+    Ok(UpdateCheck { view, updated })
 }
 
 /// Stop loading a folder (its saved data stays).
@@ -1285,8 +953,8 @@ fn require(app: &tauri::AppHandle, id: &str, permission: &str) -> Result<(), Str
     if has { Ok(()) } else { Err(format!("the plugin lacks the {permission:?} permission")) }
 }
 
-/// A server's field boss timers, as players' meters reported them
-/// (a2tools.app's feed, `boss_report.rs`), for plugins with
+/// A server's field boss timers, as other players' meters reported them to
+/// a2tools.app (its public feed: this app reads it and sends nothing), for plugins with
 /// `feed:boss-timers`: the published file as it is, or None when the server
 /// has none yet. Kept a minute, so plugins asking often fetch it once.
 #[tauri::command]
@@ -1299,8 +967,8 @@ pub async fn plugin_boss_timers(app: tauri::AppHandle, window: tauri::WebviewWin
     boss_timers(&app, server).await
 }
 
-/// A server's Abyss siege as players' meters see it (a2tools.app,
-/// `boss_report.rs`): who holds each artifact and each Dimensional Core's
+/// A server's Abyss siege as other players' meters see it (a2tools.app's
+/// public feed, as the boss timers): who holds each artifact and each Dimensional Core's
 /// state and HP, the published file as it is, or None when the server has
 /// none yet. For plugins with `feed:boss-timers`. Meter 2.0.72 on.
 #[tauri::command]
@@ -1578,7 +1246,7 @@ fn attribute(tag: &str, name: &str) -> Option<String> {
 }
 
 /// Standard base64, with padding.
-fn base64(data: &[u8]) -> String {
+pub(crate) fn base64(data: &[u8]) -> String {
     const ABC: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for chunk in data.chunks(3) {
@@ -1658,18 +1326,27 @@ fn percent_decode(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{base64, content_policy, inline_page, inlined_policy, with_meter_fonts, prompt_texts, take_ready};
-    use super::{update_prompt, updates_to_offer, Pending, PluginAvailable, LANGUAGES, SETTLE};
-    use std::collections::HashMap;
+    use super::{base64, content_policy, inline_page, inlined_policy, with_meter_fonts, take_ready};
+    use super::{Pending, SETTLE};
     use std::time::{Duration, Instant};
 
-    fn available(id: &str, from: &str, to: &str, new_permissions: &[&str]) -> PluginAvailable {
-        PluginAvailable {
-            id: id.into(),
-            name: format!("Plugin {id}"),
-            from: from.into(),
-            to: to.into(),
-            new_permissions: new_permissions.iter().map(|p| p.to_string()).collect(),
+    /// Every module that comes with the app loads: its manifest, permissions
+    /// and decoders read as the host reads them at start.
+    #[test]
+    fn every_bundled_plugin_loads() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("bundled-plugins");
+        let mut ids = Vec::new();
+        for entry in std::fs::read_dir(&root).unwrap() {
+            let dir = entry.unwrap().path();
+            if !dir.is_dir() {
+                continue;
+            }
+            let loaded = super::load_folder(&dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display()));
+            assert_eq!(Some(loaded.manifest.id.as_str()), dir.file_name().and_then(|n| n.to_str()), "folder named after its id");
+            ids.push(loaded.manifest.id);
+        }
+        for id in ["alt-roster", "boss-telegraph", "heal-alert", "pet-souls", "ping"] {
+            assert!(ids.iter().any(|x| x == id), "{id} is bundled");
         }
     }
 
@@ -1686,47 +1363,6 @@ mod tests {
         assert!(page.ends_with("<title>x</title></head><body></body></html>"));
         // No head: at the start.
         assert!(with_meter_fonts("<p>hi</p>").starts_with("<style>"));
-    }
-
-    #[test]
-    fn an_update_said_no_to_is_not_offered_again_but_a_newer_one_is() {
-        let declined = HashMap::from([("a".to_string(), "1.1.0".to_string()), ("b".to_string(), "2.0.0".to_string())]);
-        let offered = updates_to_offer(
-            vec![(available("a", "1.0.0", "1.1.0", &[]), ()), (available("b", "2.0.0", "2.1.0", &[]), ()), (available("c", "0.1", "0.2", &[]), ())],
-            &declined,
-        );
-        let ids: Vec<_> = offered.iter().map(|(a, _)| a.id.as_str()).collect();
-        assert_eq!(ids, ["b", "c"]);
-    }
-
-    #[test]
-    fn the_start_prompt_lists_each_update_and_what_it_newly_asks_for() {
-        let data = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/data");
-        let en = prompt_texts(Some(&data), "en");
-        let one = update_prompt(&en, &[&available("a", "1.0.0", "1.1.0", &[])]);
-        assert_eq!(one, "A plugin update is available:\n\nPlugin a 1.0.0 → 1.1.0\n\nUpdate now?");
-        let (a, b) = (available("a", "1.0.0", "1.1.0", &[]), available("b", "2.0", "2.1", &["storage", "decoder:pets"]));
-        let two = update_prompt(&en, &[&a, &b]);
-        assert!(two.starts_with("Plugin updates are available:"));
-        assert!(two.contains("Plugin b 2.0 → 2.1\n    The new version also asks to:\n    • Save its own data on this computer\n    • Read your own game data: pets"));
-        let de = update_prompt(&prompt_texts(Some(&data), "de"), &[&b]);
-        assert!(de.contains("Jetzt aktualisieren?") && de.contains("Deine eigenen Spieldaten lesen: pets"), "{de}");
-    }
-
-    #[test]
-    fn the_update_prompt_has_words_in_every_language() {
-        let data = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/data");
-        let en = prompt_texts(Some(&data), "en");
-        for lang in LANGUAGES {
-            let t = prompt_texts(Some(&data), lang);
-            assert!(t.perm_decoder.contains("{name}"), "{lang}");
-            if lang != "en" {
-                for (word, english) in [(&t.title, &en.title), (&t.many, &en.many), (&t.update_now, &en.update_now), (&t.failed, &en.failed), (&t.perm_storage, &en.perm_storage)] {
-                    assert_ne!(word, english, "{lang} is translated");
-                }
-            }
-        }
-        assert_eq!(prompt_texts(None, "ko").update_now, en.update_now, "no data: the built-in English");
     }
 
     #[test]

@@ -93,8 +93,7 @@ const ALL_CLASSES: [JobClass; 9] = [
     JobClass::Fighter,
 ];
 
-/// Class key as the overlay page and its icon route name it. The same keys
-/// as the Discord activity's art.
+/// Class key as the overlay page and its icon route name it.
 pub fn class_key(class: JobClass) -> &'static str {
     match class {
         JobClass::Gladiator => "gladiator",

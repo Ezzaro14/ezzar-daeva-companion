@@ -1,8 +1,8 @@
 [package]
 name = "a2tools-dps-meter"
 version = "2.2.0"
-description = "A2Tools DPS Meter - AION 2 real-time DPS overlay"
-authors = ["taengu"]
+description = "Ezzar's Daeva Companion - AION 2 DPS meter and combat overlays"
+authors = ["Ezzar"]
 edition = "2024"
 # Required because this crate declares more than one binary: without it
 # `cargo run` (and therefore `npm run tauri dev`) cannot tell which one is the
@@ -23,10 +23,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 #
 # is the check that enforces it.
 default = ["desktop", "online"]
-# Everything that talks to a service outside this computer: the A2 Tools
-# account and uploads, the supporter roster, update checks and the updater,
-# Send Logs to Dev, Discord activity, the OBS stream overlay and the Npcap
-# installer download. A build without it (the private build, see README)
+# Everything that talks to a service outside this computer: the shared field
+# boss timers and Abyss siege read from a2tools.app's public feed, the official
+# site's character profiles, update checks and the updater,
+# the OBS stream overlay and the Npcap installer download. A build without it (the private build, see README)
 # links none of that code and none of these crates:
 #
 #   npm run build:offline
@@ -36,8 +36,6 @@ online = [
     "dep:reqwest",
     "dep:futures-util",
     "dep:urlencoding",
-    "dep:discord-rich-presence",
-    "dep:ed25519-dalek",
     "dep:tokio-tungstenite",
 ]
 desktop = [
@@ -56,7 +54,6 @@ desktop = [
     "dep:zstd",
     "dep:getrandom",
     # Linux only (see the target section below); ignored elsewhere.
-    "dep:secret-service",
     "dep:gtk",
     "dep:webkit2gtk",
     "dep:x11-dl",
@@ -85,11 +82,6 @@ required-features = ["desktop"]
 [[bin]]
 name = "a2t-probe"
 path = "tools/a2t_probe.rs"
-required-features = ["desktop"]
-
-[[bin]]
-name = "a2t-roster"
-path = "tools/a2t_roster.rs"
 required-features = ["desktop"]
 
 [[bin]]
@@ -128,20 +120,15 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = tr
 chrono = { version = "0.4", features = ["serde"] }
 parking_lot = "0.12"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"], optional = true }
-# Live field boss updates pushed by a2tools.app (plugins/boss_live.rs), on the
+# Live field boss updates from a2tools.app's public feed (plugins/boss_live.rs), on the
 # same rustls and web PKI roots as reqwest.
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "rustls-tls-webpki-roots"], optional = true }
-# Discord activity ("playing AION2 as a level 29 Cleric on Kaisinel"), over the
-# local Discord client's IPC socket. Opt-in; see presence.rs.
-discord-rich-presence = { version = "1.1", optional = true }
 futures-util = { version = "0.3", optional = true }
 # The stream overlay's key (see stream_overlay/) and each Evidence Slice's key.
 # Already in the tree through Tauri; named here for the OS random source it wraps.
 getrandom = { version = "0.3", optional = true }
 urlencoding = { version = "2", optional = true }
 sha2 = "0.11.0"
-# Checks the signature on the reviewed-plugin catalog (src/plugins/catalog.rs).
-ed25519-dalek = { version = "2", default-features = false, features = ["std"], optional = true }
 flate2 = { version = "1.1.10", optional = true }
 # Evidence slices are compressed with zstd (share::compress_slice); the log
 # service reads it with a pure-Rust decoder.
@@ -172,14 +159,9 @@ windows = { version = "0.59", features = [
 
 # Desktop-only, so optional and enabled by `desktop`: the log service builds
 # this crate without it and must not pull them in.
-#
-# The desktop keyring (KWallet, GNOME Keyring) for the account token, over the
-# Secret Service D-Bus API. async-io matches the zbus the opener plugin
-# already brings in, so this adds no second D-Bus stack.
 [target.'cfg(target_os = "linux")'.dependencies]
 # Already in the dependency tree; use its Linux permission and ACL bindings.
 libc = { version = "0.2", optional = true }
-secret-service = { version = "5.2", features = ["rt-async-io-crypto-rust"], optional = true }
 # Native dialogs (the update prompt, errors). The same GTK Tauri runs on.
 gtk = { version = "0.18", optional = true }
 # Screenshots: WebKit's snapshot of the meter's page. Same version and feature
@@ -189,7 +171,7 @@ webkit2gtk = { version = "2", features = ["v2_40"], optional = true }
 # libX11 at run time; already in the tree through tao.
 x11-dl = { version = "2.21", optional = true }
 # Global hotkeys through the GlobalShortcuts portal (D-Bus). The zbus the
-# opener plugin and secret-service already bring in, so no second D-Bus stack.
+# opener plugin already brings in, so no second D-Bus stack.
 zbus = { version = "5", optional = true }
 
 [dev-dependencies]

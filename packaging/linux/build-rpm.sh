@@ -1,7 +1,6 @@
 #!/bin/bash
 # Build Ezzar's Daeva Companion's .rpm for Fedora and the image-based Fedoras
-# (Bazzite, Silverblue, Kinoite), the way .github/workflows/arch-package.yml
-# builds upstream's: Tauri lays out the files, and daeva-companion.spec
+# (Bazzite, Silverblue, Kinoite): Tauri lays out the files, and daeva-companion.spec
 # repackages them so the binary carries its packet-capture permission (%caps;
 # rpm-ostree drops capabilities from %post scripts). Run from anywhere, in a
 # Fedora toolbox/distrobox with the build dependencies (docs/linux.md) and

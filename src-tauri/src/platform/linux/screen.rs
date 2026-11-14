@@ -177,7 +177,7 @@ pub fn capture(
     (clipboard, file)
 }
 
-/// `~/Pictures/A2Tools DPS Meter` (or the XDG Pictures folder wherever it is).
+/// `~/Pictures/<the app's name>` (or the XDG Pictures folder wherever it is).
 pub fn default_folder() -> Option<PathBuf> {
     let pictures = gtk::glib::user_special_dir(gtk::glib::UserDirectory::Pictures)
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join("Pictures")))?;

@@ -1,6 +1,5 @@
 # Package of Ezzar's Daeva Companion for Arch and derivatives (CachyOS,
-# Manjaro, EndeavourOS): upstream's PKGBUILD (packaging/arch/PKGBUILD) under
-# this fork's names. Built by .github/workflows/installers.yml in an Arch
+# Manjaro, EndeavourOS). Built by .github/workflows/installers.yml in an Arch
 # container, or by anyone from a checkout:
 #
 #   cd packaging/arch/daeva-companion && makepkg -si
@@ -15,7 +14,7 @@ pkgver=2.2.0
 pkgrel=1
 pkgdesc="Ezzar's Daeva Companion: AION 2 DPS meter and combat overlays (Linux/Proton)"
 arch=('x86_64')
-url="https://github.com/taengu/A2Tools-DPS-Meter"
+url="https://github.com/Ezzaro14/ezzar-daeva-companion"
 license=('GPL-3.0-only')
 # gst-plugins-base and -good: WebKitGTK plays sound (a plugin's alerts) through
 # GStreamer, which webkit2gtk-4.1 only lists as optional.

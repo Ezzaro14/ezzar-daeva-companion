@@ -1,8 +1,7 @@
 //! Characters as the official site shows them (aion2.plaync.com): profile,
 //! stats, Daevanion boards node by node, equipment, skills, pet and wings,
-//! for the Progression Guide. And the players to compare you with: the top
-//! of your class on a2tools.app's leaderboard for your region, and the
-//! players this session has seen in your fights.
+//! for the Progression Guide. And the players to compare you with: those
+//! you add, and the players this session has seen in your fights.
 //!
 //! The site's own pages read the same public endpoints:
 //!
@@ -30,7 +29,6 @@ use crate::app::AppState;
 pub const ARMORY: &str = "feed:armory";
 const SEARCH: &str = "https://api-search.plaync.com/aion2global/search/v2/character";
 const SITE: &str = "https://aion2.plaync.com/api/character";
-const LEADERBOARD: &str = "https://a2tools.app/leaderboard";
 /// How long a character read is good for.
 const KEEP_SECS: i64 = 24 * 3600;
 /// Your own, when not asked to read it again.
@@ -39,9 +37,6 @@ const KEEP_OWN_SECS: i64 = 10 * 60;
 const PACE: Duration = Duration::from_millis(350);
 /// Players read for a pool, at most.
 const MAX_POOL: usize = 24;
-/// A leaderboard name's characters this many levels below the highest of
-/// that name are not the one on the leaderboard.
-const LEVEL_SLACK: i64 = 5;
 
 /// A server's region on the official site, by the second digit of its id.
 pub fn region_of(server: u16) -> Option<&'static str> {
@@ -131,26 +126,6 @@ fn percent_decode(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// The names on a2tools.app's leaderboard page, in order, without repeats.
-pub fn parse_leaderboard(html: &str) -> Vec<String> {
-    let mut seen = HashSet::new();
-    let mut out = Vec::new();
-    for part in html.split("href=\"/players/").skip(1) {
-        let Some(path) = part.split('"').next() else { continue };
-        let Some((_, name)) = path.split_once('/') else { continue };
-        let name = percent_decode(name);
-        if !name.is_empty() && seen.insert(name.clone()) {
-            out.push(name);
-        }
-    }
-    out
-}
-
-/// a2tools.app's name for an official region.
-fn leaderboard_region(region: &str) -> &str {
-    if region == "la" { "sa" } else { region }
-}
-
 struct Client {
     http: reqwest::Client,
     dir: PathBuf,
@@ -202,34 +177,9 @@ impl Client {
         (age < max_age).then_some(v)
     }
 
-    /// The class each `pcId` seen so far stands for (several per class, by
-    /// race and gender, with no table to read them from): a search hit of
-    /// another class is passed over unread.
-    fn pc_classes(&self) -> std::collections::HashMap<i64, String> {
-        std::fs::read_to_string(self.dir.join("pcids.json")).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
-    }
-
-    fn note_pc_class(&self, pc_id: i64, class: &str) {
-        let mut known = self.pc_classes();
-        if pc_id > 0 && known.get(&pc_id).map(String::as_str) != Some(class) {
-            known.insert(pc_id, class.to_string());
-            let _ = std::fs::write(self.dir.join("pcids.json"), serde_json::to_string(&known).unwrap_or_default());
-        }
-    }
-
-    /// Whether a hit can be of class `class`: not when its pcId is known as another's.
-    fn may_be(&self, hit: &Hit, class: i32) -> bool {
-        self.pc_classes().get(&hit.pc_id).is_none_or(|c| is_class(c, class))
-    }
-
     /// One character: info and equipment, and with `boards` every open
-    /// board's nodes too (read later, for the players compared only); with
-    /// `want`, only when it is of that class (else just its info is read).
+    /// board's nodes too (read later, for the players compared only).
     async fn character(&self, id: &str, server: u16, max_age: i64, boards: bool) -> Result<Value, String> {
-        self.character_of(id, server, max_age, None, boards).await
-    }
-
-    async fn character_of(&self, id: &str, server: u16, max_age: i64, want: Option<i32>, boards: bool) -> Result<Value, String> {
         let region = region_of(server).ok_or("a server outside the Global regions")?;
         let server_s = server.to_string();
         let q = [("characterId", id), ("serverId", server_s.as_str()), ("region", region), ("lang", "en")];
@@ -237,13 +187,6 @@ impl Client {
             Some(v) => v,
             None => {
                 let info = self.get(&format!("{SITE}/info"), &q).await?;
-                let class = info["profile"]["className"].as_str().unwrap_or_default().to_string();
-                self.note_pc_class(info["profile"]["pcId"].as_i64().unwrap_or(0), &class);
-                if let Some(want) = want
-                    && !is_class(&class, want)
-                {
-                    return Err(format!("{class}, not {}", class_name(want).unwrap_or("the class")));
-                }
                 let equipment = self.get(&format!("{SITE}/equipment"), &q).await?;
                 let v = serde_json::json!({
                     "fetchedAt": crate::clock::now_ms() / 1000,
@@ -260,11 +203,6 @@ impl Client {
                 v
             }
         };
-        if let Some(want) = want
-            && !v["profile"]["className"].as_str().is_some_and(|c| is_class(c, want))
-        {
-            return Err("another class".into());
-        }
         if boards && v["boardsRead"].as_bool() != Some(true) {
             let mut read = serde_json::Map::new();
             for board in v["daevanion"]["boardList"].as_array().cloned().unwrap_or_default() {
@@ -298,22 +236,6 @@ impl Client {
         self.character(&hit.id, server, max_age, boards).await
     }
 
-    /// The leaderboard's top names for a class in a region.
-    async fn leaderboard(&self, class: i32, region: &str) -> Result<Vec<String>, String> {
-        tokio::time::sleep(PACE).await;
-        let html = self
-            .http
-            .get(LEADERBOARD)
-            .query(&[("board", "dps"), ("cls", &class.to_string()), ("region", leaderboard_region(region))])
-            .timeout(Duration::from_secs(20))
-            .send()
-            .await
-            .map_err(|e| format!("Could not reach a2tools.app: {e}"))?
-            .text()
-            .await
-            .map_err(|e| e.to_string())?;
-        Ok(parse_leaderboard(&html))
-    }
 }
 
 fn emit(app: &tauri::AppHandle, plugin: &str, event: &str, data: Value) {
@@ -349,8 +271,8 @@ pub async fn plugin_armory_character(
     Client::new(&app)?.by_name(&name, server, max_age, true).await
 }
 
-/// The players to compare a class with: the leaderboard's top of the class in
-/// the region, the players seen this session, and `extra` ({name, server});
+/// The players to compare a class with: `extra` ({name, server}) and the
+/// players seen this session in the region;
 /// read in the background, each as it arrives sent as "armory-player", and
 /// "armory-pool" with the progress.
 #[tauri::command]
@@ -386,17 +308,9 @@ pub async fn plugin_armory_pool(
         let tell = |stage: &str, found: usize, failed: usize, total: usize, note: Option<String>| {
             emit(&app, &id, "armory-pool", serde_json::json!({ "stage": stage, "found": found, "failed": failed, "total": total, "note": note }));
         };
-        let leaders = match client.leaderboard(class, &region).await {
-            Ok(names) => names,
-            Err(e) => {
-                tell("leaderboard", 0, 0, 0, Some(e));
-                Vec::new()
-            }
-        };
-        // Named players first (yours to compare with), then the leaderboard, then those seen.
-        let mut queue: Vec<(String, Option<u16>, &str)> = extra.into_iter().map(|(n, s)| (n, Some(s), "added")).collect();
-        queue.extend(leaders.into_iter().map(|n| (n, None, "leaderboard")));
-        queue.extend(seen.into_iter().map(|(n, s)| (n, Some(s), "seen")));
+        // Named players first (yours to compare with), then those seen.
+        let mut queue: Vec<(String, u16, &str)> = extra.into_iter().map(|(n, s)| (n, s, "added")).collect();
+        queue.extend(seen.into_iter().map(|(n, s)| (n, s, "seen")));
         let mut done = HashSet::new();
         queue.retain(|(n, _, _)| done.insert(n.clone()) && Some(n) != me.as_ref());
         queue.truncate(MAX_POOL);
@@ -405,26 +319,7 @@ pub async fn plugin_armory_pool(
         // First everyone's profile and gear; then the boards of those compared.
         let mut read: Vec<(i64, String, u16, &str)> = Vec::new();
         for (name, server, source) in queue {
-            let result = match server {
-                Some(s) => client.by_name(&name, s, KEEP_SECS, false).await,
-                // From the leaderboard: the region's character of that name and
-                // class, the highest level first.
-                None => async {
-                    let mut hits = client.search(&name, &region, None).await?;
-                    hits.sort_by_key(|h| std::cmp::Reverse(h.level));
-                    let top = hits.first().map_or(0, |h| h.level);
-                    for hit in hits.into_iter().filter(|h| h.level + LEVEL_SLACK >= top) {
-                        if !client.may_be(&hit, class) {
-                            continue;
-                        }
-                        if let Ok(c) = client.character_of(&hit.id, hit.server, KEEP_SECS, Some(class), false).await {
-                            return Ok(c);
-                        }
-                    }
-                    Err(format!("no {} named {name} in the region", class_name(class).unwrap_or("player")))
-                }
-                .await,
-            };
+            let result = client.by_name(&name, server, KEEP_SECS, false).await;
             match result {
                 Ok(c) if source == "added" || c["profile"]["className"].as_str().is_some_and(|n| is_class(n, class)) => {
                     found += 1;
@@ -477,14 +372,6 @@ mod tests {
             Hit { id: "9PO8eUjDa8pGlEbVzGrXcGoM4WtQFNnGvDiJQIzEtEE=".into(), name: "RavenN".into(), server: 2201, level: 45, pc_id: 0 }
         );
         assert_eq!(hits[1].name, "Ravenne");
-    }
-
-    #[test]
-    fn the_leaderboard_names_its_players_once_each() {
-        let html = r#"<a href="/players/nae/%E7%99%BD%E9%85%92" title="x"></a><a href="/players/nae/Bob">
-            <a href="/players/nae/%E7%99%BD%E9%85%92"></a><a href="/logs/1"></a>"#;
-        assert_eq!(parse_leaderboard(html), vec!["白酒".to_string(), "Bob".to_string()]);
-        assert_eq!(leaderboard_region("la"), "sa");
     }
 
     #[test]

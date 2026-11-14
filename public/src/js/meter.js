@@ -24,30 +24,6 @@ const textureOffsetFor = (id) => {
   return (hash >>> 0) % 720;
 };
 
-// Whether a bar colour is bright (gold, yellow, pale): a supporter's gold name
-// gets a firmer edge there (styles.css .onBright). The colour is the bar's
-// --bar as the theme resolves it, read through a canvas so any CSS colour
-// works; remembered per colour.
-const brightBars = new Map();
-let colorProbe = null;
-const isBrightColor = (value) => {
-  const key = String(value || "").trim();
-  if (!key) return false;
-  if (brightBars.has(key)) return brightBars.get(key);
-  let bright = false;
-  try {
-    colorProbe ||= document.createElement("canvas").getContext("2d");
-    colorProbe.fillStyle = "#000";
-    colorProbe.fillStyle = key;
-    colorProbe.fillRect(0, 0, 1, 1);
-    const [r, g, b] = colorProbe.getImageData(0, 0, 1, 1).data;
-    const lin = (c) => ((c /= 255) <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-    bright = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b) > 0.3;
-  } catch {}
-  brightBars.set(key, bright);
-  return bright;
-};
-
 const createMeterUI = ({
   elList,
   dpsFormatter,
@@ -132,27 +108,6 @@ const createMeterUI = ({
     const nameEl = document.createElement("div");
     nameEl.className = "name";
 
-    // Supporter badge. Sits between the name and the combat power, hidden
-    // unless the roster names this player. Inline SVG rather than a lucide
-    // `data-lucide` element because rows are built and rebuilt constantly and
-    // lucide only swaps placeholders when createIcons() runs.
-    const supporterBadgeEl = document.createElement("span");
-    supporterBadgeEl.className = "supporterBadge";
-    supporterBadgeEl.style.display = "none";
-    supporterBadgeEl.setAttribute("aria-hidden", "true");
-    supporterBadgeEl.innerHTML =
-      '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="rgba(28,16,0,0.9)" ' +
-      'stroke-width="1.3" stroke-linejoin="round" paint-order="stroke" aria-hidden="true">' +
-      '<path d="M3 9l4.6 3.4L12 6l4.4 6.4L21 9l-1.9 8.6H4.9z"/><rect x="4.6" y="18.6" width="14.8" height="2.4" rx="0.6"/>' +
-      '<circle cx="3" cy="8.4" r="1.7"/><circle cx="12" cy="5" r="1.9"/><circle cx="21" cy="8.4" r="1.7"/></svg>';
-
-    // A party member who runs A2Tools too (party_presence.rs): a small tag.
-    const a2toolsBadgeEl = document.createElement("span");
-    a2toolsBadgeEl.className = "a2toolsBadge";
-    a2toolsBadgeEl.style.display = "none";
-    a2toolsBadgeEl.textContent = "A2";
-    a2toolsBadgeEl.title = window.i18n?.t?.("meter.a2toolsUser", "Uses A2Tools") ?? "Uses A2Tools";
-
     // Party combat power, shown beside the name. Hidden unless the party roster
     // packet supplied a value for this player.
     const combatPowerEl = document.createElement("span");
@@ -160,7 +115,8 @@ const createMeterUI = ({
     combatPowerEl.style.display = "none";
 
     // Deaths in this fight: a skull and the count, hidden at none. Inline SVG
-    // for the reason the supporter badge is.
+    // rather than a lucide element: rows are built and rebuilt constantly, and
+    // lucide only swaps placeholders when createIcons() runs.
     const deathsEl = document.createElement("span");
     deathsEl.className = "deaths";
     deathsEl.style.display = "none";
@@ -187,8 +143,6 @@ const createMeterUI = ({
     contentEl.appendChild(rankEl);
     contentEl.appendChild(classIconEl);
     contentEl.appendChild(nameEl);
-    contentEl.appendChild(supporterBadgeEl);
-    contentEl.appendChild(a2toolsBadgeEl);
     contentEl.appendChild(combatPowerEl);
     contentEl.appendChild(deathsEl);
     contentEl.appendChild(dpsContainer);
@@ -200,8 +154,6 @@ const createMeterUI = ({
       rowEl,
       prevContribClass: "",
       nameEl,
-      supporterBadgeEl,
-      a2toolsBadgeEl,
       combatPowerEl,
       deathsEl,
       deathsCountEl,
@@ -219,7 +171,6 @@ const createMeterUI = ({
       lastNameText: "",
       lastCombatPowerText: "",
       lastIsCjk: false,
-      lastIsSupporter: false,
       lastMetricText: "",
       lastContributionText: "",
       lastDeaths: -1,
@@ -429,23 +380,6 @@ const createMeterUI = ({
       }
 
       const isCjk = cjkRegex.test(nameText);
-      // Its own cached field rather than folded into the name: lastNameText
-      // short-circuits when the text is unchanged, so a supporter whose name
-      // stays the same would never get the class applied.
-      const isSupporter = !!row.isSupporter;
-      if (view.lastIsSupporter !== isSupporter) {
-        view.nameEl.classList.toggle("isSupporter", isSupporter);
-        view.rowEl.classList.toggle("isSupporterRow", isSupporter);
-        view.supporterBadgeEl.style.display = isSupporter ? "inline-flex" : "none";
-        view.lastIsSupporter = isSupporter;
-      }
-
-      const usesA2tools = !!row.usesA2tools && !row.isUser;
-      if (view.lastUsesA2tools !== usesA2tools) {
-        view.a2toolsBadgeEl.style.display = usesA2tools ? "inline-flex" : "none";
-        view.lastUsesA2tools = usesA2tools;
-      }
-
       if (view.lastIsCjk !== isCjk) {
         view.nameEl.classList.toggle("isCjk", isCjk);
         view.lastIsCjk = isCjk;
@@ -478,17 +412,6 @@ const createMeterUI = ({
         else view.rowEl.style.removeProperty("--class-fill");
         view.lastClassColor = classColor;
       }
-      // A supporter's name on a bright bar: a firmer edge. Looked at again only
-      // when what decides the bar's colour changes (theme, class, own row).
-      const barKey = isSupporter
-        ? `${document.documentElement.dataset.theme || ""}|${row.job || ""}|${!!row.isUser}`
-        : "";
-      if (view.lastBarKey !== barKey) {
-        view.lastBarKey = barKey;
-        const bright = !!barKey && isBrightColor(getComputedStyle(view.fillEl).getPropertyValue("--bar"));
-        view.nameEl.classList.toggle("onBright", bright);
-      }
-
       if (row.job && row.job !== "Unknown") {
         if (!classIconSrcByJob.has(row.job)) {
           classIconSrcByJob.set(row.job, `./assets/${row.job}.png`);

@@ -9,13 +9,13 @@
   const { invoke } = window.__TAURI__.core;
 
   // Which optional parts this build has (app.rs build_features). The private
-  // build, compiled without online features, has no account, uploads, update
-  // check, Send Logs to Dev, Discord activity or stream overlay: html.a2-offline
+  // build, compiled without online features, has no shared boss timers, update
+  // check or stream overlay: html.a2-offline
   // hides them (styles.css) and the code below skips them.
   window.a2Build = { online: true };
   window.a2BuildReady = invoke("build_features")
     .then((features) => {
-      window.a2Build = { online: features?.online !== false, devSupporter: features?.devSupporter === true };
+      window.a2Build = { online: features?.online !== false };
       document.documentElement.classList.toggle("a2-offline", !window.a2Build.online);
       return window.a2Build;
     })
@@ -135,7 +135,7 @@
         w.show();
         w.setFocus();
       } catch (e) {
-        console.error("[A2Tools] reveal failed", e);
+        console.error("[Daeva] reveal failed", e);
       }
     };
     const scheduleReveal = () => requestAnimationFrame(() => requestAnimationFrame(reveal));
@@ -166,28 +166,17 @@
   let settingsReadId = 0;
   let settingsReadPromise = null;
   let settingsRevision = 0;
-  let pendingSettingsAccountResult = null;
   const settingsKeyRevisions = new Map();
   const cacheSetting = (key, value) => {
     settingsKeyRevisions.set(key, ++settingsRevision);
     settingsCache[key] = String(value);
     try { localStorage.setItem(key, String(value)); } catch {}
   };
-  const applyPendingSettingsAccountResult = () => {
-    if (pendingSettingsAccountResult === null || !window._dpsApp?.accountStateEl
-      || !window._dpsApp?.refreshAccountPanel) return false;
-    const result = pendingSettingsAccountResult;
-    pendingSettingsAccountResult = null;
-    window._dpsApp.refreshAccountPanel(result);
-    window._dpsApp.onAccountPromoResult?.(result);
-    return true;
-  };
   // Linux keeps Settings when it is closed. Shown again, it resumes; not every
   // change is broadcast as setting-changed, so the backend is read again.
   const resumeSettings = ({ resync = true } = {}) => {
     if (viewMode !== "settings" || settingsActive) return;
     settingsActive = true;
-    applyPendingSettingsAccountResult();
     startStatusPolling();
     if (resync && reusesSettings) loadSettings().then((applied) => {
       if (applied && settingsActive) window._dpsApp?.syncSettingsForm?.();
@@ -307,24 +296,9 @@
     window._dpsApp?.applyRemoteSettingChange?.(key, String(value));
   });
 
-  listen("account-changed", (event) => {
-    if (viewMode === "settings" && (!settingsActive || !window._dpsApp?.accountStateEl)) {
-      // A device grant finishes once. Keep its outcome while the form is
-      // hidden: account_status alone cannot distinguish pending from expired.
-      pendingSettingsAccountResult = event?.payload || null;
-      return;
-    }
-    window._dpsApp?.refreshAccountPanel?.(event?.payload);
-    window._dpsApp?.onAccountPromoResult?.(event?.payload);
-    // Signed in or out: a supporter's bar textures come or go with it.
-    window._dpsApp?.refreshSupporterStatus?.();
-  });
-
-  // Settings was asked to open while already open; check the account again
-  // behind what it shows.
+  // Settings was asked to open while already open: it resumes.
   const settingsShownSubscription = listen("settings-shown", () => {
     if (viewMode === "settings") ++settingsLifecycleGeneration;
-    if (!applyPendingSettingsAccountResult()) window._dpsApp?.refreshAccountPanel?.();
     resumeSettings();
   });
   const settingsHiddenSubscription = viewMode === "settings" ? listen("settings-hidden", () => {
@@ -399,7 +373,7 @@
         });
         return JSON.stringify(result);
       } catch (e) {
-        console.error("[A2Tools] getTargetDetails error:", e);
+        console.error("[Daeva] getTargetDetails error:", e);
         return null;
       }
     },
@@ -410,7 +384,7 @@
       try {
         return await invoke("get_fight_buffs", { targetId: Number(targetId) });
       } catch (e) {
-        console.error("[A2Tools] getFightBuffs error:", e);
+        console.error("[Daeva] getFightBuffs error:", e);
         return null;
       }
     },
@@ -527,12 +501,12 @@
         w.show();
         w.setFocus();
       } catch (e) {
-        console.error("[A2Tools] revealSelf failed", e);
+        console.error("[Daeva] revealSelf failed", e);
       }
       return invoke("details_window_ready").catch(() => {});
     },
     openSettingsWindow() {
-      return invoke("open_settings_window").catch((e) => console.error("[A2Tools] openSettingsWindow", e));
+      return invoke("open_settings_window").catch((e) => console.error("[Daeva] openSettingsWindow", e));
     },
     closeSettingsWindow() {
       return invoke("close_settings_window").catch(() => {});
@@ -549,13 +523,11 @@
         w.show();
         w.setFocus();
       } catch (e) {
-        console.error("[A2Tools] revealSelf failed", e);
+        console.error("[Daeva] revealSelf failed", e);
       }
       return invoke("tool_window_ready", { label: String(label) }).catch(() => {});
     },
     async notifyUiReady() {
-      // A visible startup or native fallback can precede core installation.
-      if (viewMode === "settings" && settingsActive) applyPendingSettingsAccountResult();
       if (!loadsHidden) return;
       if (viewMode === "settings") {
         await settingsLifecycleReady;
@@ -851,11 +823,6 @@
     setSaveRawPackets(enabled) {
       invoke("set_packet_logging", { enabled: !!enabled }).catch(() => {});
     },
-    // Sends the newest packet captures to the developer. Resolves with
-    // { code, files }; rejects with a message to show as is.
-    sendLogsToDev() {
-      return invoke("send_logs_to_dev");
-    },
     setDebugLoggingEnabled(enabled) {
       invoke("set_debug_logging", { enabled: !!enabled }).catch(() => {});
     },
@@ -887,21 +854,6 @@
       return invoke("load_fight", { id }).then((r) => JSON.stringify(r)).catch(() => null);
     },
 
-    // Asked by the account line and the supporter check together on every
-    // window's start: one request to the site answers both.
-    accountStatus() {
-      if (!this._accountStatus) {
-        this._accountStatus = invoke("account_status").finally(() => {
-          this._accountStatus = null;
-        });
-      }
-      return this._accountStatus;
-    },
-
-    discordActivityAvailable() {
-      return invoke("discord_activity_available");
-    },
-
     // The stream overlay for OBS on another PC, as
     // { enabled, running, port, urls, error }. Configure and New key resolve
     // with the status after the change; configure rejects a bad port.
@@ -913,42 +865,6 @@
     },
     streamOverlayNewKey() {
       return invoke("stream_overlay_new_key");
-    },
-
-    // The last check's answer, at once: null if none has run yet, else
-    // { who } with who null when signed out.
-    accountStatusCached() {
-      return invoke("account_status_cached").then((seen) =>
-        seen === null || seen === undefined ? null : { who: seen }
-      );
-    },
-
-    // Starts the device grant and opens the browser. Resolves with the code to
-    // show; completion arrives later on the "account-changed" event.
-    accountBeginLink() {
-      return invoke("account_begin_link");
-    },
-
-    accountSignOut() {
-      return invoke("account_sign_out").catch(() => {});
-    },
-
-    // Writes the two files an upload would send and returns a summary.
-    // Deliberately does NOT upload — see docs/PRIVACY.md and the
-    // `preview_share` command. Rejects with a message the UI shows verbatim.
-    previewShare(id) {
-      return invoke("preview_share", { fightId: id });
-    },
-
-    // Uploads the fight's Evidence Slice to a2tools.app and resolves with
-    // { url, visibility, duplicate }. Rejects with a message to show as is.
-    uploadFight(id) {
-      return invoke("upload_fight", { fightId: id });
-    },
-
-    // { fightId: { hasSlice, url } } for every fight that can be, or was, uploaded.
-    shareStatus() {
-      return invoke("share_status").catch(() => ({}));
     },
 
     deleteFight(id) {
@@ -1068,7 +984,6 @@
     clearInterval(statusTimer);
     statusTimer = null;
     document.activeElement?.blur?.();
-    window._dpsApp?.closeSupportModal?.();
     document.querySelectorAll(".settingsDropdownMenu.isOpen").forEach(menu => menu.classList.remove("isOpen"));
   });
   if (viewMode !== "settings" || settingsActive) startStatusPolling();
@@ -1101,7 +1016,7 @@
           finished = await invoke("finish_window_resize", { cancel: true });
         }
       } catch (error) {
-        console.error("[A2Tools] finishing native resize failed", error);
+        console.error("[Daeva] finishing native resize failed", error);
       }
       if (!finished) {
         // WebKit can emit hover events during a grab; GTK must confirm release.
@@ -1125,7 +1040,7 @@
       if (held) return window.__TAURI__.window.getCurrentWindow().startResizeDragging(direction);
       queueMicrotask(() => finishNativeResize(true));
     }).catch((error) => {
-      console.error("[A2Tools] native window resize failed", error);
+      console.error("[Daeva] native window resize failed", error);
       // Run after this promise settles, so finishing cannot await itself.
       queueMicrotask(() => finishNativeResize(true));
     });
@@ -1294,7 +1209,7 @@
               .then(() => window.__TAURI__.window.getCurrentWindow().startResizeDragging(DIRECTION[edge]));
           }
         })
-          .catch((err) => console.error("[A2Tools] tool window resize failed", err));
+          .catch((err) => console.error("[Daeva] tool window resize failed", err));
         return;
       }
       dragFromHeader(e);
@@ -1321,11 +1236,11 @@
 
   // Startup diagnostics
   invoke("debug_status").then((s) => {
-    console.log("[A2Tools] Debug status:", JSON.stringify(s));
+    console.log("[Daeva] Debug status:", JSON.stringify(s));
     if (!s.isAdmin) {
-      console.warn("[A2Tools] NOT RUNNING AS ADMIN — packet capture will not work!");
+      console.warn("[Daeva] NOT RUNNING AS ADMIN — packet capture will not work!");
     }
-  }).catch((e) => console.error("[A2Tools] debug_status failed:", e));
+  }).catch((e) => console.error("[Daeva] debug_status failed:", e));
 
-  console.log("[A2Tools] Tauri bridge adapter loaded (javaBridge + dpsData)");
+  console.log("[Daeva] Tauri bridge adapter loaded (javaBridge + dpsData)");
 })();

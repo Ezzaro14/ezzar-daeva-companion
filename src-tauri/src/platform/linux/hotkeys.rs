@@ -7,7 +7,7 @@
 //! change them; GNOME 48 and later do the same. Hyprland's portal ignores the
 //! suggested keys: the user binds each shortcut in their config with the
 //! `global` dispatcher, by the id `hyprctl globalshortcuts` lists
-//! (`com.a2tools.dps-meter:reset`), as docs/linux.md shows. With no portal, or
+//! (`app.ezzar.daeva-companion:reset`), as docs/linux.md shows. With no portal, or
 //! one without GlobalShortcuts, there are no hotkeys, as before.
 //!
 //! The keys are only suggestions here, so the meter's own Keybinds settings
@@ -34,7 +34,7 @@ const PORTAL: &str = "org.freedesktop.portal.Desktop";
 const PORTAL_PATH: &str = "/org/freedesktop/portal/desktop";
 const SHORTCUTS: &str = "org.freedesktop.portal.GlobalShortcuts";
 /// The app id the shortcuts are filed under: Tauri's identifier. The .deb and
-/// .rpm name their desktop file after the product ("A2Tools DPS Meter"),
+/// .rpm name their desktop file after the product (`fork::APP_NAME`),
 /// which is no valid app id, so the identifier is registered instead.
 const APP_ID: &str = crate::fork::APP_ID;
 

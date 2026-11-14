@@ -807,8 +807,7 @@ const createDetailsUI = ({
       const actorRow = detailsActors.get(actorId);
       nameEl.className =
         "detailsPartyBarName" +
-        (cjkRegex.test(name) ? " isCjk" : "") +
-        (actorRow?.isSupporter ? " isSupporter" : "");
+        (cjkRegex.test(name) ? " isCjk" : "");
       nameEl.textContent = name;
       if (color) nameEl.style.color = color;
       // Combat power or gear score after the name, as in the meter.
@@ -872,20 +871,6 @@ const createDetailsUI = ({
       }
       contentEl.appendChild(nameWrapEl);
 
-      // Same crown the meter rows use, so a supporter is marked the same way
-      // wherever their name appears rather than only on the live overlay.
-      if (actorRow?.isSupporter) {
-        const badgeEl = document.createElement("span");
-        badgeEl.className = "supporterBadge";
-        badgeEl.style.display = "inline-flex";
-        badgeEl.setAttribute("aria-hidden", "true");
-        badgeEl.innerHTML =
-          '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="rgba(28,16,0,0.9)" ' +
-          'stroke-width="1.3" stroke-linejoin="round" paint-order="stroke" aria-hidden="true">' +
-          '<path d="M3 9l4.6 3.4L12 6l4.4 6.4L21 9l-1.9 8.6H4.9z"/><rect x="4.6" y="18.6" width="14.8" height="2.4" rx="0.6"/>' +
-          '<circle cx="3" cy="8.4" r="1.7"/><circle cx="12" cy="5" r="1.9"/><circle cx="21" cy="8.4" r="1.7"/></svg>';
-        contentEl.appendChild(badgeEl);
-      }
       contentEl.appendChild(dpsEl);
       contentEl.appendChild(dmgEl);
       contentEl.appendChild(pctEl);

@@ -54,12 +54,6 @@ settings.properties
 # Debug binaries
 /src-tauri/src/bin/
 
-# log service build output
-/log-service/target/
-/log-service/build/
-/log-service/.dev.vars
-/log-service/.wrangler/
-
 # makepkg output (packaging/arch)
 /packaging/arch/src/
 /packaging/arch/pkg/

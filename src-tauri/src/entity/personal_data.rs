@@ -21,19 +21,6 @@ pub struct PersonalData {
     /// Gear score from the same roster packet; 0 when unknown, as above.
     #[serde(default)]
     pub gear_score: i32,
-    /// Renders this player's name gold. Resolved locally against a roster the
-    /// meter downloads — see `crate::supporters`; nothing about your party is
-    /// ever sent anywhere to work this out.
-    ///
-    /// Cosmetic and nothing else. It must never affect ordering, bar colour, or
-    /// any number, because a meter that flatters the people who paid is not a
-    /// meter anybody should trust.
-    #[serde(default)]
-    pub is_supporter: bool,
-    /// A party member who runs A2Tools too (`party_presence.rs`): a small
-    /// mark beside the name.
-    #[serde(default)]
-    pub uses_a2tools: bool,
     /// The Others row on an open-world boss: everyone not in your party,
     /// from the HP the boss lost (`DpsCalculator::world_boss_rows`).
     #[serde(default)]
@@ -62,8 +49,6 @@ impl PersonalData {
             nickname,
             combat_power: 0,
             gear_score: 0,
-            is_supporter: false,
-            uses_a2tools: false,
             is_others: false,
             in_party: false,
             hps: 0.0,
@@ -82,8 +67,6 @@ impl PersonalData {
             nickname,
             combat_power: 0,
             gear_score: 0,
-            is_supporter: false,
-            uses_a2tools: false,
             is_others: false,
             in_party: false,
             hps: 0.0,

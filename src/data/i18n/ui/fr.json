@@ -219,10 +219,6 @@
     "viewGrouped": "Grouper par boss",
     "fightCount": "{n} combats",
     "fightCountOne": "1 combat",
-    "previewUpload": "Aperçu de l'envoi",
-    "previewUploadTip": "Écrit ce que le partage de ce combat enverrait. Rien n'est envoyé.",
-    "previewWorking": "Création de l'aperçu…",
-    "previewDone": "{slice} Ko écrits ({sent} Ko compressés — ce qu'un envoi transmettrait). {kept} paquets conservés sur {seen}, {blinded} noms masqués. Rien n'a été envoyé. Enregistré dans {dir}",
     "openWorld": "Monde ouvert"
   },
   "settings": {
@@ -283,17 +279,8 @@
     "playerLimit": {
       "label": "Joueurs affichés max."
     },
-    "partyPresence": "Afficher les utilisateurs d'A2Tools de mon groupe",
-    "shareBossTimers": "Partager les minuteurs des boss de terrain",
     "debugLogging": "Journal de débogage",
     "quit": "Quitter",
-    "discord": {
-      "title": "Discord",
-      "activity": "Afficher dans Discord ce à quoi je joue",
-      "activityHint": "Tant qu'AION2 est ouvert, votre statut Discord affiche le nom de votre personnage, sa classe, son niveau, votre serveur et le boss que vous combattez. Cela passe par l'application Discord de cet ordinateur ; aucun compte n'est nécessaire. Avec un Nombre dans Discord choisi, il affiche aussi votre puissance de combat ou votre score d'équipement.",
-      "stat": "Nombre dans Discord",
-      "statHint": "Le nombre que votre statut Discord affiche après votre niveau."
-    },
     "streamOverlay": {
       "title": "Streaming",
       "enable": "Overlay de stream (OBS sur un autre PC)",
@@ -345,7 +332,6 @@
     "textureOffset": "Décaler les textures",
     "barTexture": {
       "label": "Texture des barres",
-      "supportersOnly": "Pour les soutiens : connectez-vous ci-dessus, dans Compte A2 Tools, pour l'utiliser.",
       "options": {
         "none": "Aucune",
         "flames": "Flammes",
@@ -413,7 +399,7 @@
       "toggle": "Afficher/masquer la fenêtre",
       "pressKeys": "Appuyez sur des touches...",
       "tooManyKeys": "3 touches au maximum",
-      "plugins": "Ramener les fenêtres des plugins",
+      "plugins": "Afficher ou masquer le tableau de bord",
       "notSet": "Non défini",
       "restoreDefaults": "Rétablir par défaut",
       "hint": "Cliquez sur un raccourci, puis appuyez sur 1 à 3 touches. Échap annule.",
@@ -438,29 +424,6 @@
         "all": "Toutes",
         "highestDamage": "Dégâts les plus élevés"
       }
-    },
-    "showSupporterColors": "Afficher les couleurs des soutiens",
-    "showSupporterColorsHint": "Le nom des soutiens s'affiche en doré. Purement esthétique — aucun chiffre n'est modifié.",
-    "account": {
-      "title": "Compte A2 Tools",
-      "signedOut": "Non connecté",
-      "signedIn": "Connecté en tant que {name}",
-      "hint": "Connectez-vous pour synchroniser vos personnages et paramètres avec a2tools.app.",
-      "connect": "Se connecter",
-      "signOut": "Se déconnecter",
-      "codePrompt": "Validez ce code dans votre navigateur :",
-      "codeHint": "La page devrait déjà être ouverte. Le code expire dans 10 minutes.",
-      "working": "En attente de validation…",
-      "failed": "Échec de la connexion : {error}",
-      "supporter": "Soutien"
-    },
-    "sendLogs": {
-      "hint": "Envoie tes 3 derniers journaux de paquets au développeur, pour un rapport de bug.",
-      "button": "Envoyer les journaux au dev",
-      "confirm": "Envoyer tes 3 derniers journaux de paquets au développeur d'A2 Tools ?\n\nLes journaux de paquets sont le trafic brut du jeu enregistré pendant que la journalisation était activée, noms de personnages compris. Seul le développeur peut les ouvrir, et ils sont supprimés au bout de 30 jours.",
-      "sending": "Envoi...",
-      "sent": "Envoyé. Ton code de rapport est {code} : donne-le au développeur sur Discord.",
-      "failed": "Envoi impossible : {error}"
     },
     "barGap": {
       "label": "Espacement des barres"
@@ -488,18 +451,16 @@
       "meterSaturation": "L'intensité des couleurs des barres : plus bas pour plus doux, plus haut pour plus vif.",
       "bossNameSize": "Taille du nom du boss ou de la cible au-dessus des barres.",
       "partyStat": "Le nombre à côté du nom de chaque joueur, dans le compteur et dans les détails. Seuls les membres de votre groupe en ont un.",
-      "barTexture": "Un motif sur les barres du compteur. Un merci pour votre soutien à A2 Tools.",
+      "barTexture": "Un motif sur les barres du compteur.",
       "textureOffset": "Chaque barre commence sa texture à un endroit différent, pour qu'elles ne se ressemblent pas toutes.",
       "trainingMode": "En mode entraînement, quels mannequins la fenêtre Détails affiche : tous ensemble, ou seulement celui que tu frappes le plus.",
       "allTargetsWindow": "En mode Toutes les cibles, le compteur additionne chaque cible touchée dans ce délai avant le dernier coup.",
       "updateRate": "À quelle fréquence les chiffres du compteur se rafraîchissent. Plus rapide affiche les coups plus tôt mais utilise plus de CPU.",
-      "partyPresence": "Les membres du groupe qui utilisent aussi A2Tools voient une petite étiquette A2 à côté de votre nom, et vous voyez la leur. Tout membre du groupe utilisant A2Tools peut la voir et saura donc que vous utilisez un meter tiers. Seuls des hachages des noms de personnages et des serveurs sont envoyés.",
-      "shareBossTimers": "Partage les minuteurs des boss de terrain avec les autres joueurs via a2tools.app (et son partenaire Aion 2 Timers) : les boss de votre carte quand vous l'ouvrez, et les boss de terrain que vous voyez tués, et leurs PV pendant que vous les combattez. Seuls le serveur, les boss, leurs heures et PV sont envoyés.",
       "debugLogging": "Écrit un journal de diagnostic que le développeur peut utiliser pour trouver les problèmes.",
       "saveRawPackets": "Enregistre le trafic brut du jeu pour les rapports de bug. Le journal de débogage s'active avec.",
       "globalHotkeys": "Les touches ci-dessous fonctionnent partout, même quand le jeu est au premier plan. Désactivé, elles sont libérées pour d'autres programmes. Sous Linux, le bureau les enregistre et peut vous demander de les approuver.",
       "pluginDevMode": "Charge des plugins depuis des dossiers de cet ordinateur, pour les créer et les tester. Ils ne sont pas vérifiés : ne chargez que des plugins de confiance.",
-      "showMeter": "Désactivé : seuls vos plugins s'affichent. Le meter continue d'enregistrer les combats et de les envoyer en arrière-plan. Réaffichez-le ici, avec le raccourci afficher/masquer, ou avec le bouton meter d'une fenêtre de plugin.",
+      "showMeter": "Désactivé : seuls vos plugins s'affichent. Le meter continue d'enregistrer les combats en arrière-plan. Réaffichez-le ici, avec le raccourci afficher/masquer, ou avec le bouton Meter du tableau de bord.",
       "clearOnZone": "Quand le dernier combat quitte le compteur après un changement de zone. Chaque combat reste dans l'Historique dans tous les cas.",
       "hideWhenGameClosed": "Le compteur se masque quand le jeu n'est pas lancé et réapparaît à son démarrage."
     },
@@ -520,43 +481,18 @@
       "devMode": "Mode développeur des plugins",
       "hint": "Les plugins chargés ici ne sont pas vérifiés. Ne chargez que des plugins de confiance.",
       "add": "Charger un dossier de plugin…",
+      "reload": "Recharger les dossiers",
       "open": "Ouvrir",
       "remove": "Retirer",
-      "checkUpdates": "Rechercher des mises à jour",
+      "modules": "Modules",
       "checking": "Vérification…",
       "upToDate": "Tous les plugins sont à jour.",
       "updated": "Mis à jour : {list}",
       "updatedFrom": "Mis à jour depuis {version}",
       "added": "Nouvellement chargé",
-      "intro": "Les plugins vérifiés ajoutent des fonctions à côté du compteur. Chacun n'obtient que ce qu'il demande à l'installation.",
-      "installed": "Installés",
+      "intro": "Les modules fournis avec l'application. Un module désactivé ne s'exécute pas.",
       "none": "Aucun plugin installé pour l'instant.",
-      "available": "Disponibles",
-      "catalogLoading": "Chargement de la liste des plugins…",
-      "catalogEmpty": "Tous les plugins vérifiés sont installés.",
-      "catalogError": "Impossible de charger la liste des plugins : {error}",
-      "offline": "La version hors ligne ne télécharge pas de plugins.",
-      "install": "Installer",
-      "update": "Mettre à jour",
-      "updateTo": "Mettre à jour vers {version}",
-      "installing": "Installation…",
-      "installDone": "{name} {version} est installé.",
-      "updatesAvailable": "Mises à jour disponibles : {list}",
       "unreviewed": "Dev",
-      "by": "par {author}",
-      "consentTitle": "Installer {name} ?",
-      "consentUpdateTitle": "Mettre à jour {name} ?",
-      "consentIntro": "Il pourra :",
-      "consentNew": "La nouvelle version demande aussi :",
-      "consentCancel": "Annuler",
-      "permStorage": "Enregistrer ses propres données sur cet ordinateur",
-      "permNotify": "Afficher de courts messages dans sa fenêtre",
-      "permWindow": "Afficher et masquer sa propre fenêtre, sans retirer le focus au jeu",
-      "permWidgets": "Afficher ses propres petites fenêtres, que vous pouvez déplacer n'importe où et verrouiller",
-      "permBossTimers": "Lire les minuteurs des boss de terrain partagés par les joueurs via a2tools.app",
-      "permCharacter": "Voir le nom, le serveur, la classe et le niveau de votre personnage",
-      "permDecoder": "Lire vos propres données de jeu : {name}",
-      "permNone": "Rien d'autre qu'afficher sa fenêtre",
       "enabled": "Activé",
       "enabledTip": "Activé : démarre avec le compteur. Désactivé : reste installé mais ne s'exécute pas.",
       "showMeter": "Afficher le DPS meter",
@@ -572,32 +508,6 @@
       }
     }
   },
-  "support": {
-    "button": "Me soutenir",
-    "title": "Soutenir l'auteur sur Ko-fi",
-    "linksHint": "Ko-fi, Patreon, Afdian et PayPal ouvrent leur site dans votre navigateur. Les boutons crypto copient une adresse.",
-    "perks": "Chaque tranche de 5 $ donne 12 mois d'avantages de soutien, jusqu'à 2 ans par paiement. Indiquez le code de votre page de compte A2 Tools dans votre message Ko-fi, ou utilisez la même adresse e-mail sur Patreon.",
-    "titleWechat": "Soutenir l'auteur sur WeChat",
-    "label": {
-      "wechat": "WeChat"
-    },
-    "copy": {
-      "btc": "Adresse BTC copiée",
-      "eth": "Adresse ETH copiée",
-      "usdc": "Adresse USDC copiée"
-    },
-    "aria": {
-      "afdian": "Ouvrir Afdian",
-      "kofi": "Ouvrir Ko-fi",
-      "patreon": "Ouvrir Patreon",
-      "close": "Fermer la fenêtre de soutien",
-      "wechat": "Afficher le QR code WeChat",
-      "paypal": "Ouvrir PayPal",
-      "btc": "Copier l'adresse BTC",
-      "eth": "Copier l'adresse ETH",
-      "usdc": "Copier l'adresse USDC"
-    }
-  },
   "battleTime": {
     "analysing": "Surveillance",
     "ttkTooltip": "Durée estimée de tout le combat de boss, d'après ses PV restants et les dégâts du groupe",
@@ -608,7 +518,6 @@
   },
   "meter": {
     "identifyingPlayer": "#{id}",
-    "a2toolsUser": "Utilise A2Tools",
     "dpsSuffix": "/s",
     "others": "Autres"
   },
@@ -656,51 +565,9 @@
       "level": "Niveau {n}"
     }
   },
-  "presence": {
-    "level": "Niv. {level}",
-    "combatPower": "CP {cp}",
-    "gearScore": "GS {gs}",
-    "fighting": "Combat {boss}",
-    "inGame": "En jeu",
-    "elyos": "Élyséens",
-    "asmodian": "Asmodiens",
-    "korea": "Corée",
-    "taiwan": "Taïwan",
-    "tierExpedition": "Expédition",
-    "tierConquestNormal": "Conquête (normal)",
-    "tierConquestHard": "Conquête (difficile)"
-  },
-  "partyPromo": {
-    "title": "Nouveau : voir les utilisateurs d'A2Tools de votre groupe",
-    "text": "Les membres du groupe qui utilisent aussi A2Tools ont une petite étiquette A2 à côté de leur nom, et vous en avez une à côté du vôtre sur leur meter.",
-    "hint": "Tout membre de votre groupe utilisant A2Tools pourra voir que vous utilisez un meter tiers. Seuls des hachages des noms de personnages et des serveurs sont envoyés. Vous pouvez changer cela à tout moment dans les réglages."
-  },
-  "discordPromo": {
-    "title": "Nouveau : activité Discord",
-    "text": "Montrez à vos amis, dans votre statut Discord, votre personnage, votre classe, votre niveau et votre serveur, ainsi que le boss ou le donjon où vous êtes.",
-    "hint": "Passe par l'application Discord de ce PC, sans compte. Vous pouvez changer cela à tout moment dans les Paramètres.",
-    "done": "Terminé",
-    "close": "Fermer"
-  },
-  "accountPromo": {
-    "title": "Gardez vos combats de boss sur a2tools.app",
-    "text": "Créez un compte gratuit ou connectez-vous, et chaque combat de boss est enregistré en ligne : un lien à partager pour chacun, vos logs sur tous vos appareils et votre place au classement.",
-    "hint": "Les noms des autres joueurs restent masqués et les mannequins d'entraînement ne sont jamais envoyés. Vous pouvez changer cela à tout moment dans les Paramètres.",
-    "signIn": "Se connecter",
-    "later": "Plus tard",
-    "close": "Fermer"
-  },
   "npcapPrompt": {
     "ask": "Ezzar's Daeva Companion a besoin de Npcap pour lire le trafic réseau du jeu, et Npcap est absent ou ne fonctionne pas.\n\nL'installer maintenant ? Le meter télécharge l'installateur de Npcap depuis npcap.com et l'ouvre. Une fois Npcap installé, le meter commence la capture tout seul.\n\nChoisis Non pour l'installer toi-même depuis https://npcap.com/#download",
     "downloadFailed": "L'installateur de Npcap n'a pas pu être téléchargé ({error}).\n\nInstalle-le toi-même depuis https://npcap.com/#download, puis rouvre le meter.",
     "stillMissing": "Npcap ne fonctionne toujours pas. Si son installateur a été fermé avant la fin, installe Npcap depuis https://npcap.com/#download, puis rouvre le meter."
-  },
-  "pluginUpdatePrompt": {
-    "title": "A2Tools - Mise à jour de plugin",
-    "one": "Une mise à jour de plugin est disponible :",
-    "many": "Des mises à jour de plugins sont disponibles :",
-    "alsoAsks": "La nouvelle version demande aussi à :",
-    "updateNow": "Mettre à jour maintenant ?",
-    "failed": "Échec de la mise à jour :"
   }
 }

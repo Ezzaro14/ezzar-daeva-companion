@@ -39,7 +39,7 @@ pub struct FightRecord {
     pub dungeon_id: i32,
     /// The recording player's home server (`1304` = Europe, Kaisinel), else
     /// their party's; 0 when the capture never said. Its digits name the
-    /// region, which a2tools.app groups uploaded logs by.
+    /// region.
     #[serde(default)]
     pub server_id: u16,
     /// The buffs and debuffs on the fight's actors and its target

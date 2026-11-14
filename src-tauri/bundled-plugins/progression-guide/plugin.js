@@ -67,7 +67,6 @@ a2.on("armory-player", ({ source, character: c }) => {
 });
 a2.on("armory-pool", (p) => {
   if (!p) return;
-  if (p.note) setStatus(`a2tools.app: ${p.note}`, true);
   if (p.stage === "reading") setStatus(`Reading the players to compare with: ${p.found} of ${p.total} found…`);
   if (p.stage === "boards") setStatus(`Reading the Daevanion boards of the players compared: ${p.found} of ${p.total}…`);
   if (p.stage === "done") {
@@ -261,7 +260,7 @@ function renderSkills() {
 function renderPool() {
   const el = $(".poolList");
   const list = [...pool.values()].sort((a, b) => (b.character.profile.combatPower || 0) - (a.character.profile.combatPower || 0));
-  const source = { leaderboard: "a2tools.app leaderboard", seen: "met in your fights", added: "added by you" };
+  const source = { seen: "met in your fights", added: "added by you" };
   el.innerHTML = list.length
     ? `<table class="table"><thead><tr><th>Player</th><th>Server</th><th class="r">Combat power</th><th>From</th><th></th></tr></thead><tbody>
       ${list

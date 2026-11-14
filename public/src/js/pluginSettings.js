@@ -1,6 +1,6 @@
-// Settings → Plugins: the installed plugins (Open, Update, Remove), the
-// reviewed plugins on offer from the signed catalog (Install), checking for
-// updates, and developer mode with its local folders (src-tauri/src/plugins).
+// Settings → Plugins: the modules that come with the app (on or off, Open),
+// and developer mode with its local folders (Reload, Remove;
+// src-tauri/src/plugins).
 (() => {
   if (window.__A2_VIEW__ !== "settings") return;
   const invoke = window.__TAURI__?.core?.invoke;
@@ -16,13 +16,10 @@
     const devRow = document.querySelector(".pluginDevRow");
     const list = document.querySelector(".pluginList");
     const empty = document.querySelector(".pluginListEmpty");
-    const catalogList = document.querySelector(".pluginCatalog");
-    const catalogStatus = document.querySelector(".pluginCatalogStatus");
     const add = document.querySelector(".pluginAddBtn");
     const update = document.querySelector(".pluginUpdateBtn");
     const status = document.querySelector(".pluginStatus");
-    const consent = document.querySelector(".pluginConsent");
-    if (!toggle || !devRow || !list || !empty || !catalogList || !add || !update || !status || !consent) return;
+    if (!toggle || !devRow || !list || !empty || !add || !update || !status) return;
 
     // The status line shows errors in red and other news in the hint colour.
     const say = (text, isError = true) => {
@@ -30,78 +27,10 @@
       status.classList.toggle("pluginError", isError && !!text);
     };
 
-    let view = { devMode: false, online: true, plugins: [], disabled: [] };
-    let catalog = null; // the catalog's entries, once fetched
-    // Plugins the last update changed, by id → the version before; marked
+    let view = { devMode: false, plugins: [], disabled: [] };
+    // Plugins the last reload changed, by id → the version before; marked
     // green until Settings closes.
     const updatedFrom = new Map();
-    // Newer reviewed versions, by id → { to, newPermissions }.
-    const available = new Map();
-
-    // A permission, in plain words.
-    const describe = (permission) => {
-      if (permission === "storage") return t("settings.plugins.permStorage", "Save its own data on this computer");
-      if (permission === "notify") return t("settings.plugins.permNotify", "Show short messages in its window");
-      if (permission === "widgets") {
-        return t("settings.plugins.permWidgets", "Show small windows of its own, which you can move anywhere and lock in place");
-      }
-      if (permission === "window") {
-        return t("settings.plugins.permWindow", "Open its page in the dashboard when you double-click its widget");
-      }
-      if (permission === "events:character") {
-        return t("settings.plugins.permCharacter", "See your character's name, server, class and level");
-      }
-      if (permission === "feed:boss-timers") {
-        return t("settings.plugins.permBossTimers", "Read the field boss timers players share through a2tools.app");
-      }
-      if (permission === "maps") {
-        return t("settings.plugins.permMaps", "Keep map images and marker files you pick");
-      }
-      if (permission === "feed:armory") {
-        return t("settings.plugins.permArmory", "Read characters' public profiles from the official AION 2 site, and a2tools.app's leaderboard");
-      }
-      if (permission === "notify:system") {
-        return t("settings.plugins.permSystemNotify", "Show desktop notifications while AION2 is closed");
-      }
-      if (permission === "feed:combat") {
-        return t("settings.plugins.permCombat", "See your skills, the buffs and debuffs on you and your party, and the players you fight");
-      }
-      if (permission.startsWith("decoder:")) {
-        return t("settings.plugins.permDecoder", "Read your own game data: {name}", { name: permission.slice(8) });
-      }
-      return permission;
-    };
-
-    // Ask before installing, listing what the plugin may do. Resolves true to go ahead.
-    const ask = ({ title, intro, permissions, confirm }) =>
-      new Promise((resolve) => {
-        consent.querySelector(".hotkeyConsentTitle").textContent = title;
-        consent.querySelector(".pluginConsentIntro").textContent = intro;
-        const items = permissions.length
-          ? permissions.map(describe)
-          : [t("settings.plugins.permNone", "Nothing beyond showing its window")];
-        consent.querySelector(".pluginConsentList").replaceChildren(
-          ...items.map((text) => Object.assign(document.createElement("li"), { textContent: text })),
-        );
-        const yes = consent.querySelector(".pluginConsentConfirm");
-        const no = consent.querySelector(".pluginConsentCancel");
-        yes.textContent = confirm;
-        const done = (answer) => {
-          consent.hidden = true;
-          yes.removeEventListener("click", onYes);
-          no.removeEventListener("click", onNo);
-          consent.removeEventListener("keydown", onKey);
-          resolve(answer);
-        };
-        const onYes = () => done(true);
-        const onNo = () => done(false);
-        const onKey = (e) => { if (e.key === "Escape") done(false); };
-        yes.addEventListener("click", onYes);
-        no.addEventListener("click", onNo);
-        consent.addEventListener("keydown", onKey);
-        consent.hidden = false;
-        yes.focus();
-      });
 
     const button = (label, onClick, extra = "") => {
       const b = document.createElement("button");
@@ -155,73 +84,6 @@
 
     const run = (promise) => promise.then(render).catch((e) => say(String(e)));
 
-    const renderCatalog = () => {
-      catalogList.replaceChildren();
-      catalogStatus.classList.remove("pluginError");
-      if (!view.online) {
-        catalogStatus.textContent = t("settings.plugins.offline", "The offline build does not download plugins.");
-        return;
-      }
-      if (!catalog) return;
-      const offered = catalog.filter((e) => !e.installed);
-      for (const entry of offered) {
-        const by = entry.author ? t("settings.plugins.by", "by {author}", { author: entry.author }) : "";
-        catalogList.append(
-          pluginRow([`${entry.name} ${entry.version}`], [entry.description, by].filter(Boolean).join(" · "), false, [
-            button(t("settings.plugins.install", "Install"), () => install(entry, null)),
-          ]),
-        );
-      }
-      catalogStatus.textContent = offered.length ? "" : t("settings.plugins.catalogEmpty", "Every reviewed plugin is installed.");
-    };
-
-    const loadCatalog = async () => {
-      if (!view.online) return renderCatalog();
-      if (!catalog) catalogStatus.textContent = t("settings.plugins.catalogLoading", "Loading the plugin list…");
-      try {
-        catalog = await invoke("plugin_catalog");
-      } catch (e) {
-        catalog = null;
-        catalogList.replaceChildren();
-        catalogStatus.textContent = t("settings.plugins.catalogError", "Couldn't load the plugin list: {error}", { error: String(e) });
-        catalogStatus.classList.add("pluginError");
-        return;
-      }
-      renderCatalog();
-    };
-
-    // Install a catalog entry, or update to it (`from` is the installed
-    // version). Asks first, listing the permissions: all of them for a new
-    // plugin, only the new ones for an update.
-    const install = async (entry, from) => {
-      const isUpdate = !!from;
-      const permissions = isUpdate ? available.get(entry.id)?.newPermissions || [] : entry.permissions || [];
-      if (!isUpdate || permissions.length) {
-        const ok = await ask({
-          title: isUpdate
-            ? t("settings.plugins.consentUpdateTitle", "Update {name}?", { name: entry.name })
-            : t("settings.plugins.consentTitle", "Install {name}?", { name: entry.name }),
-          intro: isUpdate
-            ? t("settings.plugins.consentNew", "The new version also asks to:")
-            : t("settings.plugins.consentIntro", "It will be able to:"),
-          permissions,
-          confirm: isUpdate ? t("settings.plugins.update", "Update") : t("settings.plugins.install", "Install"),
-        });
-        if (!ok) return;
-      }
-      say(t("settings.plugins.installing", "Installing…"), false);
-      try {
-        const next = await invoke("plugin_install", { id: entry.id });
-        if (isUpdate) updatedFrom.set(entry.id, from);
-        available.delete(entry.id);
-        render(next);
-        say(t("settings.plugins.installDone", "{name} {version} is installed.", { name: entry.name, version: entry.version }), false);
-        await loadCatalog();
-      } catch (e) {
-        say(String(e));
-      }
-    };
-
     const render = (next) => {
       if (next) view = next;
       toggle.checked = !!view.devMode;
@@ -256,19 +118,10 @@
         if (!p.error && on) {
           buttons.push(button(t("settings.plugins.open", "Open"), () => invoke("plugin_open", { id: p.id }).catch((e) => say(String(e)))));
         }
-        const newer = p.reviewed && available.get(p.id);
-        if (newer) {
-          buttons.push(button(
-            t("settings.plugins.updateTo", "Update to {version}", { version: newer.to }),
-            () => install({ id: p.id, name: p.name, version: newer.to }, p.version),
-            "hotkeyConsentConfirm",
-          ));
-        }
-        // One that comes with the meter is turned off instead.
+        // A developer folder can be let go of; a module is turned off instead.
         if (!p.bundled) buttons.push(button(t("settings.plugins.remove", "Remove"), () => {
           say("");
-          if (p.reviewed) run(invoke("plugin_uninstall", { id: p.id })).then(loadCatalog);
-          else run(invoke("plugin_remove_folder", { path: p.path }));
+          run(invoke("plugin_remove_folder", { path: p.path }));
         }));
         const item = pluginRow(title, p.error || p.description || p.path, !!p.error, buttons);
         // Its windows and widgets hidden while AION2 is closed, or with the
@@ -300,11 +153,7 @@
     };
 
     // The list comes with whether developer mode is on.
-    invoke("plugin_list").then((v) => { render(v); loadCatalog(); }).catch(() => {});
-    // An update installed from the prompt at start (plugins::alert_updates_at_start).
-    window.__TAURI__?.window?.getCurrentWindow?.().listen("plugins-changed", () => {
-      invoke("plugin_list").then((v) => { render(v); loadCatalog(); }).catch(() => {});
-    });
+    invoke("plugin_list").then(render).catch(() => {});
 
     toggle.addEventListener("change", () => {
       say("");
@@ -314,26 +163,13 @@
       update.disabled = true;
       say(t("settings.plugins.checking", "Checking…"), false);
       invoke("plugin_check_updates")
-        .then(({ view: next, updated, available: newer, catalogError }) => {
+        .then(({ view: next, updated }) => {
           for (const u of updated) updatedFrom.set(u.id, u.from || "");
-          available.clear();
-          for (const a of newer) available.set(a.id, a);
           render(next);
-          const lines = [];
-          if (updated.length) {
-            const changes = updated.map((u) => (u.from ? `${u.name} ${u.from} → ${u.to}` : `${u.name} ${u.to}`)).join(", ");
-            lines.push(t("settings.plugins.updated", "Updated: {list}", { list: changes }));
-          }
-          if (newer.length) {
-            const versions = newer.map((a) => `${a.name} ${a.to}`).join(", ");
-            lines.push(t("settings.plugins.updatesAvailable", "Updates available: {list}", { list: versions }));
-          }
-          if (catalogError) {
-            lines.push(t("settings.plugins.catalogError", "Couldn't load the plugin list: {error}", { error: catalogError }));
-          }
-          if (!lines.length) lines.push(t("settings.plugins.upToDate", "Every plugin is up to date."));
-          say(lines.join(" "), !!catalogError && !updated.length && !newer.length);
-          return loadCatalog();
+          const changes = updated.map((u) => (u.from ? `${u.name} ${u.from} → ${u.to}` : `${u.name} ${u.to}`)).join(", ");
+          say(updated.length
+            ? t("settings.plugins.updated", "Updated: {list}", { list: changes })
+            : t("settings.plugins.upToDate", "Every plugin is up to date."), false);
         })
         .catch((e) => say(String(e)))
         .finally(() => { update.disabled = false; });

@@ -460,7 +460,6 @@
             <nav class="settingsNav" aria-label="Settings sections">
               <div class="settingsTabs" role="tablist" aria-orientation="vertical">
                 <button class="settingsNavItem isActive" type="button" role="tab" id="settingsTab-connection" aria-controls="settingsSection-connection" aria-selected="true" tabindex="0" data-section="connection"><i data-lucide="plug" aria-hidden="true"></i><span data-i18n="settings.connection">Connection</span></button>
-                <button class="settingsNavItem" type="button" role="tab" id="settingsTab-account" aria-controls="settingsSection-account" aria-selected="false" tabindex="-1" data-section="account"><i data-lucide="circle-user" aria-hidden="true"></i><span data-i18n="settings.account.title">A2 Tools Account</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-meter" aria-controls="settingsSection-meter" aria-selected="false" tabindex="-1" data-section="meter"><i data-lucide="gauge" aria-hidden="true"></i><span data-i18n="settings.meterSettings">Meter Settings</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-appearance" aria-controls="settingsSection-appearance" aria-selected="false" tabindex="-1" data-section="appearance"><i data-lucide="palette" aria-hidden="true"></i><span data-i18n="settings.appearance">Appearance</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-streaming" aria-controls="settingsSection-streaming" aria-selected="false" tabindex="-1" data-section="streaming"><i data-lucide="cast" aria-hidden="true"></i><span data-i18n="settings.streamOverlay.title">Streaming</span></button>
@@ -536,59 +535,6 @@
                       type="button"
                       data-i18n="settings.resetDetection">Detect again</button>
                   </div>
-                </div>
-              </section>
-              <section class="settingsSection" id="settingsSection-account" role="tabpanel" aria-labelledby="settingsTab-account" data-section="account" hidden>
-                <h2 class="settingsSectionTitle" data-i18n="settings.account.title">A2 Tools Account</h2>
-                <div class="settingsGroupBody">
-                  <div class="settingsRow accountRow">
-                    <div class="settingsInfo">
-                      <div class="settingsLabel accountState" data-i18n="settings.account.signedOut">Not signed in</div>
-                      <div class="settingsHint accountHint" data-i18n="settings.account.hint">Sign in to sync characters and settings with a2tools.app.</div>
-                    </div>
-                    <div class="settingsRowEnd">
-                      <button class="settingsAction accountConnectBtn" type="button" data-i18n="settings.account.connect">Sign in</button>
-                      <button class="settingsAction settingsActionDanger accountSignOutBtn" type="button" style="display:none" data-i18n="settings.account.signOut">Sign out</button>
-                    </div>
-                  </div>
-                  <label class="settingsToggle discordActivityGroup" style="display:none" title="While AION2 is open, your Discord status shows your character's name, class, level and server, and the boss you are fighting. It goes through the Discord app on this computer; no account is needed." data-i18n-title="settings.discord.activityHint">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.discord.activity">Show what I'm playing in Discord</span>
-                    <span class="settingsToggleControl">
-                      <input type="checkbox" class="discordActivityCheckbox" />
-                      <span class="settingsToggleTrack" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                  <div class="settingsRow settingsRowSelect discordActivityGroup" style="display:none">
-                    <div class="settingsInfo">
-                      <div class="settingsLabel" data-i18n="settings.discord.stat" title="The number your Discord status shows after your level." data-i18n-title="settings.discord.statHint">Number in Discord</div>
-                    </div>
-                    <div class="settingsDropdownWrapper discordStatDropdownWrapper">
-                      <button class="settingsDropdownBtn discordStatDropdownBtn" type="button">
-                        <span class="settingsDropdownText">-</span>
-                        <span class="settingsDropdownCaret" aria-hidden="true">▾</span>
-                      </button>
-                      <div class="settingsDropdownMenu discordStatDropdownMenu" role="menu"></div>
-                    </div>
-                  </div>
-                  <label class="settingsToggle" title="When a boss fight ends it is uploaded to your account, with the visibility you chose on a2tools.app. Other players stay masked. Training dummies are never uploaded." data-i18n-title="settings.account.autoUploadHint">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.account.autoUpload">Upload boss fights automatically</span>
-                    <span class="settingsToggleControl">
-                      <input type="checkbox" class="autoUploadCheckbox" />
-                      <span class="settingsToggleTrack" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                  <label class="settingsToggle" title="Supporters' names render gold. Cosmetic only — it never changes any number." data-i18n-title="settings.showSupporterColorsHint">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.showSupporterColors">Show supporter colours</span>
-                    <span class="settingsToggleControl">
-                      <input type="checkbox" class="showSupporterColorsCheckbox" />
-                      <span class="settingsToggleTrack" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
-                <div class="accountCodeBox" style="display:none">
-                  <div class="accountCodeLabel" data-i18n="settings.account.codePrompt">Approve this code in your browser:</div>
-                  <div class="accountCode"></div>
-                  <div class="accountCodeHint" data-i18n="settings.account.codeHint">The page should have opened already. The code expires in 10 minutes.</div>
                 </div>
               </section>
               <section class="settingsSection" id="settingsSection-meter" role="tabpanel" aria-labelledby="settingsTab-meter" data-section="meter" hidden>
@@ -801,8 +747,7 @@
                   </div>
                   <div class="settingsRow settingsRowSelect">
                     <div class="settingsInfo">
-                      <div class="settingsLabel" data-i18n="settings.barTexture.label" title="A pattern over the meter's bars. A thank-you for supporting A2 Tools." data-i18n-title="settings.tips.barTexture">Bar texture</div>
-                      <div class="settingsHint barTextureHint" data-i18n="settings.barTexture.supportersOnly">For supporters: sign in above, under A2 Tools account, to use it.</div>
+                      <div class="settingsLabel" data-i18n="settings.barTexture.label" title="A pattern over the meter's bars." data-i18n-title="settings.tips.barTexture">Bar texture</div>
                     </div>
                     <div class="settingsDropdownWrapper barTextureDropdownWrapper">
                       <button class="settingsDropdownBtn barTextureDropdownBtn" type="button">
@@ -1104,26 +1049,20 @@
                 <div class="settingsGroupBody">
                   <div class="settingsRow pluginActionsRow">
                     <div class="settingsInfo">
-                      <div class="settingsHint" data-i18n="settings.plugins.intro">Reviewed plugins add features beside the meter. Each one gets only what it asks for when you install it.</div>
+                      <div class="settingsHint" data-i18n="settings.plugins.intro">The modules that come with the app. One turned off doesn't run.</div>
                       <div class="settingsHint pluginStatus" role="status"></div>
-                    </div>
-                    <div class="settingsRowEnd">
-                      <button class="settingsAction pluginUpdateBtn" type="button" data-i18n="settings.plugins.checkUpdates">Check for updates</button>
                     </div>
                   </div>
                   <label class="settingsToggle showMeterToggle">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.plugins.showMeter" title="Off: only your plugins show. The meter keeps reading combat and uploading in the background. Bring it back here, with the show/hide hotkey, or with the dashboard's Meter button." data-i18n-title="settings.tips.showMeter">Show the DPS meter</span>
+                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.plugins.showMeter" title="Off: only your plugins show. The meter keeps reading combat in the background. Bring it back here, with the show/hide hotkey, or with the dashboard's Meter button." data-i18n-title="settings.tips.showMeter">Show the DPS meter</span>
                     <span class="settingsToggleControl">
                       <input type="checkbox" class="showMeterCheckbox" checked />
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
-                  <h3 class="pluginListTitle" data-i18n="settings.plugins.installed">Installed</h3>
+                  <h3 class="pluginListTitle" data-i18n="settings.plugins.modules">Modules</h3>
                   <div class="pluginList"></div>
                   <div class="settingsHint pluginListEmpty" data-i18n="settings.plugins.none">No plugins installed yet.</div>
-                  <h3 class="pluginListTitle" data-i18n="settings.plugins.available">Available</h3>
-                  <div class="pluginCatalog"></div>
-                  <div class="settingsHint pluginCatalogStatus"></div>
                   <label class="settingsToggle pluginDevToggle">
                     <span class="settingsToggleLabel settingsLabel" data-i18n="settings.plugins.devMode" title="Loads plugins from folders on this computer, for building and testing them. They are not reviewed, so only load plugins you trust." data-i18n-title="settings.tips.pluginDevMode">Plugin developer mode</span>
                     <span class="settingsToggleControl">
@@ -1136,18 +1075,8 @@
                       <div class="settingsHint" data-i18n="settings.plugins.hint">Plugins loaded here are not reviewed. Only load plugins you trust.</div>
                     </div>
                     <div class="settingsRowEnd">
+                      <button class="settingsAction pluginUpdateBtn" type="button" data-i18n="settings.plugins.reload">Reload folders</button>
                       <button class="settingsAction pluginAddBtn" type="button" data-i18n="settings.plugins.add">Load plugin folder…</button>
-                    </div>
-                  </div>
-                  <div class="hotkeyConsent pluginConsent" hidden>
-                    <div class="hotkeyConsentCard" role="dialog" aria-modal="true" aria-labelledby="pluginConsentTitle">
-                      <h3 class="hotkeyConsentTitle" id="pluginConsentTitle"></h3>
-                      <p class="pluginConsentIntro"></p>
-                      <ul class="pluginConsentList"></ul>
-                      <div class="hotkeyConsentActions">
-                        <button class="settingsAction pluginConsentCancel" type="button" data-i18n="settings.plugins.consentCancel">Cancel</button>
-                        <button class="settingsAction hotkeyConsentConfirm pluginConsentConfirm" type="button"></button>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -1192,22 +1121,6 @@
                     </div>
                   </div>
                 </div>
-                <div class="settingsGroupBody shareBossTimersRow">
-                  <label class="settingsToggle">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.partyPresence" title="Party members who also use A2Tools see a small A2 tag beside your name, and you see theirs. Anyone in your party using A2Tools can see it, so they'll know you use a third-party meter. Only hashes of character names and servers are sent." data-i18n-title="settings.tips.partyPresence">Show A2Tools users in my party</span>
-                    <span class="settingsToggleControl">
-                      <input type="checkbox" class="partyPresenceCheckbox" />
-                      <span class="settingsToggleTrack" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                  <label class="settingsToggle">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.shareBossTimers" title="Shares field boss timers with other players through a2tools.app (and its partner Aion 2 Timers): the bosses on your map when you open it, and the field bosses you see killed, and their HP while you fight them. Only the server, the bosses, their times and HP are sent." data-i18n-title="settings.tips.shareBossTimers">Share field boss timers</span>
-                    <span class="settingsToggleControl">
-                      <input type="checkbox" class="shareBossTimersCheckbox" />
-                      <span class="settingsToggleTrack" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                </div>
                 <h3 class="settingsSubTitle" data-i18n="settings.diagnostics">Diagnostics</h3>
                 <div class="settingsGroupBody">
                   <label class="settingsToggle">
@@ -1224,14 +1137,6 @@
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
-                  <div class="settingsRow sendLogsRow">
-                    <div class="settingsInfo">
-                      <div class="settingsHint sendLogsStatus" data-i18n="settings.sendLogs.hint">Sends your 3 most recent packet logs to the developer, for a bug report.</div>
-                    </div>
-                    <div class="settingsRowEnd">
-                      <button class="settingsAction sendLogsBtn" type="button" data-i18n="settings.sendLogs.button">Send Logs to Dev</button>
-                    </div>
-                  </div>
                 </div>
                 <div class="settingsRow settingsRowAction">
                   <button
@@ -1305,31 +1210,6 @@
             </div>
             <div class="settingsFooter">
               <div class="settingsFooterLinks">
-                <button class="discordButton" type="button">
-                  <span class="discordIcon" aria-hidden="true">
-                    <svg viewBox="0 0 126.644 96" role="img" focusable="false" aria-hidden="true">
-                      <path d="M81.15,0c-1.2376,2.1973-2.3489,4.4704-3.3591,6.794-9.5975-1.4396-19.3718-1.4396-28.9945,0-.985-2.3236-2.1216-4.5967-3.3591-6.794-9.0166,1.5407-17.8059,4.2431-26.1405,8.0568C2.779,32.5304-1.6914,56.3725.5312,79.8863c9.6732,7.1476,20.5083,12.603,32.0505,16.0884,2.6014-3.4854,4.8998-7.1981,6.8698-11.0623-3.738-1.3891-7.3497-3.1318-10.8098-5.1523.9092-.6567,1.7932-1.3386,2.6519-1.9953,20.281,9.547,43.7696,9.547,64.0758,0,.8587.7072,1.7427,1.3891,2.6519,1.9953-3.4601,2.0457-7.0718,3.7632-10.835,5.1776,1.97,3.8642,4.2683,7.5769,6.8698,11.0623,11.5419-3.4854,22.3769-8.9156,32.0509-16.0631,2.626-27.2771-4.496-50.9172-18.817-71.8548C98.9811,4.2684,90.1918,1.5659,81.1752.0505l-.0252-.0505ZM42.2802,65.4144c-6.2383,0-11.4159-5.6575-11.4159-12.6535s4.9755-12.6788,11.3907-12.6788,11.5169,5.708,11.4159,12.6788c-.101,6.9708-5.026,12.6535-11.3907,12.6535ZM84.3576,65.4144c-6.2637,0-11.3907-5.6575-11.3907-12.6535s4.9755-12.6788,11.3907-12.6788,11.4917,5.708,11.3906,12.6788c-.101,6.9708-5.026,12.6535-11.3906,12.6535Z"/>
-                    </svg>
-                  </span>
-                  <span data-i18n="settings.discord">Discord</span>
-                </button>
-                <button
-                  type="button"
-                  class="a2toolsButton"
-                  onclick="window.javaBridge?.openBrowser?.('https://A2Tools.app')">
-                  A2Tools.app
-                </button>
-                <button class="supportButton" type="button">
-                  <span class="supportIcon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M10 2v2"/>
-                      <path d="M14 2v2"/>
-                      <path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/>
-                      <path d="M6 2v2"/>
-                    </svg>
-                  </span>
-                  <span data-i18n="support.button">Support Me</span>
-                </button>
               </div>
               <button class="quitButton" type="button" data-i18n="settings.quit">Quit</button>
             </div>
@@ -1465,173 +1345,6 @@
           </div>
         </div>
         <div class="updateStatusText" id="updateStatusText" style="display:none"></div>
-      </div>
-    </div>
-    <div class="discordPromo" id="discordPromo" aria-hidden="true">
-      <div
-        class="discordPromoCard"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="discordPromoTitle">
-        <button
-          class="discordPromoClose"
-          type="button"
-          data-i18n-aria-label="discordPromo.close"
-          aria-label="Close">
-          ×
-        </button>
-        <div class="discordPromoTitle" id="discordPromoTitle" data-i18n="discordPromo.title">New: Discord activity</div>
-        <div class="discordPromoText" data-i18n="discordPromo.text">Let friends see your character, class, level and server, and the boss or dungeon you're in, right in your Discord status.</div>
-        <img class="discordPromoPreview" src="./assets/discord-presence.png" alt="" />
-        <label class="discordPromoToggle">
-          <input type="checkbox" class="discordPromoCheckbox" checked />
-          <span data-i18n="settings.discord.activity">Show what I'm playing in Discord</span>
-        </label>
-        <div class="discordPromoHint" data-i18n="discordPromo.hint">Uses the Discord app on this PC; no account needed. You can change this any time in Settings.</div>
-        <button class="discordPromoDone" type="button" data-i18n="discordPromo.done">Done</button>
-      </div>
-    </div>
-    <div class="discordPromo partyPromo" id="partyPromo" aria-hidden="true">
-      <div class="discordPromoCard" role="dialog" aria-modal="true" aria-labelledby="partyPromoTitle">
-        <button class="discordPromoClose partyPromoClose" type="button" data-i18n-aria-label="discordPromo.close" aria-label="Close">×</button>
-        <div class="discordPromoTitle" id="partyPromoTitle" data-i18n="partyPromo.title">New: see A2Tools users in your party</div>
-        <div class="discordPromoText" data-i18n="partyPromo.text">Party members who also use A2Tools get a small A2 tag beside their name, and you get one beside yours on their meter.</div>
-        <label class="discordPromoToggle">
-          <input type="checkbox" class="partyPromoCheckbox" checked />
-          <span data-i18n="settings.partyPresence">Show A2Tools users in my party</span>
-        </label>
-        <div class="discordPromoHint" data-i18n="partyPromo.hint">Anyone in your party who uses A2Tools will be able to see that you use a third-party meter. Only hashes of character names and servers are sent. You can change this any time in Settings.</div>
-        <button class="discordPromoDone partyPromoDone" type="button" data-i18n="discordPromo.done">Done</button>
-      </div>
-    </div>
-    <div class="discordPromo accountPromo" id="accountPromo" aria-hidden="true">
-      <div
-        class="discordPromoCard"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="accountPromoTitle">
-        <button
-          class="discordPromoClose accountPromoClose"
-          type="button"
-          data-i18n-aria-label="accountPromo.close"
-          aria-label="Close">
-          ×
-        </button>
-        <div class="discordPromoTitle" id="accountPromoTitle" data-i18n="accountPromo.title">Keep your boss fights on a2tools.app</div>
-        <div class="discordPromoText" data-i18n="accountPromo.text">Create a free account or sign in, and every boss fight is saved online: a link to share each one, your logs on any device, and your place on the leaderboard.</div>
-        <label class="discordPromoToggle">
-          <input type="checkbox" class="accountPromoCheckbox" checked />
-          <span data-i18n="settings.account.autoUpload">Upload boss fights automatically</span>
-        </label>
-        <div class="discordPromoHint" data-i18n="accountPromo.hint">Other players' names stay masked, and training dummies are never uploaded. You can change this any time in Settings.</div>
-        <div class="accountPromoCodeBox" style="display:none">
-          <div class="discordPromoHint" data-i18n="settings.account.codePrompt">Approve this code in your browser:</div>
-          <div class="accountPromoCode"></div>
-        </div>
-        <div class="discordPromoHint accountPromoState"></div>
-        <div class="accountPromoActions">
-          <button class="accountPromoLater" type="button" data-i18n="accountPromo.later">Not now</button>
-          <button class="discordPromoDone accountPromoSignIn" type="button" data-i18n="accountPromo.signIn">Sign in</button>
-        </div>
-      </div>
-    </div>
-    <div class="supportModal" id="supportModal" aria-hidden="true">
-      <div
-        class="supportModalCard"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="supportModalTitle">
-        <button
-          class="supportModalClose"
-          type="button"
-          data-i18n-aria-label="support.aria.close"
-          aria-label="Close">
-          ×
-        </button>
-        <div class="supportModalTitle" id="supportModalTitle" data-i18n="support.title">
-          在爱发电支持作者
-        </div>
-        <div class="supportQrContainer">
-          <img
-            class="supportQrImage"
-            src="/src/assets/afdian.png"
-            alt="Afdian QR code" />
-        </div>
-        <p class="supportPerks" data-i18n="support.perks">Every $5 gives you 12 months of supporter perks, up to 2 years per payment. Use the code from your A2 Tools account page in your Ko-fi message, or the same email on Patreon.</p>
-        <p class="supportLinksHint" data-i18n="support.linksHint">Ko-fi, Patreon, Afdian and PayPal open their site in your browser. The crypto buttons copy an address.</p>
-        <div class="supportActions">
-          <button
-            class="supportIconButton supportPrimaryButton"
-            type="button"
-            data-support="afdian"
-            data-url="https://afdian.com/a/hiddencube"
-            data-i18n-aria-label="support.aria.afdian"
-            aria-label="Afdian">
-            <span class="supportLabel">爱发电</span>
-            <span class="supportIcon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 2 5 13h5l-1.5 9L19 10h-5.5L13.5 2z" fill="currentColor"/></svg></span>
-          </button>
-          <button
-            class="supportIconButton"
-            type="button"
-            data-support="patreon"
-            data-url="https://www.patreon.com/hiddencube"
-            data-i18n-aria-label="support.aria.patreon"
-            aria-label="Patreon">
-            <span class="supportLabel">Patreon</span>
-            <span class="supportIcon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="14.5" cy="9.5" r="6.5" fill="currentColor"/><rect x="3" y="3" width="3.2" height="18" rx="0.6" fill="currentColor"/></svg></span>
-          </button>
-          <button
-            class="supportIconButton"
-            type="button"
-            data-support="wechat"
-            data-qr="wechat"
-            data-i18n-aria-label="support.aria.wechat"
-            aria-label="WeChat">
-            <span class="supportLabel" data-i18n="support.label.wechat">微信</span>
-            <span class="supportIcon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4c-3.87 0-7 2.69-7 6 0 1.9 1.03 3.59 2.62 4.69L4 19l3.66-1.85A8.4 8.4 0 0 0 9 17c3.87 0 7-2.69 7-6s-3.13-7-7-7z" fill="currentColor"/><path d="M16.5 10.5c3.04 0 5.5 2.01 5.5 4.5 0 1.42-.79 2.69-2.02 3.52L20.5 22l-2.79-1.41c-.39.08-.79.12-1.21.12-3.04 0-5.5-2.01-5.5-4.5s2.46-4.5 5.5-4.5z" fill="currentColor" opacity="0.78"/></svg></span>
-          </button>
-          <button
-            class="supportIconButton"
-            type="button"
-            data-support="paypal"
-            data-url="https://www.paypal.me/taengoo"
-            data-i18n-aria-label="support.aria.paypal"
-            aria-label="PayPal">
-            <span class="supportLabel">PayPal</span>
-            <span class="supportIcon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7.2 3.2h7.2c3.2 0 5.3 1.9 4.9 4.7-.42 2.85-2.8 4.58-6.1 4.58h-2.4l-.75 4.35H5.9L7.2 3.2z" fill="currentColor"/><path d="M9.3 5.6h4.05c1.3 0 2.05.74 1.83 1.82-.22 1.13-1.2 1.84-2.49 1.84H8.55L9.3 5.6z" fill="currentColor" opacity="0.55"/><path d="M10.55 9.05h2.52c1.95 0 3.2 1.14 2.93 2.86-.3 1.92-1.95 3.12-4.19 3.12h-2.38l.56-3.18h2.2c.75 0 1.23-.4 1.33-1 .1-.56-.3-.93-1.02-.93h-2.15l.2-.87z" fill="#0b2f63" opacity="0.45"/></svg></span>
-          </button>
-          <button
-            class="supportIconButton"
-            type="button"
-            data-support="btc"
-            data-copy="1GexKhgVZPYRqpfCKydXLoNUXRRRUoAUwT"
-            data-i18n-aria-label="support.aria.btc"
-            aria-label="BTC">
-            <span class="supportLabel">BTC</span>
-            <span class="supportIcon">₿</span>
-          </button>
-          <button
-            class="supportIconButton"
-            type="button"
-            data-support="eth"
-            data-copy="0x38F0bc371A563A24eCa6034cFf77eB6173c7e3e7"
-            data-i18n-aria-label="support.aria.eth"
-            aria-label="ETH">
-            <span class="supportLabel">ETH</span>
-            <span class="supportIcon">Ξ</span>
-          </button>
-          <button
-            class="supportIconButton"
-            type="button"
-            data-support="usdc"
-            data-copy="0xA9571Fc95666350f6DFFB8Fb80ee27eE7db46b56"
-            data-i18n-aria-label="support.aria.usdc"
-            aria-label="USDC">
-            <span class="supportLabel">USDC</span>
-            <span class="supportIcon">＄</span>
-          </button>
-        </div>
-        <div class="supportCopyStatus" role="status" aria-live="polite"></div>
       </div>
     </div>
     <script src="/src/js/tauriBridge.js?v=202b2"></script>

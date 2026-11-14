@@ -10,7 +10,27 @@
 //                                              when the meter read it (unix ms), or null on meters
 //                                              that don't say
 //   a2.on("character", (c) => ...)             your character (name, serverId, class, level), at start and
-//                                              whenever it changes (meter 2.0.65 on)
+//                                              whenever it changes; also combatPower, gearScore,
+//                                              odyleEnergy ({ basic, charged }) and contentCounts
+//                                              ({ "<entry id>": [first, second] }: 1 Shugo keys,
+//                                              4 Nightmare, 8 Invasion, 101 Daily Dungeon, 60000001
+//                                              Odyle energy (as in odyleEnergy), 80000001 Ascension
+//                                              Trial; 0 Daily Duty today [completed, taken]; other ids
+//                                              may change meaning or go: don't rely on them), each null
+//                                              until the game has said. Started mid-session, the app
+//                                              has only the counts that changed since, until the next
+//                                              login or server transfer. Also shopLimits ({ "<item
+//                                              id>": [bought, next reset ms] }: 100134 Buy Odyle Energy,
+//                                              100135 Buy Rift Stones; [0, null] once its reset has
+//                                              passed, until the shop opens again) once the shop has
+//                                              opened, crafts ({ "<recipe id>": made }: 32070001 Odyle
+//                                              Energy server-wide, 32070002 per character) once the
+//                                              crafting window has opened, kinahToday (Kinah gained
+//                                              today) and abyssPoints ([this week, the week's limit])
+//                                              from login, 0 once the daily reset (07:00 UTC) or the
+//                                              weekly (Wednesday) has passed, and contentTimes
+//                                              ({ "<entry id>": [time, seen at ms] }: 10000001-10000003
+//                                              the Abyss passages' usage time left (ms), gone once used)
 //   a2.on("bossMap", ({ map, bosses }) => ...) a map the player just opened, its field bosses as
 //                                              a2.bossTimers gives them (permission
 //                                              "feed:boss-timers", meter 2.0.65 on)
@@ -43,6 +63,10 @@
 //   await a2.armory.pool({ class, server, extra })  read the players to compare with, each sent as
 //                                              a2.on("armory-player", ({ source, character }) => ...),
 //                                              progress as a2.on("armory-pool", ...)
+//   await a2.petCatalog()                      the pets aion2pets.net lists (permission "feed:pets"):
+//                                              { fetchedAt, pets: [{ name, slug, genus, region,
+//                                              place, monsters }], stale? }, read at most once a day;
+//                                              names only, no game ids (Ezzar's Daeva Companion)
 //   await a2.bossTimers(serverId)              a server's field boss timers, as players' meters
 //                                              share them through a2tools.app (permission
 //                                              "feed:boss-timers", meter 2.0.65 on): { bosses: { <id>:
@@ -88,7 +112,8 @@
 //   a2.ready()                                 call once the handlers are set
 //
 // A link (<a href="https://...">) clicked in the page opens in the browser
-// (meter 2.0.65 on; before, the click did nothing).
+// (meter 2.0.65 on; before, the click did nothing). In the fork, an Aion 2
+// Timers map link to a map the World Map has opens it there instead.
 (() => {
   const handlers = {};
   const pending = new Map();
@@ -190,6 +215,10 @@
       pickMarkers: () => call("map.pickMarkers", []),
       // The game's top-right corner, where its minimap is: { png, gameWidth, gameHeight }.
       minimap: () => call("map.minimap", []),
+      // The World Map's maps, by id: a map link to one of them (Aion 2
+      // Timers', from Pet Soul Tracker) shows the place there, heard as
+      // a2.on("place", { map, npc, name, x, y }), not in the browser.
+      places: (maps) => call("map.places", [Array.isArray(maps) ? maps.map(Number) : []]),
     }),
     // Fork: characters from the official site (permission "feed:armory").
     armory: Object.freeze({
@@ -199,6 +228,7 @@
     bossTimers: (server) => call("bossTimers", [Number(server)]),
     // Meter 2.0.72 on: the server's Abyss siege (artifact holders, cores).
     abyssSiege: (server) => call("abyssSiege", [Number(server)]),
+    petCatalog: () => call("petCatalog", []),
     followBosses: (server, bosses) => call("bossTimers.follow", [Number(server), (bosses || []).map(String)]),
     window: Object.freeze({
       show: () => call("window.show", []),

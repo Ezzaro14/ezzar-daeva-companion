@@ -697,53 +697,6 @@ impl DpsCalculator {
         dps_data.party_generation = self.data_storage.party_generation();
         (dps_data.zone_generation, dps_data.instance_generation) = self.data_storage.zone_generations();
         self.add_party_rows(dps_data);
-        self.mark_supporters(dps_data);
-    }
-
-    /// Flag supporters so the UI can render their names gold.
-    ///
-    /// Resolved here rather than in the frontend because the roster is hashed
-    /// and the join needs `dbid`, which the frontend never sees. Runs on the
-    /// 500ms tick, so it returns immediately when there is no roster — which is
-    /// the normal case until one is published.
-    fn mark_supporters(&self, dps_data: &mut DpsData) {
-        let roster = self.data_storage.supporters();
-        if roster.is_empty() {
-            return;
-        }
-        let party = self.data_storage.get_party_members();
-        let local_server = self.data_storage.fight_server_id();
-        for row in dps_data.map.values_mut() {
-            let name = row.nickname.trim();
-            if name.is_empty() {
-                continue;
-            }
-            let dbid = party.get(name).map(|m| m.dbid).unwrap_or(0);
-            let server = match self.data_storage.player_server(name) {
-                0 => local_server,
-                s => s,
-            };
-            row.is_supporter = roster.contains(name, dbid, server);
-        }
-        // Party members who also run A2Tools (party_presence.rs).
-        let users = self.data_storage.a2tools_users();
-        if !users.is_empty() {
-            for row in dps_data.map.values_mut() {
-                row.uses_a2tools = users.contains(row.nickname.trim());
-            }
-        }
-    }
-
-    /// The server a name-and-server supporter roster checks `name` on, when no
-    /// dbid states it (a party member's does, and wins in `Roster::contains`):
-    /// the one a self, loot or summon record placed them on, else yours, since
-    /// the open world around you is your server's; 0 when nothing has said,
-    /// which matches nobody.
-    fn supporter_server(&self, name: &str) -> u16 {
-        match self.data_storage.player_server(name) {
-            0 => self.data_storage.fight_server_id(),
-            s => s,
-        }
     }
 
     fn add_party_rows(&self, dps_data: &mut DpsData) {
@@ -1063,7 +1016,6 @@ impl DpsCalculator {
         // behind a lock, and it does not change between targets here. With
         // those who have left: this fight may be saved again after they go.
         let party_members = self.data_storage.fight_roster();
-        let supporters = self.data_storage.supporters();
         let roster_dungeon = self.data_storage.current_dungeon_id();
         let now_ms = crate::clock::now_ms();
 
@@ -1180,11 +1132,6 @@ impl DpsCalculator {
                         hits_received: hits_recv,
                         dbid: roster.map(|m| m.dbid).unwrap_or(0),
                         server_id: roster.map(|m| m.server_id).unwrap_or(0),
-                        is_supporter: supporters.contains(
-                            nick,
-                            roster.map(|m| m.dbid).unwrap_or(0),
-                            self.supporter_server(nick),
-                        ),
                         level: roster.map(|m| m.level).unwrap_or(0),
                         gear_score: roster.map(|m| m.gear_score).unwrap_or(0),
                         combat_power: roster.map(|m| m.combat_power).unwrap_or(0),
@@ -1268,8 +1215,6 @@ impl DpsCalculator {
         let combat_data = self.data_storage.get_combat_snapshot_light();
         let nickname_data = self.data_storage.get_nicknames();
         let summon_data = self.data_storage.get_summon_data();
-        let supporters = self.data_storage.supporters();
-        let party_members = self.data_storage.get_party_members();
         let mob_hp_data = self.data_storage.get_mob_hp_data();
         let mob_data = self.data_storage.get_mob_data();
 
@@ -1390,14 +1335,6 @@ impl DpsCalculator {
                     // identity a saved record keeps.
                     dbid: 0,
                     server_id: 0,
-                    // Joined to the party roster as the meter rows are: the
-                    // published roster is keyed by dbid, and by name alone no
-                    // supporter ever turned gold here (2026-10-05).
-                    is_supporter: supporters.contains(
-                        nick,
-                        party_members.get(nick.as_str()).map(|m| m.dbid).unwrap_or(0),
-                        self.supporter_server(nick),
-                    ),
                     // Same reason again: the live rows already show combat
                     // power from the roster; the saved record is where it
                     // has to persist.

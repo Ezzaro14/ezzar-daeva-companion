@@ -349,7 +349,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn upload_language_observes_a_change_before_its_disk_write() {
+    async fn a_change_is_seen_before_its_disk_write() {
         let (dir, settings) = fixture("upload-language");
         settings.set("dpsMeter.language", "en");
         settings.flush().unwrap();
@@ -373,9 +373,7 @@ mod tests {
             saved.get("dpsMeter.language").map(String::as_str),
             Some("en")
         );
-        // Exercise the source used by both manual and automatic upload bodies,
-        // without accessing the keyring or sending a log to the service.
-        assert_eq!(crate::share::ui_language(&settings), "ru");
+        assert_eq!(settings.get("dpsMeter.language").as_deref(), Some("ru"));
         release_tx.send(()).unwrap();
         settings.flush().unwrap();
         let _ = std::fs::remove_dir_all(dir);

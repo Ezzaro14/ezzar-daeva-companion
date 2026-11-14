@@ -1,7 +1,5 @@
 //! The respawning field bosses on open maps, by the NPC code their spawn
-//! names: the ones whose kills and HP milestones the meter shares
-//! (`boss_report.rs`). From the game's tables, as a2tools.app's
-//! `field_bosses.py` (tools/boss_timers/build_bosses.py) lists them.
+//! names. From the game's tables (tools/boss_timers/build_bosses.py).
 
 /// (NPC code, world-map boss id) of each, sorted by NPC code.
 pub const FIELD_BOSSES: &[(i32, u32)] = &[
@@ -65,12 +63,6 @@ pub fn world_map_id(code: i32) -> Option<u32> {
 /// Whether an NPC code is one of them.
 pub fn is_field_boss(code: i32) -> bool {
     FIELD_BOSSES.binary_search_by_key(&code, |&(npc, _)| npc).is_ok()
-}
-
-/// Whether the meter shares an NPC's kill and HP: a field boss, or one of
-/// the Abyss's Dimensional Cores (`abyss_cores`).
-pub fn is_reported(code: i32) -> bool {
-    is_field_boss(code) || super::abyss_cores::is_core(code)
 }
 
 #[cfg(test)]

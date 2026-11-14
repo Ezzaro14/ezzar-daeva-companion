@@ -191,7 +191,7 @@ unsafe fn copy_rgba(rect: ScreenRect) -> Option<Vec<u8>> {
     }
 }
 
-/// `Pictures\A2Tools DPS Meter`, the default place screenshots are saved.
+/// `Pictures\<the app's name>`, the default place screenshots are saved.
 pub fn default_folder() -> Option<PathBuf> {
     use windows::Win32::System::Com::CoTaskMemFree;
     use windows::Win32::UI::Shell::{FOLDERID_Pictures, SHGetKnownFolderPath, KF_FLAG_DEFAULT};

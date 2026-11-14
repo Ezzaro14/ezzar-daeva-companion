@@ -1,7 +1,6 @@
 // Parser core — compiled for wasm32 as well as the desktop app.
 pub mod abnormal;
 pub mod abyss_artifacts;
-pub mod abyss_cores;
 pub mod boss_map;
 pub mod field_bosses;
 pub mod captured_payload;

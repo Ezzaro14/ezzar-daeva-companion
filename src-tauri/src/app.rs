@@ -1,8 +1,7 @@
 //! The desktop application: Tauri commands, capture wiring, window management.
 //!
 //! Split out of `lib.rs` so the crate can be built *without* it. The parser has
-//! to compile to `wasm32-unknown-unknown` — that is how the server re-derives an
-//! uploaded encounter with the same code the client ran — and nothing in this
+//! to compile to `wasm32-unknown-unknown` (`rederive`) and nothing in this
 //! file can: `tauri`, `libloading`, `reqwest` and the Windows API all fail on
 //! that target. Everything here is behind the `desktop` feature; the parser core
 //! is not, and `cargo check --no-default-features --target wasm32-unknown-unknown`
@@ -79,18 +78,13 @@ pub struct AppState {
     /// The header's suspend button: while set, the capture dispatcher drops
     /// every packet. Shared with it (`CaptureDispatcher::use_suspend_flag`).
     pub capture_suspended: Arc<std::sync::atomic::AtomicBool>,
-    /// What the last account check found: `None` until one has run, then
-    /// `Some(None)` signed out or `Some(Some(_))` signed in. Settings shows it
-    /// at once instead of "checking" for as long as the server takes.
-    #[cfg(feature = "online")]
-    pub account_seen: Mutex<Option<Option<crate::account::AccountSummary>>>,
     /// The LAN stream overlay for OBS on another PC; off unless enabled.
     #[cfg(feature = "online")]
     pub stream_overlay: crate::stream_overlay::Manager,
 }
 
 /// The setting that hides the DPS meter, for players who use only plugins:
-/// capture, uploads and plugins go on; the overlay stays hidden until shown
+/// capture and plugins go on; the overlay stays hidden until shown
 /// again (Settings → Plugins, the toggle hotkey, or the dashboard's Meter button).
 const SHOW_METER_KEY: &str = "dpsMeter.showMeter";
 
@@ -323,20 +317,7 @@ async fn save_fight(app: tauri::AppHandle, record: FightRecord) -> Result<(), St
 async fn load_fight(app: tauri::AppHandle, id: String) -> Result<FightRecord, String> {
     crate::blocking::HISTORY.run(move || {
         let state = app.state::<AppState>();
-        let mut record = state.fight_history.load_fight(&id)?;
-
-        // Re-resolve supporter status against the roster as it is *now*, rather
-        // than trusting the flag written when the fight was saved. Supporter status
-        // changes; a fight from last month opened today should show who is a
-        // supporter today, and every record saved before this feature existed has
-        // no flag at all.
-        //
-        // Party members are the honest limitation here. `obscure_nickname` masks
-        // their names before the record is written, so a name-keyed roster can only
-        // ever match the local player, whose name is stored intact. `dbid` is kept
-        // on each actor precisely so a dbid-keyed roster resolves everyone — see
-        // `crate::supporters::KeyKind`.
-        crate::supporters::apply_to_record(&mut record, &state.data_storage.supporters());
+        let record = state.fight_history.load_fight(&id)?;
         Ok(record)
     }).await?
 }
@@ -354,62 +335,15 @@ async fn delete_fight(app: tauri::AppHandle, id: String) -> Result<(), String> {
     }).await?
 }
 
-#[cfg(feature = "online")]
-/// Upload a saved fight to a2tools.app as a log, and return its link.
-#[tauri::command]
-async fn upload_fight(
-    state: tauri::State<'_, AppState>,
-    fight_id: String,
-) -> Result<share::UploadResult, String> {
-    let record = state.fight_history.load_fight(&fight_id)?;
-    share::upload(&state.http, &state.app_data_dir, &record, &state.settings).await
-}
-
-#[cfg(feature = "online")]
-/// Upload a finished fight in the background, and tell every window.
-///
-/// Failure is quiet on purpose: not being signed in, or being offline, is not
-/// something to interrupt a fight about. The fight keeps its slice, and the
-/// upload button in History still works. A failure that waiting could fix
-/// (offline, a server error, a rate limit) is tried again later, on the
-/// schedule in `share::note_auto_upload_failure`.
-fn auto_upload(app: tauri::AppHandle, record: FightRecord) {
-    let Some(in_flight) = InFlight::start(&record.id) else { return };
-    tauri::async_runtime::spawn(async move {
-        let _in_flight = in_flight;
-        let Some(state) = app.try_state::<AppState>() else { return };
-        match share::upload_detailed(&state.http, &state.app_data_dir, &record, &state.settings).await {
-            Ok(result) => {
-                tracing::info!("Auto-uploaded {} -> {}", record.id, result.url);
-                let _ = app.emit("fight-uploaded", serde_json::json!({
-                    "fightId": record.id, "url": result.url, "visibility": result.visibility,
-                }));
-            }
-            Err(failure) => {
-                share::note_auto_upload_failure(
-                    &state.app_data_dir, &record.id, &failure, crate::clock::now_ms());
-                tracing::info!(
-                    "Auto-upload of {} failed{}: {}",
-                    record.id,
-                    if failure.retryable { ", will retry" } else { "" },
-                    failure.message
-                );
-            }
-        }
-    });
-}
-
-/// Save fights to History, with the packets behind each so it can be uploaded
-/// and verified later (training dummies are not logs), and auto-upload the
-/// finished ones when that is on.
-#[cfg_attr(not(feature = "online"), allow(unused_variables))]
-fn save_fight_records(app: &tauri::AppHandle, state: &AppState, records: Vec<FightRecord>, names: &share::SliceNames) {
+/// Save fights to History, each with its Evidence Slice: the packets behind
+/// it, kept on this computer to replay the fight (training dummies have none).
+fn save_fight_records(_app: &tauri::AppHandle, state: &AppState, records: Vec<FightRecord>, names: &share::SliceNames) {
     for record in &records {
         let _ = state.fight_history.save_fight(record);
         if !record.is_train {
             if let Err(e) = share::save_slice(&state.app_data_dir, record, names) {
                 // A fight that began before the meter did is normal; anything
-                // else is why an upload will later say no packets were saved.
+                // else is why a fight has no slice to replay.
                 if e.starts_with("no packets in memory") {
                     tracing::debug!("No slice for {}: {e}", record.id);
                 } else {
@@ -420,15 +354,6 @@ fn save_fight_records(app: &tauri::AppHandle, state: &AppState, records: Vec<Fig
     }
     if !records.is_empty() {
         share::prune_slices(&state.app_data_dir);
-    }
-    #[cfg(feature = "online")]
-    if state.settings.get(share::AUTO_UPLOAD_KEY).as_deref() == Some("true") {
-        let now = crate::clock::now_ms();
-        for record in records.into_iter()
-            .filter(|r| share::wants_auto_upload(&state.app_data_dir, r, now))
-        {
-            auto_upload(app.clone(), record);
-        }
     }
 }
 
@@ -489,162 +414,9 @@ fn fights_before_reset(app: &tauri::AppHandle) -> Option<(Vec<FightRecord>, shar
     Some((records, share::SliceNames::of(&state.data_storage)))
 }
 
-#[cfg(feature = "online")]
-/// Fights with an automatic upload running. One upload of a fight at a time:
-/// a retry must not start while the first try is still waiting on the network.
-static IN_FLIGHT: std::sync::LazyLock<Mutex<HashSet<String>>> =
-    std::sync::LazyLock::new(|| Mutex::new(HashSet::new()));
-
-#[cfg(feature = "online")]
-/// A fight's place in `IN_FLIGHT`, given up on drop: every way out of the
-/// upload task clears it, a panic included.
-struct InFlight(String);
-
-#[cfg(feature = "online")]
-impl InFlight {
-    fn start(id: &str) -> Option<Self> {
-        IN_FLIGHT.lock().insert(id.to_string()).then(|| Self(id.to_string()))
-    }
-}
-
-#[cfg(feature = "online")]
-impl Drop for InFlight {
-    fn drop(&mut self) {
-        IN_FLIGHT.lock().remove(&self.0);
-    }
-}
-
-/// Which fights have a slice to upload, and which already have a link.
-#[tauri::command]
-async fn share_status(
-    state: tauri::State<'_, AppState>,
-) -> Result<std::collections::HashMap<String, share::ShareStatus>, String> {
-    let dir = state.app_data_dir.clone();
-    tokio::task::spawn_blocking(move || share::share_status(&dir))
-        .await
-        .map_err(|e| e.to_string())
-}
-
 #[tauri::command]
 fn export_fight_json(state: tauri::State<'_, AppState>, record: FightRecord) -> Result<String, String> {
     state.fight_history.export_fight_json(&record)
-}
-
-/// Write what sharing this fight *would* upload, without uploading anything.
-///
-/// The point is auditability: it produces the `.a2es` and `.upload.json` an
-/// upload would send, cut the same way (only the name tokens differ: each cut
-/// draws its own key), so a user can open them — `a2t-inspect` reads the
-/// former — instead of taking `docs/PRIVACY.md` on faith. There is no network
-/// call anywhere in this path.
-///
-/// Async because it re-parses a packet capture and replays it to resolve the
-/// names the blinder has to remove; on a long capture that is seconds of CPU,
-/// and a sync command would hold the main thread (see `get_fight_history`).
-#[tauri::command]
-async fn preview_share(
-    state: tauri::State<'_, AppState>,
-    fight_id: String,
-) -> Result<share::PreviewResult, String> {
-    let record = state.fight_history.load_fight(&fight_id)?;
-    let app_data_dir = state.app_data_dir.clone();
-    tokio::task::spawn_blocking(move || {
-        let captures = share::find_captures(&app_data_dir);
-        let out_dir = app_data_dir.join("share-preview");
-        share::preview(&record, &captures, &out_dir)
-    })
-    .await
-    .map_err(|e| format!("preview task failed: {e}"))?
-}
-
-#[cfg(feature = "online")]
-/// Who, if anyone, this meter is signed in as.
-///
-/// Returns `None` when there is no token, or when the server says the one we
-/// have is no longer valid — a token revoked from the website should stop
-/// looking connected here at the next check, not at the next reinstall.
-#[tauri::command]
-async fn account_status(
-    state: tauri::State<'_, AppState>,
-) -> Result<Option<crate::account::AccountSummary>, String> {
-    let who = match crate::account::whoami(&state.http, &state.app_data_dir).await {
-        crate::account::AccountState::SignedIn(summary) => Some(summary),
-        crate::account::AccountState::SignedOut => None,
-        crate::account::AccountState::Unavailable(why) => return Err(why),
-    };
-    *state.account_seen.lock() = Some(who.clone());
-    Ok(who)
-}
-
-#[cfg(feature = "online")]
-/// Whether this build can show a Discord activity (it has a Discord
-/// application configured). The Settings toggle is hidden when it cannot.
-#[tauri::command]
-fn discord_activity_available() -> bool {
-    crate::presence::available()
-}
-
-#[cfg(feature = "online")]
-/// What the last `account_status` found, without asking the server again.
-/// `None` when nothing has been checked yet this session.
-#[tauri::command]
-fn account_status_cached(
-    state: tauri::State<'_, AppState>,
-) -> Option<Option<crate::account::AccountSummary>> {
-    state.account_seen.lock().clone()
-}
-
-#[cfg(feature = "online")]
-/// Begin signing in, and return the code to show the player.
-///
-/// The meter has no browser and cannot hold a client secret, so this is the
-/// Device Authorization Grant: the server hands back a short code, the player
-/// approves it on a2tools.app, and a background task polls until they do. The
-/// polling credential never reaches the webview — see `DeviceGrant`.
-#[tauri::command]
-async fn account_begin_link(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-) -> Result<crate::account::LinkPrompt, String> {
-    let grant = crate::account::start(&state.http, &crate::account::device_label()).await?;
-    let prompt = crate::account::LinkPrompt::from(&grant);
-
-    // Open the browser straight onto the filled-in code. If it fails the player
-    // still has the code and the URL in front of them.
-    if crate::account::is_site_url(&grant.verification_uri_complete) {
-        open_url(grant.verification_uri_complete.clone());
-    } else {
-        tracing::warn!("Not opening the sign-in page: the server sent a link outside a2tools.app");
-    }
-
-    let http = state.http.clone();
-    let app_data_dir = state.app_data_dir.clone();
-    tauri::async_runtime::spawn(async move {
-        let outcome = crate::account::poll_until_decided(&http, &grant, &app_data_dir).await;
-        let payload = match &outcome {
-            Ok(()) => serde_json::json!({ "connected": true }),
-            Err(why) => serde_json::json!({ "connected": false, "error": why }),
-        };
-        if let Err(e) = app.emit("account-changed", payload) {
-            tracing::warn!("could not announce the account change: {e}");
-        }
-    });
-
-    Ok(prompt)
-}
-
-#[cfg(feature = "online")]
-/// Forget the token on this machine.
-///
-/// Local only, deliberately. Revoking it everywhere is a decision to make on the
-/// website, where every device that holds a token is listed — a meter that could
-/// silently revoke its own credential server-side would make "sign out on this
-/// PC" and "this PC was stolen" the same button.
-#[tauri::command]
-fn account_sign_out(state: tauri::State<'_, AppState>) {
-    crate::account::secret::clear(&state.app_data_dir);
-    *state.account_seen.lock() = Some(None);
-    tracing::info!("Account signed out on this machine");
 }
 
 #[cfg(feature = "online")]
@@ -1070,7 +842,7 @@ fn bind_local_nickname(state: tauri::State<'_, AppState>, actor_id: i64, nicknam
     }
     // Once the game's self record has named the player, it alone says who
     // they are: a window binding by name kept an id from before a zone change
-    // and sent it back, and uploads then named a stale uploader (issue #19).
+    // and sent it back, and saved fights then named a stale player (issue #19).
     if state.data_storage.local_identity_from_self_record() {
         return;
     }
@@ -1118,16 +890,6 @@ fn set_debug_logging(state: tauri::State<'_, AppState>, enabled: bool) {
 fn set_packet_logging(state: tauri::State<'_, AppState>, enabled: bool) {
     logging::logger::set_packet_log_enabled(enabled, &state.app_data_dir);
     state.settings.set("dpsMeter.saveRawPackets", if enabled { "true" } else { "false" });
-}
-
-#[cfg(feature = "online")]
-/// Send the newest packet captures to the developer (Settings, beside packet
-/// logging). Returns the report code the player passes on.
-#[tauri::command]
-async fn send_logs_to_dev(
-    state: tauri::State<'_, AppState>,
-) -> Result<share::dev_logs::SendResult, String> {
-    share::dev_logs::send(&state.http, &state.app_data_dir).await
 }
 
 #[tauri::command]
@@ -1260,7 +1022,7 @@ async fn show_update_window(
     let msg = format!("A new update is available!\n\nCurrent: {}\nLatest: {}\n\nDownload and install now?", current, latest);
 
     let accepted = tokio::task::spawn_blocking(move || {
-        platform::dialog::ask_yes_no("A2Tools - Update Available", &msg)
+        platform::dialog::ask_yes_no(&format!("{} - Update Available", crate::fork::APP_NAME), &msg)
     }).await.unwrap_or(false);
 
     if accepted {
@@ -1273,7 +1035,7 @@ async fn show_update_window(
                 // Show error dialog
                 let _ = tokio::task::spawn_blocking(move || {
                     platform::dialog::show_error(
-                        "A2Tools - Update Error",
+                        &format!("{} - Update Error", crate::fork::APP_NAME),
                         &format!("Download failed: {}\n\nPlease download manually.", e),
                     );
                 }).await;
@@ -1392,161 +1154,16 @@ async fn fetch_url(state: tauri::State<'_, AppState>, url: String) -> Result<Str
         .map_err(|e| e.to_string())
 }
 
-#[cfg(feature = "online")]
-/// Where the supporter roster lives. The same bucket the installer is served
-/// from, so it costs no new infrastructure and is already cached at the edge.
-///
-/// v2 is keyed on name and server (`KeyKind::NameServer`), which meters before
-/// 2.0.56 reject; they keep reading the name-keyed `patrons-v1.bin`.
-const SUPPORTER_ROSTER_URL: &str = "https://cdn.a2tools.app/patrons-v2.bin";
-
-/// A roster placed here overrides the downloaded one.
-///
-/// Build it with `a2t-roster names.txt -o <this path>`. It exists so the gold
-/// name can be exercised before anything is published — otherwise the only way
-/// to see the feature is to ship a real roster to every user and hope it looks
-/// right.
-///
-/// Deliberately not restricted to debug builds. It changes nothing but the
-/// colour of a name **on this machine**: the roster is only ever read locally,
-/// is never uploaded, and no number, ordering or leaderboard depends on it. So
-/// there is nothing here to cheat, and it doubles as the way to reproduce a
-/// "why is this person gold" report.
-const SUPPORTER_ROSTER_OVERRIDE: &str = "patrons-local.bin";
-
-/// How often to look again. The override is a local file, read quickly so
-/// dropping it in shows up while you are still looking at the meter. The
-/// published roster is asked for every half hour, so a new supporter goes gold
-/// soon; the ETag makes an unchanged roster a bodiless 304. A failed fetch (a
-/// 404 before a roster is published, the CDN down) waits the same, never the
-/// override's 15 seconds: every meter retrying that fast would be a storm.
-const ROSTER_POLL_OVERRIDE: Duration = Duration::from_secs(15);
-#[cfg(feature = "online")]
-const ROSTER_POLL_PUBLISHED: Duration = Duration::from_secs(30 * 60);
-
-/// Read the local override, if one is there.
-fn load_supporter_override(app_data_dir: &std::path::Path) -> Option<crate::supporters::Roster> {
-    let path = app_data_dir.join(SUPPORTER_ROSTER_OVERRIDE);
-    let bytes = std::fs::read(&path).ok()?;
-    match crate::supporters::Roster::parse(&bytes) {
-        Some(roster) => {
-            tracing::info!(
-                "Supporter roster OVERRIDE in use: {} entries from {} — delete the file to \
-                 go back to the published roster",
-                roster.len(),
-                path.display()
-            );
-            Some(roster)
-        }
-        None => {
-            // Say so loudly: a malformed override looks exactly like "the
-            // feature is broken" from the outside.
-            tracing::warn!(
-                "{} is not a supporter roster — rebuild it with `a2t-roster names.txt -o {}`",
-                path.display(),
-                path.display()
-            );
-            None
-        }
-    }
-}
-
-#[cfg(feature = "online")]
-/// What a roster fetch came back with.
-#[cfg(feature = "online")]
-enum RosterFetch {
-    /// A roster, and the ETag to ask with next time.
-    Fresh(crate::supporters::Roster, Option<String>),
-    /// 304: the one held is current.
-    Unchanged,
-    /// Anything else.
-    Failed,
-}
-
-#[cfg(feature = "online")]
-/// Download and parse the supporter roster, unless `etag` says it is unchanged.
-///
-/// Every failure is `Failed` and changes nothing on screen. That is
-/// deliberate: this is a cosmetic, and there is no version of "the CDN is
-/// down" that should produce a visible error, a retry storm, or a wrong answer.
-async fn fetch_supporter_roster(client: &reqwest::Client, etag: Option<&str>) -> RosterFetch {
-    let mut request = client.get(SUPPORTER_ROSTER_URL).timeout(Duration::from_secs(30));
-    if let Some(tag) = etag {
-        request = request.header(reqwest::header::IF_NONE_MATCH, tag);
-    }
-    let Ok(response) = request.send().await else {
-        return RosterFetch::Failed;
-    };
-    if response.status() == reqwest::StatusCode::NOT_MODIFIED {
-        return RosterFetch::Unchanged;
-    }
-    if !response.status().is_success() {
-        return RosterFetch::Failed;
-    }
-    let tag = response
-        .headers()
-        .get(reqwest::header::ETAG)
-        .and_then(|v| v.to_str().ok())
-        .map(str::to_string);
-    let Ok(bytes) = response.bytes().await else {
-        return RosterFetch::Failed;
-    };
-    // A roster for ten thousand supporters is about 80 KB; anything far past
-    // that is not one of ours.
-    if bytes.len() > 8 * 1024 * 1024 {
-        return RosterFetch::Failed;
-    }
-    match crate::supporters::Roster::parse(&bytes) {
-        Some(roster) => RosterFetch::Fresh(roster, tag),
-        None => RosterFetch::Failed,
-    }
-}
-
 // ── the private build ──────────────────────────────────────────────────────
 // Built without the `online` feature (`npm run build:offline`), the meter links
 // no network client and none of the code above that reaches a service: the
-// A2 Tools account and uploads, Discord activity, the stream overlay, Send Logs
-// to Dev, update checks and the updater. The pages still invoke these commands
+// shared field boss timers, the stream overlay, update checks
+// and the updater. The pages still invoke these commands
 // by name, so each keeps its name here and says it is not in this build; the
 // pages ask `build_features` first and hide what is missing.
 
 #[cfg(not(feature = "online"))]
 const NOT_IN_THIS_BUILD: &str = "not in this build: it was built without online features";
-
-#[cfg(not(feature = "online"))]
-#[tauri::command]
-async fn upload_fight(fight_id: String) -> Result<serde_json::Value, String> {
-    let _ = fight_id;
-    Err(NOT_IN_THIS_BUILD.into())
-}
-
-#[cfg(not(feature = "online"))]
-#[tauri::command]
-async fn account_status() -> Result<Option<serde_json::Value>, String> {
-    Err(NOT_IN_THIS_BUILD.into())
-}
-
-#[cfg(not(feature = "online"))]
-#[tauri::command]
-fn account_status_cached() -> Option<Option<serde_json::Value>> {
-    None
-}
-
-#[cfg(not(feature = "online"))]
-#[tauri::command]
-fn discord_activity_available() -> bool {
-    false
-}
-
-#[cfg(not(feature = "online"))]
-#[tauri::command]
-async fn account_begin_link() -> Result<serde_json::Value, String> {
-    Err(NOT_IN_THIS_BUILD.into())
-}
-
-#[cfg(not(feature = "online"))]
-#[tauri::command]
-fn account_sign_out() {}
 
 #[cfg(not(feature = "online"))]
 #[tauri::command]
@@ -1564,12 +1181,6 @@ async fn stream_overlay_configure(enabled: bool, port: u16) -> Result<serde_json
 #[cfg(not(feature = "online"))]
 #[tauri::command]
 async fn stream_overlay_new_key() -> Result<serde_json::Value, String> {
-    Err(NOT_IN_THIS_BUILD.into())
-}
-
-#[cfg(not(feature = "online"))]
-#[tauri::command]
-async fn send_logs_to_dev() -> Result<serde_json::Value, String> {
     Err(NOT_IN_THIS_BUILD.into())
 }
 
@@ -1600,15 +1211,11 @@ async fn fetch_url(url: String) -> Result<String, String> {
 }
 
 /// Which optional parts this build has. `online` is false in the private
-/// build: the pages hide the account, uploads, Streaming, Discord activity,
-/// Send Logs to Dev and the update prompt.
+/// build: the pages hide Streaming, the shared field boss
+/// timers and the update prompt.
 #[tauri::command]
 fn build_features() -> serde_json::Value {
-    // A development build started with A2_DEV_SUPPORTER set acts as a
-    // supporter's account (bar textures), to test those without one. A
-    // release build ignores it.
-    let dev_supporter = cfg!(debug_assertions) && std::env::var_os("A2_DEV_SUPPORTER").is_some();
-    serde_json::json!({ "online": cfg!(feature = "online"), "devSupporter": dev_supporter })
+    serde_json::json!({ "online": cfg!(feature = "online") })
 }
 
 #[tauri::command]
@@ -2089,8 +1696,8 @@ async fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
         let _ = existing.unminimize();
         let _ = existing.set_always_on_top(true);
         let _ = existing.set_focus();
-        // Already open (perhaps behind the game): check the account again.
-        // A hidden one also resumes its form, without repeating page startup.
+        // Already open (perhaps behind the game): a hidden one resumes its
+        // form, without repeating page startup.
         let _ = app.emit_to("settings", "settings-shown", ());
         return Ok(());
     }
@@ -2176,8 +1783,7 @@ fn close_settings_window(app: tauri::AppHandle) {
         } else {
             // Closed, not hidden: a hidden WebView2 window came back blank when
             // shown again. Rebuilding it costs little now that Quit and Close
-            // are answered before the page loads (SETTINGS_WINDOW_SCRIPT) and
-            // the account line starts from the last check.
+            // are answered before the page loads (SETTINGS_WINDOW_SCRIPT).
             let _ = window.close();
         }
     }
@@ -2502,8 +2108,8 @@ struct ScreenshotResult {
 /// that asked, so the Details window captures itself rather than whatever sits
 /// at the same offset from the meter. `include_meter` adds the whole meter
 /// window, for a tool window that cannot measure the meter itself. With
-/// `save_file`, also writes a PNG to `folder` (default: Pictures\A2Tools DPS
-/// Meter) named `filename`.
+/// `save_file`, also writes a PNG to `folder` (default: the app's folder in
+/// Pictures) named `filename`.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 async fn capture_screenshot(
@@ -3058,14 +2664,12 @@ pub fn run() {
                 i18n_data_dir: found_data_dir.clone(),
                 #[cfg(feature = "online")]
                 http: reqwest::Client::builder()
-                    .user_agent(concat!("Daeva-Companion/", env!("CARGO_PKG_VERSION"), " (A2Tools DPS Meter fork)"))
+                    .user_agent(concat!("Daeva-Companion/", env!("CARGO_PKG_VERSION")))
                     .connect_timeout(Duration::from_secs(10))
                     .timeout(Duration::from_secs(30))
                     .build()
                     .unwrap_or_default(),
                 capture_suspended: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-                #[cfg(feature = "online")]
-                account_seen: Mutex::new(None),
                 #[cfg(feature = "online")]
                 stream_overlay: crate::stream_overlay::Manager::default(),
             };
@@ -3121,12 +2725,6 @@ pub fn run() {
                 app.state::<AppState>().data_storage
                     .set_before_reset(move || save_fights_before_reset(&handle));
             }
-            #[cfg(feature = "online")]
-            crate::presence::spawn(app.handle().clone());
-            #[cfg(feature = "online")]
-            crate::boss_report::spawn(app.handle().clone());
-            #[cfg(feature = "online")]
-            crate::party_presence::spawn(app.handle().clone());
             #[cfg(feature = "online")]
             crate::stream_overlay::sync(app.handle());
 
@@ -3214,8 +2812,6 @@ pub fn run() {
             if let Err(e) = crate::plugins::bundled::open_dashboard(app.handle(), None, crate::plugins::bundled::shows_at_start(app.handle())) {
                 tracing::warn!("Dashboard: {e}");
             }
-            #[cfg(feature = "online")]
-            crate::plugins::alert_updates_at_start(app.handle());
 
             app.manage(Hotkeys {
                 manager: platform::hotkeys::HotkeyManager::new(),
@@ -3449,99 +3045,9 @@ pub fn run() {
                                 save_fight_records(&handle, &state, records, &names);
                             }
                         }
-                        // Automatic uploads that failed and are due again,
-                        // fighting or not: a meter left open after the
-                        // connection came back catches up on its own.
-                        #[cfg(feature = "online")]
-                        if state.settings.get(share::AUTO_UPLOAD_KEY).as_deref() == Some("true") {
-                            let now = crate::clock::now_ms();
-                            for id in share::auto_upload_retries_due(&state.app_data_dir, now) {
-                                if let Ok(record) = state.fight_history.load_fight(&id) {
-                                    auto_upload(handle.clone(), record);
-                                }
-                            }
-                        }
                     }).await {
                         tracing::warn!("History maintenance failed: {error}");
                     }
-                }
-            });
-
-            // Supporter roster: fetched, never queried. See `crate::supporters`
-            // — asking the server "is this player a supporter?" would hand it a
-            // list of who you play with, every fight, for a cosmetic. The
-            // private build fetches nothing: only a local override counts.
-            let handle_roster = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                let mut had_override = false;
-                // The published roster: asked for when due, with the ETag of
-                // the one held. The loop itself turns every 15 s, for the
-                // override; the CDN is asked only on its own schedule.
-                #[cfg(feature = "online")]
-                let mut roster_etag: Option<String> = None;
-                #[cfg(feature = "online")]
-                let mut next_fetch = std::time::Instant::now();
-                loop {
-                    let wait = ROSTER_POLL_OVERRIDE;
-                    if let Some(state) = handle_roster.try_state::<AppState>() {
-                        // The override wins when present, and is re-read every
-                        // pass so editing it takes effect without a restart.
-                        match load_supporter_override(&state.app_data_dir) {
-                            Some(roster) => {
-                                had_override = true;
-                                state.data_storage.set_supporters(roster);
-                            }
-                            None => {
-                                let just_lost_override = had_override;
-                                if had_override {
-                                    tracing::info!("Supporter roster override removed");
-                                    had_override = false;
-                                    // The override replaced the published one:
-                                    // fetch it again in full, now.
-                                    #[cfg(feature = "online")]
-                                    {
-                                        roster_etag = None;
-                                        next_fetch = std::time::Instant::now();
-                                    }
-                                }
-                                #[cfg(not(feature = "online"))]
-                                if just_lost_override {
-                                    state.data_storage.set_supporters(Default::default());
-                                }
-                                #[cfg(feature = "online")]
-                                if std::time::Instant::now() >= next_fetch {
-                                    next_fetch = std::time::Instant::now() + ROSTER_POLL_PUBLISHED;
-                                    match fetch_supporter_roster(&state.http, roster_etag.as_deref()).await {
-                                        RosterFetch::Fresh(roster, tag) => {
-                                            tracing::info!(
-                                                "Supporter roster: {} entries ({:?}-keyed)",
-                                                roster.len(),
-                                                roster.kind()
-                                            );
-                                            roster_etag = tag;
-                                            state.data_storage.set_supporters(roster);
-                                        }
-                                        RosterFetch::Unchanged => {}
-                                        RosterFetch::Failed => {
-                                            tracing::debug!("Supporter roster unavailable");
-                                            // Only wipe the roster if the override
-                                            // we were using has just gone away.
-                                            // Clearing on any failed fetch would
-                                            // mean one CDN hiccup removes every
-                                            // supporter's gold until the next
-                                            // successful poll.
-                                            if just_lost_override {
-                                                state
-                                                    .data_storage
-                                                    .set_supporters(Default::default());
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    tokio::time::sleep(wait).await;
                 }
             });
 
@@ -3556,9 +3062,6 @@ pub fn run() {
             crate::plugins::plugin_add_folder,
             crate::plugins::plugin_remove_folder,
             crate::plugins::plugin_check_updates,
-            crate::plugins::plugin_catalog,
-            crate::plugins::plugin_install,
-            crate::plugins::plugin_uninstall,
             crate::plugins::plugin_debug_frame,
             crate::plugins::plugin_open,
             crate::plugins::plugin_set_enabled,
@@ -3605,6 +3108,7 @@ pub fn run() {
             crate::plugins::plugin_storage_get,
             crate::plugins::plugin_boss_timers,
             crate::plugins::plugin_abyss_siege,
+            crate::plugins::pet_catalog::plugin_pet_catalog,
             crate::plugins::plugin_storage_set,
             get_dps_snapshot,
             get_skill_details,
@@ -3615,17 +3119,9 @@ pub fn run() {
             load_fight,
             delete_fight,
             export_fight_json,
-            preview_share,
-            upload_fight,
-            share_status,
-            account_status,
-            account_status_cached,
-            discord_activity_available,
             stream_overlay_status,
             stream_overlay_configure,
             stream_overlay_new_key,
-            account_begin_link,
-            account_sign_out,
             get_settings,
             update_settings,
             get_ping,
@@ -3640,7 +3136,6 @@ pub fn run() {
             set_language,
             set_debug_logging,
             set_packet_logging,
-            send_logs_to_dev,
             get_aion2_window_title,
             debug_status,
             quit_app,
@@ -3684,23 +3179,6 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    #[cfg_attr(not(feature = "online"), allow(unused_imports))]
-    use super::*;
-
-    #[cfg(feature = "online")]
-    #[test]
-    fn a_panicking_upload_still_frees_its_fight() {
-        let held = InFlight::start("in-flight-test").unwrap();
-        assert!(InFlight::start("in-flight-test").is_none(), "one upload of a fight at a time");
-        drop(held);
-        let outcome = std::panic::catch_unwind(|| {
-            let _held = InFlight::start("in-flight-test").unwrap();
-            panic!("upload task panicked");
-        });
-        assert!(outcome.is_err());
-        assert!(InFlight::start("in-flight-test").is_some());
-    }
-
     #[cfg(feature = "online")]
     #[test]
     fn only_a_package_with_the_manifest_hash_is_installed() {
@@ -3740,7 +3218,7 @@ mod tests {
         for key in ["csp", "devCsp"] {
             let script_src = conf["app"]["security"][key]["script-src"].as_str().unwrap();
             for handler in &handlers {
-                let hash = format!("'sha256-{}'", crate::share::base64(&Sha256::digest(handler.as_bytes())));
+                let hash = format!("'sha256-{}'", crate::plugins::base64(&Sha256::digest(handler.as_bytes())));
                 assert!(script_src.contains(&hash), "{key} script-src has no {hash} for {handler}");
             }
         }

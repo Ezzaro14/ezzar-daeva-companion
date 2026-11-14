@@ -219,10 +219,6 @@
     "viewGrouped": "ボスごとにまとめる",
     "fightCount": "{n} 戦",
     "fightCountOne": "1 戦",
-    "previewUpload": "アップロードのプレビュー",
-    "previewUploadTip": "この戦闘を共有した場合に送信される内容を書き出します。送信はされません。",
-    "previewWorking": "プレビューを作成中…",
-    "previewDone": "{slice} KB を書き出しました（圧縮後 {sent} KB — 実際に送信されるサイズ）。{seen} 個中 {kept} 個のパケットを保持し、{blinded} 件の名前を伏せました。何もアップロードされていません。保存先: {dir}",
     "openWorld": "フィールド"
   },
   "settings": {
@@ -283,17 +279,8 @@
     "playerLimit": {
       "label": "表示する最大プレイヤー数"
     },
-    "partyPresence": "パーティーのA2Tools利用者を表示",
-    "shareBossTimers": "フィールドボスのタイマーを共有",
     "debugLogging": "デバッグログ",
     "quit": "終了",
-    "discord": {
-      "title": "Discord",
-      "activity": "Discord にプレイ中の内容を表示",
-      "activityHint": "AION2 の起動中、Discord のステータスにキャラクター名、クラス、レベル、サーバー、戦闘中のボスを表示します。このパソコンの Discord アプリ経由で表示され、アカウントは不要です。 Discord に表示する数値を選ぶと、戦闘力または装備スコアも表示します。",
-      "stat": "Discord に表示する数値",
-      "statHint": "Discord のステータスでレベルの後に表示する数値です。"
-    },
     "streamOverlay": {
       "title": "配信",
       "enable": "配信オーバーレイ（別PCのOBS用）",
@@ -345,7 +332,6 @@
     "textureOffset": "テクスチャをずらす",
     "barTexture": {
       "label": "バーの質感",
-      "supportersOnly": "サポーター限定：上の A2 Tools アカウントでログインすると使えます。",
       "options": {
         "none": "なし",
         "flames": "炎",
@@ -413,7 +399,7 @@
       "toggle": "ウィンドウの表示/非表示",
       "pressKeys": "キーを押してください...",
       "tooManyKeys": "キーは3つまで",
-      "plugins": "プラグインのウィンドウを呼び戻す",
+      "plugins": "ダッシュボードの表示/非表示",
       "notSet": "未設定",
       "restoreDefaults": "初期設定に戻す",
       "hint": "キーバインドをクリックし、1〜3個のキーを押してください。Escでキャンセル。",
@@ -438,29 +424,6 @@
         "all": "すべて",
         "highestDamage": "最大ダメージ"
       }
-    },
-    "showSupporterColors": "サポーターの色を表示",
-    "showSupporterColorsHint": "サポーターの名前が金色で表示されます。見た目だけで、数値は一切変わりません。",
-    "account": {
-      "title": "A2 Toolsアカウント",
-      "signedOut": "サインインしていません",
-      "signedIn": "{name} としてサインイン中",
-      "hint": "サインインすると、キャラクターと設定を a2tools.app と同期できます。",
-      "connect": "サインイン",
-      "signOut": "サインアウト",
-      "codePrompt": "ブラウザでこのコードを承認してください:",
-      "codeHint": "ページはすでに開いているはずです。コードは10分で期限切れになります。",
-      "working": "承認を待っています…",
-      "failed": "サインインに失敗しました: {error}",
-      "supporter": "サポーター"
-    },
-    "sendLogs": {
-      "hint": "不具合報告のため、最新のパケットログ3件を開発者に送ります。",
-      "button": "開発者にログを送る",
-      "confirm": "最新のパケットログ3件を A2 Tools の開発者に送りますか？\n\nパケットログは、パケット記録をオンにしていた間のゲーム通信そのもので、キャラクター名が含まれます。開くことができるのは開発者だけで、30日後に削除されます。",
-      "sending": "送信中...",
-      "sent": "送信しました。報告コードは {code} です。Discord で開発者に伝えてください。",
-      "failed": "送信できませんでした: {error}"
     },
     "barGap": {
       "label": "バーの間隔"
@@ -488,18 +451,16 @@
       "meterSaturation": "バーの色の強さです。下げると柔らかく、上げるとより鮮やかになります。",
       "bossNameSize": "バーの上にあるボスまたはターゲット名の大きさです。",
       "partyStat": "メーターと詳細で各プレイヤー名の横に表示する数値。自分のパーティのメンバーにのみ表示されます。",
-      "barTexture": "メーターのバーに模様を付けます。A2 Tools を支援してくださった方へのお礼です。",
+      "barTexture": "メーターのバーに模様を付けます。",
       "textureOffset": "バーごとにテクスチャの開始位置を変え、どのバーも同じに見えないようにします。",
       "trainingMode": "トレーニングモードで詳細ウィンドウに表示するかかしです：すべてまとめて、または一番多く攻撃した1体だけ。",
       "allTargetsWindow": "全ターゲットモードで、最後のヒットからこの時間内に攻撃したすべての対象を合計します。",
       "updateRate": "メーターの数値を更新する間隔です。速いほどダメージが早く表示されますが、CPU 使用量が増えます。",
-      "partyPresence": "A2Toolsを使うパーティーメンバーにはあなたの名前の横に小さなA2タグが見え、あなたにも相手のタグが見えます。A2Toolsを使うパーティーメンバーなら誰でも見えるため、外部メーターを使っていることが分かります。送るのはキャラクター名とサーバーのハッシュだけです。",
-      "shareBossTimers": "a2tools.app（と提携サイト Aion 2 Timers）を通じてフィールドボスのタイマーを他のプレイヤーと共有します：マップを開いたときのボスと、討伐を見たフィールドボスと、戦闘中のボスのHP。送信するのはサーバー、ボス、時刻、HPだけです。",
       "debugLogging": "開発者が問題を調べるための診断ログを書き出します。",
       "saveRawPackets": "バグ報告用にゲームの生の通信を記録します。デバッグログも一緒にオンになります。",
       "globalHotkeys": "下のキーはゲームが前面にあるときも使えます。オフにすると、ほかのプログラムがこれらのキーを使えます。Linux ではデスクトップがキーを登録し、承認を求めることがあります。",
       "pluginDevMode": "このPCのフォルダーからプラグインを読み込み、作成やテストに使います。審査されていないので、信頼できるものだけを読み込んでください。",
-      "showMeter": "オフ：プラグインだけが表示されます。メーターはバックグラウンドで戦闘の記録とアップロードを続けます。ここ、表示/非表示のホットキー、またはプラグインウィンドウのメーターボタンで元に戻せます。",
+      "showMeter": "オフ：プラグインだけが表示されます。メーターはバックグラウンドで戦闘の記録を続けます。ここ、表示/非表示のホットキー、またはダッシュボードの Meter ボタンで元に戻せます。",
       "clearOnZone": "ゾーンが変わったあと、最後の戦闘をメーターから消すタイミング。どの戦闘も履歴には残ります。",
       "hideWhenGameClosed": "ゲームが起動していない間はメーターを隠し、起動すると再び表示します。"
     },
@@ -520,43 +481,18 @@
       "devMode": "プラグイン開発者モード",
       "hint": "ここで読み込むプラグインは審査されていません。信頼できるものだけを読み込んでください。",
       "add": "プラグインのフォルダーを読み込む…",
+      "reload": "フォルダーを再読み込み",
       "open": "開く",
       "remove": "削除",
-      "checkUpdates": "アップデートを確認",
+      "modules": "モジュール",
       "checking": "確認中…",
       "upToDate": "すべてのプラグインは最新です。",
       "updated": "更新しました: {list}",
       "updatedFrom": "{version} から更新",
       "added": "新しく読み込み",
-      "intro": "審査済みのプラグインはメーターに機能を追加します。各プラグインはインストール時に求めたものだけを使えます。",
-      "installed": "インストール済み",
+      "intro": "アプリに付属するモジュールです。オフにしたものは動作しません。",
       "none": "まだプラグインはインストールされていません。",
-      "available": "利用可能",
-      "catalogLoading": "プラグイン一覧を読み込み中…",
-      "catalogEmpty": "審査済みのプラグインはすべてインストール済みです。",
-      "catalogError": "プラグイン一覧を読み込めませんでした: {error}",
-      "offline": "オフライン版はプラグインをダウンロードしません。",
-      "install": "インストール",
-      "update": "更新",
-      "updateTo": "{version} に更新",
-      "installing": "インストール中…",
-      "installDone": "{name} {version} をインストールしました。",
-      "updatesAvailable": "アップデートがあります: {list}",
       "unreviewed": "開発",
-      "by": "作成: {author}",
-      "consentTitle": "{name} をインストールしますか？",
-      "consentUpdateTitle": "{name} を更新しますか？",
-      "consentIntro": "このプラグインができること:",
-      "consentNew": "新しいバージョンは次も求めています:",
-      "consentCancel": "キャンセル",
-      "permStorage": "このPCに自身のデータを保存する",
-      "permNotify": "自身のウィンドウに短いメッセージを表示する",
-      "permWindow": "ゲームのフォーカスを奪わずに、自身のウィンドウを表示・非表示にする",
-      "permWidgets": "移動・固定できる小さな専用ウィンドウを表示",
-      "permBossTimers": "a2tools.app でプレイヤーが共有するフィールドボスのタイマーを読む",
-      "permCharacter": "キャラクターの名前・サーバー・クラス・レベルを見る",
-      "permDecoder": "自分のゲームデータを読む: {name}",
-      "permNone": "ウィンドウを表示する以外のことはしません",
       "enabled": "有効",
       "enabledTip": "オン：メーターと一緒に起動します。オフ：インストールされたままですが、動作しません。",
       "showMeter": "DPSメーターを表示",
@@ -572,32 +508,6 @@
       }
     }
   },
-  "support": {
-    "button": "支援する",
-    "title": "Ko-fiで作者を支援",
-    "linksHint": "Ko-fi・Patreon・爱发电・PayPal はブラウザでそのサイトを開きます。暗号資産のボタンはアドレスをコピーします。",
-    "perks": "5ドルごとにサポーター特典が12か月付与されます（1回の支払いにつき最大2年）。Ko-fiのメッセージにA2 Toolsアカウントページのコードを入れるか、Patreonでは同じメールアドレスを使ってください。",
-    "titleWechat": "WeChatで作者を支援",
-    "label": {
-      "wechat": "WeChat"
-    },
-    "copy": {
-      "btc": "BTCアドレスをコピーしました",
-      "eth": "ETHアドレスをコピーしました",
-      "usdc": "USDCアドレスをコピーしました"
-    },
-    "aria": {
-      "afdian": "Afdianを開く",
-      "kofi": "Ko-fiを開く",
-      "patreon": "Patreonを開く",
-      "close": "支援ウィンドウを閉じる",
-      "wechat": "WeChatのQRコードを表示",
-      "paypal": "PayPalを開く",
-      "btc": "BTCアドレスをコピー",
-      "eth": "ETHアドレスをコピー",
-      "usdc": "USDCアドレスをコピー"
-    }
-  },
   "battleTime": {
     "analysing": "監視中",
     "ttkTooltip": "ボスの残りHPとパーティの与ダメージから予測した戦闘全体の長さ",
@@ -608,7 +518,6 @@
   },
   "meter": {
     "identifyingPlayer": "#{id}",
-    "a2toolsUser": "A2Toolsを使用中",
     "dpsSuffix": "/s",
     "others": "その他"
   },
@@ -656,51 +565,9 @@
       "level": "レベル{n}"
     }
   },
-  "presence": {
-    "level": "Lv {level}",
-    "combatPower": "戦闘力 {cp}",
-    "gearScore": "装備スコア {gs}",
-    "fighting": "{boss} と戦闘中",
-    "inGame": "プレイ中",
-    "elyos": "天族",
-    "asmodian": "魔族",
-    "korea": "韓国",
-    "taiwan": "台湾",
-    "tierExpedition": "遠征",
-    "tierConquestNormal": "征服（ノーマル）",
-    "tierConquestHard": "征服（ハード）"
-  },
-  "partyPromo": {
-    "title": "新機能：パーティーのA2Tools利用者を表示",
-    "text": "A2Toolsを使うパーティーメンバーの名前の横に小さなA2タグが付き、相手のメーターではあなたの名前の横にも付きます。",
-    "hint": "A2Toolsを使うパーティーメンバーには、あなたが外部メーターを使っていることが分かります。送るのはキャラクター名とサーバーのハッシュだけです。設定でいつでも変更できます。"
-  },
-  "discordPromo": {
-    "title": "新機能：Discord のステータス表示",
-    "text": "キャラクター、クラス、レベル、サーバー、挑戦中のボスやダンジョンを Discord のステータスでフレンドに表示します。",
-    "hint": "この PC の Discord アプリを使い、アカウントは不要です。設定でいつでも変更できます。",
-    "done": "完了",
-    "close": "閉じる"
-  },
-  "accountPromo": {
-    "title": "ボス戦の記録を a2tools.app に保存",
-    "text": "無料アカウントを作成するかログインすると、すべてのボス戦がオンラインに保存されます。戦闘ごとの共有リンク、どのデバイスからでも見られる記録、そしてランキングへの掲載。",
-    "hint": "他のプレイヤーの名前は伏せられ、カカシとの戦闘はアップロードされません。設定からいつでも変更できます。",
-    "signIn": "ログイン",
-    "later": "後で",
-    "close": "閉じる"
-  },
   "npcapPrompt": {
     "ask": "Ezzar's Daeva Companion がゲームの通信を読み取るには Npcap が必要ですが、Npcap が見つからないか動作していません。\n\n今すぐインストールしますか？メーターが npcap.com から Npcap のインストーラーをダウンロードして開きます。Npcap がインストールされると、メーターは自動でキャプチャを始めます。\n\n自分でインストールする場合は「いいえ」を選び、https://npcap.com/#download からインストールしてください。",
     "downloadFailed": "Npcap のインストーラーをダウンロードできませんでした（{error}）。\n\nhttps://npcap.com/#download から自分でインストールしてから、メーターを開き直してください。",
     "stillMissing": "Npcap がまだ動作していません。インストーラーを最後まで進めずに閉じた場合は、https://npcap.com/#download から Npcap をインストールしてから、メーターを開き直してください。"
-  },
-  "pluginUpdatePrompt": {
-    "title": "A2Tools - プラグインの更新",
-    "one": "プラグインの更新があります：",
-    "many": "プラグインの更新があります：",
-    "alsoAsks": "新しいバージョンでは、さらに次のことを求めます：",
-    "updateNow": "今すぐ更新しますか？",
-    "failed": "更新できませんでした："
   }
 }

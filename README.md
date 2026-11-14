@@ -1,6 +1,6 @@
 # Ezzar's Daeva Companion
 
-An AION 2 DPS meter with combat overlays for **Windows and Linux**: the functions of Questlog's desktop app (Windows only), built on the open-source [A2Tools DPS Meter](https://github.com/taengu/A2Tools-DPS-Meter).
+An AION 2 DPS meter with combat overlays for **Windows and Linux**: the functions of Questlog's desktop app (Windows only), and more. It began as a fork of the open-source [A2Tools DPS Meter](https://github.com/taengu/A2Tools-DPS-Meter) and is now an app of its own (see [Credits](#credits-and-license)).
 
 It reads a copy of the game's network traffic (Npcap on Windows, libpcap on Linux). It never touches the game's files or memory. On Linux it runs natively while AION 2 runs under Proton.
 
@@ -20,22 +20,24 @@ Everything is in one **dashboard** window (it opens with the app; the meter's he
 - **DPS meter:** party ranking with class-coloured bars, gear score, deaths, DPS, share and total damage per player, the party's DPS on top, crit, per-skill details, targets (all, bosses, current); just its buttons while empty, or out of combat (Settings → Shrink out of combat)
 - **Combat Assist:** skill cooldowns and buffs on bars anywhere, glow when ready, square/round/bars, row/stacked, hide out of combat
 - **Fight history:** saved boss fights, damage, healing, taken, buffs, DPS over time
-- **Combat logs website:** shareable reports, rankings, leaderboards via a2tools.app (uploads are labeled as this fork)
 - **PvP Overlay**, opponents, damage dealt/taken, HP, class, defeated; saved sessions with kills, deaths, biggest burst, skills, DPS over time
 - **Fight Records** Training mode: timed runs (30 s – 5 min or unlimited) on a dummy, your damage only, names, notes, groups, side-by-side comparison
 - **Fight Records** Personal bests
 - **Combat Alerts** loss-of-control notice (stun, sleep, fear, knockdown…) with time left. Party debuff alerts (same debuff on several members, e.g. Heal Block)
+- **Boss Callouts**: a boss's on-screen lines and mechanics spoken aloud and shown in big, high-contrast text, with a countdown and "Safe to attack" (an accessibility module)
+- **Heal Alert**: for Clerics, a sound and a red banner over the game the moment a party member's HP drops under the line you pick
 - **Dungeon Runs** clear time, deaths, each member's numbers, every boss fight
 - **Event Timers** Event alerts (Shugo Festival, Rift, resets, sieges, and bosses), sound, desktop notifications while the game is closed 
 - **Ping** overlay plugin
-- **Pet Soul Tracker**, souls per pet, phases, drop sources
+- **Pet Soul Tracker**, souls per pet, phases, drop sources, a map of the monsters you need around you; filter by where the souls come from (monsters, or only chests and the Black Cloud Merchants)
 - **World Map**: your own screenshots, lined up with game coordinates; Kibelisks, pet soul monster areas, field bosses with timers, monsters you've seen, you and your party, pins, imported markers 
 - **Progression Guide**: your character from the official site, compared with the strongest of your class, and a gear score roadmap 
 - **Daily Planner**: Daily Duties, Shugo Festival's three keys, Nightmare, the week's dungeon entries, Odyle Energy, your own tasks; reminders before a reset 
+- **Roster**: every character you play: class, level, combat power, gear score, Odyle energy and when it's full; Nightmare, Ascension Trial, Daily Dungeon, Shugo Festival, Invasion and Abyss Corridors left, Daily Duties done; the week's Odyle crafts and shop limits, Kinah today, Abyss Points
 
 Each module can be turned off on the dashboard's **Overlay** page.
 
-Plugins you install (Settings → Plugins) or load from a folder run in the dashboard too, each as a page of its own. One installed under the id of a module that comes with the app, such as A2Tools' own Pet Soul Tracker, runs in that module's place, and the **Overlay** page says so.
+Plugins you load from a folder (Settings → Plugins, developer mode) run in the dashboard too, each as a page of its own. One with the id of a module that comes with the app runs in that module's place, and the **Overlay** page says so.
 
 ### The World Map
 
@@ -45,7 +47,7 @@ The markers come from the openly licensed community data the A2Tools plugins shi
 
 ### The Progression Guide
 
-Reads your character (gear and enchants, Daevanion boards node by node, skills, pet and wings) from the official AION 2 site's public profile, and the strongest players of your class: the top of a2tools.app's leaderboard for your region, players you've met in your fights, and any you add. It ranks what to improve first: enchant gaps, unfinished boards and the nodes most of them take, skills most of them equip or level higher. It compares numbers; it doesn't know what each step costs. **Look up a character** shows the same for anyone.
+Reads your character (gear and enchants, Daevanion boards node by node, skills, pet and wings) from the official AION 2 site's public profile, and the strongest players of your class: players you've met in your fights, and any you add. It ranks what to improve first: enchant gaps, unfinished boards and the nodes most of them take, skills most of them equip or level higher. It compares numbers; it doesn't know what each step costs. **Look up a character** shows the same for anyone.
 
 The **Roadmap** tab shows your gear score against the milestones of [RaidRelay's gear score guide](https://raidrelay.com/aion-2-gear-score-guide) (1,000, 1,400, 1,600 … 2,800), what gets you to the next one, and checks on your own gear that need no comparison: empty accessory and rune slots, runes to +1 only, belt and amulet to +10 then Substance Morph, Stigma skills to level 20, better PvE titles.
 
@@ -56,6 +58,16 @@ A checklist of each day's and week's runs, counted per character and reset at th
 ### How cooldowns are known
 
 The game sends no record when a skill goes on cooldown, so Combat Assist learns each cooldown from use: the shortest time between two casts (a single much shorter one is taken as a cooldown another skill shortened, and marked ▼). A cooldown counts once the same gap is seen twice (a first guess shows as ~), and a skill whose hit lands after the cast (a delayed explosion) counts as one cast. Re-learn forgets a wrong one; or type the seconds yourself. A bar can also show its icons only while they're on cooldown.
+
+## What it connects to
+
+Nothing you do in the app is sent anywhere. It reads:
+
+- **The official AION 2 site** (aion2.plaync.com), for the Progression Guide's character profiles.
+- **Field boss timers and the Abyss siege** that other players' meters share on a2tools.app's public feed, for Event Timers and the World Map. The app asks for your server's and only listens; it reports nothing back.
+- **Skill and buff icons** from the game's own CDN (assets.playnccdn.com).
+- **aion2pets.net's pet list**, at most once a day, so the Pet Soul Tracker shows pets newer than its own data (names, genus and where to get them; the site has no game ids, so you say once which new pet the game's is).
+- **npcap.com** on Windows, when you let it install Npcap.
 
 ## Install
 
@@ -111,15 +123,13 @@ cd src-tauri && cargo test            # parser, combat feed and plugin host test
 - `tools/build_world_map.py`: the World Map's places, from the A2Tools plugins' data.
 - `tools/world_map_pictures.cjs`: the World Map's own map pictures, from gaming.tools tile packs (`.gtpk`) saved from your browser.
 - `src-tauri/bundled-plugins/`: the plugins themselves (HTML/JS, see `src-tauri/src/plugins/a2.js` for their API).
-- `src-tauri/src/fork.rs`: this fork's name and identity in one place.
-
-Upstream is kept as the `upstream` remote, and the fork's changes sit in new files where possible, so game-patch fixes merge in with `git pull upstream main`.
+- `src-tauri/src/fork.rs`: the app's name and identity in one place.
 
 ## Credits and license
 
-GPL-3.0, like what it is built on:
+GPL-3.0, like what it began from:
 
-- [A2Tools DPS Meter](https://github.com/taengu/A2Tools-DPS-Meter) by taengu and contributors: the meter, the protocol work and the plugin host. Its own README is [README.upstream.md](README.upstream.md).
-- [A2Tools-Plugins](https://github.com/taengu/A2Tools-Plugins): Event Timers, Pet Soul Tracker and Ping, bundled here (Event Timers adds desktop notifications while the game is closed).
+- [A2Tools DPS Meter](https://github.com/taengu/A2Tools-DPS-Meter) by taengu and contributors: the meter, the protocol work and the plugin host, which this app started as a fork of.
+- [A2Tools-Plugins](https://github.com/taengu/A2Tools-Plugins): Event Timers, Pet Soul Tracker, Ping, Roster and Heal Alert (by Nullception) and Boss Callouts, which are built in here and changed since.
 
 Not affiliated with NCSOFT, Questlog or A2Tools. Third-party meters may be against the game's terms of service; use at your own risk.

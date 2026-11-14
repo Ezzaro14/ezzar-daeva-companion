@@ -122,10 +122,10 @@ fn tell(app: &tauri::AppHandle, data: Value) {
     }
 }
 
+/// The shared timers' live feed, at a2tools.app: other players' meters
+/// report to it; this app only listens.
 fn live_url(server: u32) -> String {
-    let base = crate::account::base_url();
-    let ws = base.strip_prefix("https://").map(|rest| format!("wss://{rest}")).unwrap_or(base);
-    format!("{ws}/api/boss-timers/live?server={server}")
+    format!("wss://a2tools.app/api/boss-timers/live?server={server}")
 }
 
 /// One server's connection, for as long as anything is followed there:

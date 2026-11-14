@@ -8,6 +8,7 @@ Your own screenshot of each world map, lined up with the game's coordinates, wit
 - **You and your party**, where you last cast a buff or skill.
 - **Your pins**, and **imported** marker files (JSON or CSV, in game coordinates).
 - **A map file you saved from gaming.tools** (`<map>.d.json`, saved from your browser's network tab): Hidden Cubes, gathering, Empyrean Traces, every monster spawn and the map's places, in layers you turn on yourself (`pack.js`). It is kept in this plugin's storage on your computer; none of it ships with the app.
+- **Pet Soul Tracker's map links** open here, not on the Aion 2 Timers website: the map, centered close in on that monster's spot nearest the spawn the list measured from, picked and with its layer on. Links to a map the World Map doesn't have (a dungeon) still open the website. The dashboard sends them on (`a2.on("place")`; the World Map tells it its maps with `a2.map.places`), so A2Tools' own Pet Soul Tracker, installed in its place, does the same.
 
 **Minimap** finds you on the game's minimap a few times a second, on the map you are on. If it can't find you for a while (a dungeon the meter was started in, or a place the map's picture doesn't show), it stops looking and says so, and starts again when you change map, use a skill, move the map near where you are, or turn it off and on.
 

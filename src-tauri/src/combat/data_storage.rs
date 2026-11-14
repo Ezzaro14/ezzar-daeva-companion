@@ -62,6 +62,31 @@ const ABNORMAL_RETENTION_MS: i64 = 30 * 60 * 1000;
 /// How often, in capture time, the timeline drops what is past retention.
 const ABNORMAL_PRUNE_EVERY_MS: i64 = 60 * 1000;
 
+/// Daily Duty's id among the entry counts (`DataStorage::content_counts`):
+/// no entry of the game's.
+pub const DAILY_DUTY_ID: u32 = 0;
+
+/// A Daily Duty offer of the board (see
+/// `StreamProcessor::parse_daily_duty_packet`). State 01 is open, 02 taken,
+/// 04 completed (handed in).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DutyOffer {
+    pub offer: u32,
+    pub quest: u32,
+    /// Your quest number, once taken (what giving it up names).
+    pub number: u32,
+    pub state: u8,
+}
+
+/// The Daily Duty board: its offers, the next reset (unix ms, moved on when
+/// played through it), and the reset the game sent it with.
+#[derive(Debug, Clone)]
+struct DutyBoard {
+    offers: Vec<DutyOffer>,
+    reset_ms: i64,
+    sent_reset_ms: i64,
+}
+
 fn now_ms() -> i64 {
     crate::clock::now_ms()
 }
@@ -422,60 +447,8 @@ impl TargetCombatData {
 
 // ───── Main storage ─────
 
-/// A field boss kill or HP milestone in the open world, for
-/// `boss_report.rs` to share.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BossEvent {
-    /// The boss's NPC code (`capture::field_bosses`).
-    pub npc: i32,
-    pub kind: BossEventKind,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BossEventKind {
-    /// Killed at this moment (unix ms).
-    Killed { at_ms: i64 },
-    /// Seen up: its spawn came, as it spawned or came into view (unix ms).
-    /// Only for the Abyss's cores, whose maps say nothing of them.
-    Seen { at_ms: i64 },
-}
-
-/// Unsent boss events kept at most (the sender drains them every second).
-#[cfg(feature = "online")]
-const MAX_BOSS_EVENTS: usize = 64;
-
-/// A field boss counts as being fought while its HP changed, or it took
-/// damage, this recently.
-const IN_COMBAT_MS: i64 = 10_000;
 /// The passive HP regen everyone gets ("Restore HP"), not a heal anyone cast.
 const PASSIVE_REGEN_SKILL: i32 = 1_900_001;
-/// While it is fought and its HP holds, the same HP goes again this often:
-/// the site takes a repeat as "still being fought" once a minute and ignores
-/// the rest. A change goes on the next pass (every 3 s), as always.
-const BOSS_HP_KEEP_ALIVE_MS: i64 = 60_000;
-/// A field boss's HP back up by this many points or more has reset (kited
-/// out of range, or left alone until it recovered).
-const RESET_RISE: u8 = 5;
-
-/// A field boss's HP for the sender (`take_boss_hp`).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BossHp {
-    /// The boss's NPC code.
-    pub npc: i32,
-    /// Whole percent left.
-    pub percent: u8,
-    /// Back up from what was last sent: it reset.
-    pub reset: bool,
-}
-
-
-#[cfg(feature = "online")]
-fn push_boss_event(inner: &mut Inner, event: BossEvent) {
-    inner.boss_events.push_back(event);
-    while inner.boss_events.len() > MAX_BOSS_EVENTS {
-        inner.boss_events.pop_front();
-    }
-}
 
 pub struct DataStorage {
     inner: RwLock<Inner>,
@@ -609,16 +582,6 @@ struct Inner {
     /// Entities whose max HP came from their spawn record, so a percentage of
     /// it can be trusted (a peak seen later may be below the real max).
     spawn_hp_ids: HashSet<i32>,
-    /// A field boss's HP now (NPC code, whole percent, when it last changed),
-    /// per entity, and the percent last handed to the sender (`take_boss_hp`).
-    boss_hp_now: HashMap<i32, (i32, u8, i64)>,
-    /// Each fought boss's HP as last sent, and when (`take_boss_hp`).
-    boss_hp_sent: HashMap<i32, (u8, i64)>,
-    /// Field boss kills and HP milestones in the open world, not yet sent
-    /// (`boss_report.rs`).
-    boss_events: VecDeque<BossEvent>,
-    /// Party members who also run A2Tools, by name (`party_presence.rs`).
-    a2tools_users: HashSet<String>,
     /// Each party member's last HP (`1b 92`): falling to 0 from above is a
     /// death. The game sends no `42 36` death for a player (Ultimate Berk,
     /// 2026-10-11: 184 monster deaths, not one of the four that died).
@@ -655,9 +618,8 @@ struct Inner {
     current_target: i32,
 
     /// The address of the game server the locked connection reads from.
-    /// Korea and Taiwan share their server ids (10xx/20xx), so field boss
-    /// reports from them carry it for a2tools.app to tell the two apart
-    /// (`boss_report::with_host`).
+    /// Korea and Taiwan share their server ids (10xx/20xx); the address
+    /// tells the two apart.
     game_host: Option<std::net::Ipv4Addr>,
     /// See `note_host_server`.
     host_server: u16,
@@ -666,18 +628,39 @@ struct Inner {
     /// `StreamProcessor::parse_odyle_energy_packet`.
     odyle_energy: Option<(u32, u32)>,
     /// The character that energy is, for the window to remember it by
-    /// across a meter restart. A login's list comes some seconds before the
-    /// self record naming who logged in, so until that record it has no
-    /// owner (`odyle_awaits_self_record`): the name still known then can be
-    /// the character before a switch.
+    /// across a meter restart, and the content counts and Daily Duty board
+    /// with it. A login's list comes some seconds before the self record
+    /// naming who logged in, so until that record it has no owner
+    /// (`odyle_awaits_self_record`): the name still known then can be the
+    /// character before a switch. An update or a board in a session the game
+    /// has named (a meter started mid-session) is theirs.
     odyle_owner: Option<String>,
     odyle_awaits_self_record: bool,
+    /// The game's entry counts by entry id (`0b 61` / `0c 61`), whose owner
+    /// is Odyle energy's (they come in the same list).
+    content_counts: std::collections::BTreeMap<u32, [u32; 2]>,
+    /// The shop's purchase limits by item id: (bought, next reset unix ms).
+    /// See `parse_shop_and_craft_packet`.
+    shop_limits: std::collections::BTreeMap<u32, (u32, i64)>,
+    /// Crafts made by recipe id, as the crafting window or a craft last said.
+    craft_counts: std::collections::BTreeMap<u32, u32>,
+    /// Kinah gained today with the game's time of it (unix ms), and Abyss
+    /// Points this week with the week's limit and when seen. A login's wait
+    /// in `login_kinah` / `login_abyss_points` for the self record, so they
+    /// never show under the character before.
+    kinah_today: Option<(u64, i64)>,
+    abyss_points: Option<(u64, u64, i64)>,
+    login_kinah: Option<(u64, i64)>,
+    login_abyss_points: Option<(u64, u64, i64)>,
+    /// The Daily Duty board. See `parse_daily_duty_packet`.
+    daily_duty: Option<DutyBoard>,
+    /// The entry list's time entries (kind `01`) by id: the time and when it
+    /// was seen (unix ms). An Abyss passage's usage time left (ms), the times
+    /// of others. Gone again as a count.
+    content_times: std::collections::BTreeMap<u32, (u64, i64)>,
 
     // Local player
     local_player_id: Option<i64>,
-    /// Behind an Arc because `get_dps` reads it every 500ms and the set can hold
-    /// thousands of entries; cloning it on each tick would be pure waste.
-    supporters: std::sync::Arc<crate::supporters::Roster>,
     local_character_name: Option<String>,
     /// Set once the game itself has said who the local player is (the `33 36`
     /// self record). That outranks the window title and any name the UI has
@@ -777,10 +760,6 @@ impl DataStorage {
                 abyss_artifacts_seen_ms: 0,
                 abyss_artifacts_seq: 0,
                 spawn_hp_ids: HashSet::new(),
-                boss_hp_now: HashMap::new(),
-                boss_hp_sent: HashMap::new(),
-                boss_events: VecDeque::new(),
-                a2tools_users: HashSet::new(),
                 last_hp: HashMap::new(),
                 despawned_summon_ids: HashSet::new(),
                 boss_entity_ids: HashSet::new(),
@@ -795,8 +774,16 @@ impl DataStorage {
                 odyle_energy: None,
                 odyle_owner: None,
                 odyle_awaits_self_record: false,
+                content_counts: Default::default(),
+                shop_limits: Default::default(),
+                craft_counts: Default::default(),
+                kinah_today: None,
+                abyss_points: None,
+                login_kinah: None,
+                login_abyss_points: None,
+                daily_duty: None,
+                content_times: Default::default(),
                 local_player_id: None,
-                supporters: std::sync::Arc::new(crate::supporters::Roster::default()),
                 local_character_name: None,
                 local_identity_from_game: false,
                 loot_identity: LootIdentity::default(),
@@ -952,7 +939,21 @@ impl DataStorage {
             || inner.local_character_name != name
             || inner.loot_identity.applied;
         inner.loot_identity.applied = false;
-        if inner.odyle_energy.is_some() && (inner.odyle_awaits_self_record || inner.odyle_owner.is_none()) {
+        if let Some(kinah) = inner.login_kinah.take() {
+            inner.kinah_today = Some(kinah);
+        }
+        if let Some(points) = inner.login_abyss_points.take() {
+            inner.abyss_points = Some(points);
+        }
+        let known = inner.odyle_energy.is_some()
+            || !inner.content_counts.is_empty()
+            || !inner.content_times.is_empty()
+            || inner.daily_duty.is_some()
+            || !inner.shop_limits.is_empty()
+            || !inner.craft_counts.is_empty()
+            || inner.kinah_today.is_some()
+            || inner.abyss_points.is_some();
+        if known && (inner.odyle_awaits_self_record || inner.odyle_owner.is_none()) {
             inner.odyle_owner = name.clone();
             inner.odyle_awaits_self_record = false;
         }
@@ -1316,15 +1317,6 @@ impl DataStorage {
         self.inner.read().local_identity_from_game
     }
 
-    /// Replace the supporter roster. Called after each download.
-    pub fn set_supporters(&self, roster: crate::supporters::Roster) {
-        self.inner.write().supporters = std::sync::Arc::new(roster);
-    }
-
-    pub fn supporters(&self) -> std::sync::Arc<crate::supporters::Roster> {
-        self.inner.read().supporters.clone()
-    }
-
     pub fn set_local_player_id(&self, id: Option<i64>) {
         let mut inner = self.inner.write();
         if inner.local_player_id != id {
@@ -1343,18 +1335,258 @@ impl DataStorage {
     /// and after a server transfer, whose owner the next self record names.
     pub fn set_odyle_energy(&self, basic: u32, charged: u32, whole_list: bool) {
         let mut inner = self.inner.write();
-        if whole_list {
-            inner.odyle_owner = None;
-            inner.odyle_awaits_self_record = true;
-        } else if inner.odyle_owner.is_none() && !inner.odyle_awaits_self_record && inner.local_identity_from_game {
-            // A meter started mid-session: the game named you already.
-            inner.odyle_owner = inner.local_character_name.clone();
-        }
+        own_list(&mut inner, whole_list);
         if inner.odyle_energy != Some((basic, charged)) {
             tracing::info!("Odyle energy: {basic} basic, {charged} charged");
             inner.odyle_energy = Some((basic, charged));
         }
     }
+
+    /// The game's entry counts, without the energy or times (see
+    /// `set_entry_list`).
+    pub fn set_content_counts(&self, counts: crate::capture::stream_processor::ContentCounts, whole_list: bool) {
+        let entries = crate::capture::stream_processor::ContentEntries { counts, times: Vec::new() };
+        self.set_entry_list(entries, None, whole_list, now_ms());
+    }
+
+    /// The game's entry counts, its times seen at `now` (unix ms) and the
+    /// Odyle energy among them, at once: the whole list (`whole_list`, at
+    /// login and after a server transfer) or the entries that changed. A
+    /// whole list replaces the last character's counts, times and energy,
+    /// even one that didn't read (no entries, no `energy`). A time sent again
+    /// unchanged keeps when it was first seen. Logged, so the ids not yet
+    /// known can be matched to what the game shows.
+    pub fn set_entry_list(
+        &self,
+        entries: crate::capture::stream_processor::ContentEntries,
+        energy: Option<(u32, u32)>,
+        whole_list: bool,
+        now: i64,
+    ) {
+        let crate::capture::stream_processor::ContentEntries { counts, times } = entries;
+        let mut inner = self.inner.write();
+        own_list(&mut inner, whole_list);
+        if let Some((basic, charged)) = energy.filter(|&e| inner.odyle_energy != Some(e)) {
+            tracing::info!("Odyle energy: {basic} basic, {charged} charged");
+        }
+        if whole_list || energy.is_some() {
+            inner.odyle_energy = energy;
+        }
+        if whole_list {
+            inner.content_counts.clear();
+            // Each character has its own Daily Duty board, sent right after
+            // the list when it is sent at all (not at Nully's logins,
+            // 2026-10-24): the last character's isn't theirs. The limit is
+            // the server's, the sum of each character's today: a plugin
+            // keeping each character's adds them up.
+            inner.daily_duty = None;
+            // The shop's limits and the crafts are the character's too
+            // (a server-wide recipe's count is the same on each).
+            inner.shop_limits.clear();
+            inner.craft_counts.clear();
+            // Kinah and Abyss Points too: the new character's come with the
+            // login (held until its self record, `login_kinah`).
+            inner.kinah_today = None;
+            inner.abyss_points = None;
+            inner.content_times.clear();
+            let list: Vec<String> = counts.iter().map(|(id, v)| format!("{id}={}+{}", v[0], v[1])).collect();
+            tracing::debug!("Content counts: {}", list.join(" "));
+        }
+        for (id, v) in counts {
+            inner.content_times.remove(&id);
+            if !whole_list && inner.content_counts.get(&id) != Some(&v) {
+                tracing::debug!("Content count {id}: {} (+{})", v[0], v[1]);
+            }
+            inner.content_counts.insert(id, v);
+        }
+        for (id, time) in times {
+            inner.content_counts.remove(&id);
+            match inner.content_times.get(&id) {
+                Some(&(t, _)) if t == time => {}
+                _ => {
+                    tracing::info!("Content time {id}: {time}");
+                    inner.content_times.insert(id, (time, now));
+                }
+            }
+        }
+    }
+
+    /// The entry list's times by id: `(time, seen at unix ms)`.
+    pub fn content_times(&self) -> std::collections::BTreeMap<u32, (u64, i64)> {
+        self.inner.read().content_times.clone()
+    }
+
+    /// The entry counts, and Daily Duty as id 0 (no entry of the game's):
+    /// `[completed, taken]` today, both 0 once its reset has passed.
+    pub fn content_counts(&self) -> std::collections::BTreeMap<u32, [u32; 2]> {
+        content_counts_of(&self.inner.read(), now_ms())
+    }
+
+    /// The entry list as plugins see it, read at one moment: whose it is,
+    /// the Odyle energy, the counts and the times.
+    pub fn entry_list(&self) -> EntryList {
+        let inner = self.inner.read();
+        let now = now_ms();
+        EntryList {
+            owner: inner.odyle_owner.clone(),
+            odyle_energy: inner.odyle_energy,
+            counts: content_counts_of(&inner, now),
+            shop_limits: shop_limits_of(&inner, now),
+            crafts: inner.craft_counts.clone(),
+            kinah_today: kinah_today_of(&inner, now),
+            abyss_points: abyss_points_of(&inner, now),
+            times: inner.content_times.clone(),
+        }
+    }
+
+    /// Shop purchase limits: `(item id, bought, next reset unix ms)`, the
+    /// whole list (`whole`, replacing the last) or the ones that changed.
+    /// One shop's list seen (seven items, the same at each opening): if other
+    /// shops send their own, each whole list would replace the other's.
+    pub fn set_shop_limits(&self, limits: &[(u32, u32, i64)], whole: bool) {
+        let mut inner = self.inner.write();
+        own_list(&mut inner, false);
+        if whole {
+            inner.shop_limits.retain(|id, _| limits.iter().any(|l| l.0 == *id));
+        }
+        for &(id, bought, reset_ms) in limits {
+            if inner.shop_limits.insert(id, (bought, reset_ms)) != Some((bought, reset_ms)) {
+                tracing::info!("Shop limit {id}: {bought} bought (resets {reset_ms})");
+            }
+        }
+    }
+
+    /// The shop's purchase limits by item id, `(bought, next reset unix ms)`.
+    /// Once its reset has passed, 0 bought and the next reset unknown (`None`)
+    /// until the shop opens again: the game doesn't say how often each resets.
+    pub fn shop_limits_at(&self, now: i64) -> std::collections::BTreeMap<u32, (u32, Option<i64>)> {
+        shop_limits_of(&self.inner.read(), now)
+    }
+
+    /// Crafts made by recipe: the crafting window's whole list (`whole`) or
+    /// one recipe after a craft.
+    pub fn set_craft_counts(&self, counts: &[(u32, u32)], whole: bool) {
+        let mut inner = self.inner.write();
+        own_list(&mut inner, false);
+        if whole {
+            inner.craft_counts.clear();
+        }
+        for &(recipe, n) in counts {
+            if !whole && inner.craft_counts.get(&recipe) != Some(&n) {
+                tracing::info!("Craft count {recipe}: {n}");
+            }
+            inner.craft_counts.insert(recipe, n);
+        }
+    }
+
+    pub fn craft_counts(&self) -> std::collections::BTreeMap<u32, u32> {
+        self.inner.read().craft_counts.clone()
+    }
+
+    /// Kinah gained today as of `at` (the game's unix ms): at a login
+    /// (`login`, held for the self record) or a gain.
+    pub fn set_kinah_today(&self, kinah: u64, at: i64, login: bool) {
+        let mut inner = self.inner.write();
+        tracing::debug!("Kinah today: {kinah}{}", if login { " (login)" } else { "" });
+        if login {
+            inner.login_kinah = Some((kinah, at));
+        } else {
+            own_list(&mut inner, false);
+            // Newer than a login's still held.
+            inner.login_kinah = None;
+            inner.kinah_today = Some((kinah, at));
+        }
+    }
+
+    /// Kinah gained today at `now` (unix ms): 0 once a daily reset has
+    /// passed since the game said it.
+    pub fn kinah_today_at(&self, now: i64) -> Option<u64> {
+        kinah_today_of(&self.inner.read(), now)
+    }
+
+    /// The week's Abyss Points and limit, seen at `at` (unix ms). Held for the
+    /// self record, which follows a login's within a second; one that comes
+    /// alone (a gain) is taken as the character's after `ABYSS_POINTS_HOLD_MS`.
+    pub fn set_abyss_points(&self, points: u64, limit: u64, at: i64) {
+        let mut inner = self.inner.write();
+        tracing::debug!("Abyss Points: {points} of {limit}");
+        inner.login_abyss_points = Some((points, limit, at));
+    }
+
+    /// The week's Abyss Points and limit at `now` (unix ms): 0 points once a
+    /// weekly reset has passed since seen.
+    pub fn abyss_points_at(&self, now: i64) -> Option<(u64, u64)> {
+        abyss_points_of(&self.inner.read(), now)
+    }
+
+    /// Daily Duty at `now` (unix ms): `(completed, taken)`, taken counting
+    /// the completed too (the game's n/5 is taken). 0 once the board's reset
+    /// has passed, until an offer is taken (`daily_duty_taken`); None before
+    /// a board was seen. Completed is state 04 (a
+    /// turn-in, 2026-10-24; 03 would be ready to hand in, not counted).
+    pub fn daily_duty_at(&self, now: i64) -> Option<(u32, u32)> {
+        daily_duty_of(&self.inner.read(), now)
+    }
+
+    pub fn set_daily_duty_board(&self, offers: Vec<DutyOffer>, reset_ms: i64) {
+        let taken = offers.iter().filter(|o| o.state != 1).count();
+        let states: Vec<String> = offers.iter().filter(|o| o.state != 1).map(|o| format!("{}={:02x}", o.offer, o.state)).collect();
+        tracing::info!("Daily Duty: {taken} of {} offers taken ({})", offers.len(), states.join(" "));
+        let mut inner = self.inner.write();
+        own_list(&mut inner, false);
+        inner.daily_duty = Some(DutyBoard { offers, reset_ms, sent_reset_ms: reset_ms });
+    }
+
+    /// A quest taken at `now` (unix ms) (`20 8d 01`, which may not be only
+    /// Daily Duty's): it counts when it is an offer of the board, and is
+    /// known by the quest number from then. Past the board's reset the board
+    /// is the day before's, and the game sends the new one only at the next
+    /// login, transfer or turn-in: the new day starts with none taken (the
+    /// old day's go, handed in or not), and a quest taken counts when it
+    /// looks like a duty offer (`looks_like_duty`).
+    pub fn daily_duty_taken(&self, offer: u32, quest: u32, number: u32, now: i64) {
+        const DAY_MS: i64 = 24 * 60 * 60 * 1000;
+        let mut inner = self.inner.write();
+        let Some(board) = inner.daily_duty.as_mut() else { return };
+        let duty = DutyOffer { offer, quest, number, state: 2 };
+        let new_day = now >= board.reset_ms;
+        if new_day && !looks_like_duty(&board.offers, &duty) {
+            return;
+        }
+        if new_day {
+            for o in board.offers.iter_mut() {
+                o.number = 0;
+                o.state = 1;
+            }
+            board.reset_ms += ((now - board.reset_ms) / DAY_MS + 1) * DAY_MS;
+        }
+        // The board is the day before's until the game sends the new one.
+        let stale = board.reset_ms != board.sent_reset_ms;
+        let like = looks_like_duty(&board.offers, &duty);
+        match board.offers.iter_mut().find(|o| o.offer == offer && o.quest == quest) {
+            Some(o) => *o = duty,
+            None if stale && like => {
+                // Counted by the rule alone: logged, to check it against
+                // the board the game sends next.
+                tracing::info!("Daily Duty: quest {quest} counted as like the board's, before the new board");
+                board.offers.push(duty);
+            }
+            None => return,
+        }
+        own_list(&mut inner, false);
+        tracing::info!("Daily Duty: offer {offer} taken (quest {quest}, number {number})");
+    }
+
+    /// A quest given up: if one of the board's, it is open again.
+    pub fn daily_duty_given_up(&self, number: u32) {
+        let mut inner = self.inner.write();
+        if let Some(o) = inner.daily_duty.as_mut().and_then(|b| b.offers.iter_mut().find(|o| o.number == number && o.state != 1)) {
+            o.number = 0;
+            o.state = 1;
+            tracing::info!("Daily Duty: offer {} given up", o.offer);
+        }
+    }
+
 
     pub fn odyle_energy(&self) -> Option<(u32, u32)> {
         self.inner.read().odyle_energy
@@ -1528,18 +1760,7 @@ impl DataStorage {
 
     pub fn append_mob(&self, mid: i32, code: i32) {
         let mut inner = self.inner.write();
-        let before = inner.mob_storage.insert(mid, code);
-        // An Abyss core seen up, once per entity (online builds only, as kills).
-        #[cfg(feature = "online")]
-        if before != Some(code)
-            && crate::capture::abyss_cores::is_core(code)
-            && inner.current_dungeon_id <= 0
-            && !inner.dead_entity_ids.contains(&mid)
-        {
-            push_boss_event(&mut inner, BossEvent { npc: code, kind: BossEventKind::Seen { at_ms: now_ms() } });
-        }
-        #[cfg(not(feature = "online"))]
-        let _ = before;
+        inner.mob_storage.insert(mid, code);
         // A spawn names the NPC: the table says what it is from here on.
         inner.hp_floored_ids.remove(&mid);
         inner.hp_reset_dummy_ids.remove(&mid);
@@ -1569,65 +1790,11 @@ impl DataStorage {
             let mut inner = self.inner.write();
             inner.mob_hp_data.insert(mid, hp);
             inner.spawn_hp_ids.insert(mid);
-            inner.boss_hp_now.remove(&mid);
-            inner.boss_hp_sent.remove(&mid);
         }
-    }
-
-    /// The party members who also run A2Tools (`party_presence.rs`).
-    pub fn set_a2tools_users(&self, names: HashSet<String>) {
-        self.inner.write().a2tools_users = names;
-    }
-
-    pub fn a2tools_users(&self) -> HashSet<String> {
-        self.inner.read().a2tools_users.clone()
-    }
-
-    /// The field bosses to report now (`boss_report.rs`, every 3 seconds):
-    /// each whose HP changed since the last call, and each still being
-    /// fought (its HP moving or it taking damage in the last IN_COMBAT_MS),
-    /// changed or not. One whose HP came back up RESET_RISE points or more
-    /// is marked as reset. A boss out of range sends nothing (no HP, no
-    /// damage); back in range after resetting, its first reading is the jump.
-    pub fn take_boss_hp(&self, now_ms: i64) -> Vec<BossHp> {
-        let mut inner = self.inner.write();
-        let bosses: Vec<(i32, i32, u8, i64)> =
-            inner.boss_hp_now.iter().map(|(&id, &(npc, pct, changed))| (id, npc, pct, changed)).collect();
-        let mut out = Vec::new();
-        for (id, npc, pct, changed) in bosses {
-            let hit = inner.target_combat.get(&id).map_or(0, |t| t.last_damage_time);
-            let fought = now_ms - changed.max(hit) < IN_COMBAT_MS;
-            let sent = inner.boss_hp_sent.get(&id).copied();
-            let keep_alive_due = sent.is_some_and(|(_, at)| now_ms - at >= BOSS_HP_KEEP_ALIVE_MS);
-            if sent.map(|(p, _)| p) == Some(pct) && !(fought && keep_alive_due) {
-                continue;
-            }
-            let reset = sent.is_some_and(|(s, _)| pct >= s.saturating_add(RESET_RISE));
-            inner.boss_hp_sent.insert(id, (pct, now_ms));
-            out.push(BossHp { npc, percent: pct, reset });
-        }
-        out
-    }
-
-    /// The field boss kills seen since the last call.
-    pub fn take_boss_events(&self) -> Vec<BossEvent> {
-        self.inner.write().boss_events.drain(..).collect()
     }
 
     pub fn mark_entity_dead(&self, entity_id: i32) {
         let mut inner = self.inner.write();
-        // A field boss killed in the open world: its exact time, to share
-        // (online builds only: boss_report.rs sends it).
-        #[cfg(feature = "online")]
-        if inner.current_dungeon_id <= 0 && !inner.dead_entity_ids.contains(&entity_id) {
-            if let Some(&code) = inner.mob_storage.get(&entity_id) {
-                if crate::capture::field_bosses::is_reported(code) {
-                    push_boss_event(&mut inner, BossEvent { npc: code, kind: BossEventKind::Killed { at_ms: now_ms() } });
-                }
-            }
-        }
-        inner.boss_hp_now.remove(&entity_id);
-        inner.boss_hp_sent.remove(&entity_id);
         inner.dead_entity_ids.insert(entity_id);
         inner.hp_floored_ids.remove(&entity_id);
         inner.death_log.push_back((entity_id, now_ms(), None));
@@ -2187,25 +2354,6 @@ impl DataStorage {
         if hp > *max {
             *max = hp;
         }
-        // A field boss in the open world whose max HP is known from its spawn:
-        // its HP now, for the sender's next pass (online builds only, as kills).
-        #[cfg(feature = "online")]
-        if let Some(max) = inner.mob_hp_data.get(&id).copied()
-            && inner.current_dungeon_id <= 0
-            && max > 0
-            && inner.spawn_hp_ids.contains(&id)
-        {
-            if let Some(&code) = inner.mob_storage.get(&id) {
-                if crate::capture::field_bosses::is_reported(code) {
-                    let pct = ((hp as i64 * 100) / max as i64).clamp(0, 100) as u8;
-                    let changed = match inner.boss_hp_now.get(&id) {
-                        Some(&(_, before, at)) if before == pct => at,
-                        _ => now_ms(),
-                    };
-                    inner.boss_hp_now.insert(id, (code, pct, changed));
-                }
-            }
-        }
     }
 
     /// Whether `id` behaved as a training dummy does: its HP stopped at 1 and
@@ -2662,6 +2810,100 @@ fn forget_entity(inner: &mut Inner, id: i32) {
             t.set_actor_id(owner);
         }
         inner.held_dot_ticks.entry((key.0, owner)).or_default().extend(ticks);
+    }
+}
+
+/// The entry counts with Daily Duty (`DataStorage::content_counts`).
+fn content_counts_of(inner: &Inner, now: i64) -> std::collections::BTreeMap<u32, [u32; 2]> {
+    let mut counts = inner.content_counts.clone();
+    if let Some((done, taken)) = daily_duty_of(inner, now) {
+        counts.insert(DAILY_DUTY_ID, [done, taken]);
+    }
+    counts
+}
+
+/// Daily Duty at `now` (`DataStorage::daily_duty_at`).
+fn daily_duty_of(inner: &Inner, now: i64) -> Option<(u32, u32)> {
+    let board = inner.daily_duty.as_ref()?;
+    if now >= board.reset_ms {
+        return Some((0, 0));
+    }
+    let count = |f: fn(u8) -> bool| board.offers.iter().filter(|o| f(o.state)).count() as u32;
+    Some((count(|s| s >= 4), count(|s| s != 1)))
+}
+
+/// The entry list at one moment (`DataStorage::entry_list`).
+#[derive(Debug, Clone, Default)]
+pub struct EntryList {
+    pub owner: Option<String>,
+    pub odyle_energy: Option<(u32, u32)>,
+    pub counts: std::collections::BTreeMap<u32, [u32; 2]>,
+    /// `(bought, next reset)` by item id (`DataStorage::shop_limits_at`).
+    pub shop_limits: std::collections::BTreeMap<u32, (u32, Option<i64>)>,
+    pub crafts: std::collections::BTreeMap<u32, u32>,
+    /// As `DataStorage::kinah_today_at` and `abyss_points_at`.
+    pub kinah_today: Option<u64>,
+    pub abyss_points: Option<(u64, u64)>,
+    /// `(time, seen at unix ms)` by id.
+    pub times: std::collections::BTreeMap<u32, (u64, i64)>,
+}
+
+/// The shop's limits at `now` (`DataStorage::shop_limits_at`).
+fn shop_limits_of(inner: &Inner, now: i64) -> std::collections::BTreeMap<u32, (u32, Option<i64>)> {
+    inner
+        .shop_limits
+        .iter()
+        .map(|(&id, &(bought, reset_ms))| (id, if now >= reset_ms { (0, None) } else { (bought, Some(reset_ms)) }))
+        .collect()
+}
+
+const DAY_MS: i64 = 24 * 60 * 60 * 1000;
+const WEEK_MS: i64 = 7 * DAY_MS;
+/// How long the Abyss Points the game sent wait for a self record before
+/// they count as the current character's.
+const ABYSS_POINTS_HOLD_MS: i64 = 3_000;
+/// The daily reset, 07:00 UTC, and the weekly, Wednesday 07:00 UTC (the
+/// Daily Duty board's, the Supply Requests', the shop's weekly limits'), as
+/// offsets from the epoch (a Thursday).
+const DAILY_RESET_MS: i64 = 7 * 60 * 60 * 1000;
+const WEEKLY_RESET_MS: i64 = 6 * DAY_MS + DAILY_RESET_MS;
+
+/// The last reset at or before `now`, of a reset every `period` from
+/// `offset` (all unix ms).
+fn last_reset(now: i64, period: i64, offset: i64) -> i64 {
+    (now - offset).div_euclid(period) * period + offset
+}
+
+/// Kinah gained today at `now` (`DataStorage::kinah_today_at`).
+fn kinah_today_of(inner: &Inner, now: i64) -> Option<u64> {
+    let (kinah, at) = inner.kinah_today?;
+    Some(if last_reset(now, DAY_MS, DAILY_RESET_MS) > at { 0 } else { kinah })
+}
+
+/// The week's Abyss Points at `now` (`DataStorage::abyss_points_at`).
+fn abyss_points_of(inner: &Inner, now: i64) -> Option<(u64, u64)> {
+    let held = inner.login_abyss_points.filter(|(_, _, at)| now - at >= ABYSS_POINTS_HOLD_MS);
+    let (points, limit, at) = held.or(inner.abyss_points)?;
+    Some((if last_reset(now, WEEK_MS, WEEKLY_RESET_MS) > at { 0 } else { points }, limit))
+}
+
+/// Whether a quest taken that isn't on the board looks like a new day's duty
+/// offer: a quest from the same thousand as one of the board's. Every board
+/// quest seen was 2302xxx in decimal (49 quests, 2302010 to 2302172, on the
+/// boards of 2026-10-24 and -25).
+fn looks_like_duty(offers: &[DutyOffer], taken: &DutyOffer) -> bool {
+    offers.iter().any(|o| o.quest / 1000 == taken.quest / 1000)
+}
+
+/// Who the entry-count list is (`odyle_owner`): a whole list waits for the
+/// next self record; anything else, in a session the game has named
+/// already (a meter started mid-session), is theirs.
+fn own_list(inner: &mut Inner, whole_list: bool) {
+    if whole_list {
+        inner.odyle_owner = None;
+        inner.odyle_awaits_self_record = true;
+    } else if inner.odyle_owner.is_none() && !inner.odyle_awaits_self_record && inner.local_identity_from_game {
+        inner.odyle_owner = inner.local_character_name.clone();
     }
 }
 
@@ -3591,55 +3833,6 @@ mod tests {
 
     fn dealt(s: &DataStorage, target: i32, actor: i32) -> i64 {
         s.get_combat_snapshot().get(&target).and_then(|t| t.actors.get(&actor)).map_or(0, |a| a.total_damage)
-    }
-
-    /// Bodyguard Teegant (NPC 2100079), a Verteron field boss.
-    #[cfg(feature = "online")]
-    #[test]
-    fn a_field_boss_kill_in_the_open_world_is_queued_with_its_time() {
-        let s = DataStorage::new();
-        s.append_mob(500, 2100079);
-        s.mark_entity_dead(500);
-        s.mark_entity_dead(500); // the same death again: once
-        let events = s.take_boss_events();
-        assert_eq!(events.len(), 1);
-        assert!(matches!(events[0], BossEvent { npc: 2100079, kind: BossEventKind::Killed { .. } }));
-        // Not a field boss, or inside a dungeon: nothing.
-        s.append_mob(501, 2100080);
-        s.mark_entity_dead(501);
-        s.set_current_dungeon(600012);
-        s.append_mob(502, 2100079);
-        s.mark_entity_dead(502);
-        assert!(s.take_boss_events().is_empty());
-    }
-
-    #[cfg(feature = "online")]
-    #[test]
-    fn a_fought_boss_goes_every_pass_and_a_reset_is_marked() {
-        let s = DataStorage::new();
-        s.append_mob(500, 2100079);
-        s.append_mob_hp(500, 1000);
-        s.set_mob_current_hp(500, 950);
-        let t = now_ms();
-        let pct = |v: Vec<BossHp>| v.into_iter().map(|h| (h.percent, h.reset)).collect::<Vec<_>>();
-        assert_eq!(pct(s.take_boss_hp(t)), vec![(95, false)]);
-        // Still being fought but unchanged: not again until a minute has
-        // passed since it went (the site uses a repeat once a minute).
-        assert!(s.take_boss_hp(t + 3_000).is_empty());
-        // Left alone: nothing once the fight has gone quiet.
-        assert!(s.take_boss_hp(t + 60_000).is_empty());
-        s.set_mob_current_hp(500, 400);
-        assert_eq!(pct(s.take_boss_hp(now_ms())), vec![(40, false)]);
-        // Kited away and reset: back at full, marked.
-        s.set_mob_current_hp(500, 1000);
-        assert_eq!(pct(s.take_boss_hp(now_ms())), vec![(100, true)]);
-        // Dead: no more HP for it.
-        s.mark_entity_dead(500);
-        assert!(s.take_boss_hp(now_ms()).is_empty());
-        // Its spawn unseen: its max is a guess, so no percentages.
-        s.append_mob(501, 2100079);
-        s.set_mob_current_hp(501, 800);
-        assert!(s.take_boss_hp(now_ms()).is_empty());
     }
 
     #[test]

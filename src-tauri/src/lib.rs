@@ -1,4 +1,4 @@
-//! A2Tools DPS Meter.
+//! Ezzar's Daeva Companion: an AION 2 DPS meter and its modules.
 //!
 //! The crate is split in two by the `desktop` feature, and the line is load
 //! bearing rather than tidy-mindedness. Everything outside the feature — the
@@ -20,11 +20,8 @@ pub mod entity;
 pub mod fork;
 pub mod i18n;
 pub mod rederive;
-pub mod supporters;
 
 // ── desktop only ───────────────────────────────────────────────────────────
-#[cfg(feature = "online")]
-pub mod account;
 #[cfg(feature = "desktop")]
 pub mod config;
 #[cfg(feature = "desktop")]
@@ -35,12 +32,6 @@ pub mod logging;
 pub mod platform;
 #[cfg(feature = "desktop")]
 pub mod plugins;
-#[cfg(feature = "online")]
-mod boss_report;
-#[cfg(feature = "online")]
-mod party_presence;
-#[cfg(feature = "online")]
-mod presence;
 #[cfg(feature = "desktop")]
 pub mod share;
 #[cfg(feature = "online")]
